@@ -1,0 +1,29 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+*.sqlite
+*.sqlite3
+storage/*
+
+# Local credentials and environment files
+.env
+.env.*
+!.env.example
+
+# Issue tracker and agent docs (local only, never pushed)
+.scratch/
+docs/
+AGENTS.md
+
+# Throwaway exploration/prototype scripts (not part of the feed)
+camoufox_tesco.py
+find_api*.py
+find_search_api.py
+flipdish_crawlee*.py
+stealth_tesco.py
+supervalu_*.py
+supervalu_page.html
+supervalu_state.json
+supervalu_test*.json

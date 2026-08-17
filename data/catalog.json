@@ -1,0 +1,1163 @@
+[
+  {
+    "catalog_id": "coca-original-330-single",
+    "name": "Coca-Cola Original Taste 330ml Can",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Original Taste 330ml Can",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-original-330-6",
+    "name": "Coca-Cola Original Taste 330ml Cans x6",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 6,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Original Taste 330ml Cans x6",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-original-330-24",
+    "name": "Coca-Cola Original Taste 330ml Cans x24",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 24,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Original Taste 330ml Cans x24",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-original-500",
+    "name": "Coca-Cola Original Taste 500ml Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Original",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-original-1500",
+    "name": "Coca-Cola Original Taste 1.5L Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Original Taste 1.5L Bottle",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-original-2000",
+    "name": "Coca-Cola Original Taste 2L Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 1,
+    "unit_size_ml": 2000,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Original Taste 2L Bottle",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-original-330-8",
+    "name": "Coca-Cola Original Taste 330ml Cans x8",
+    "brand": "Coca-Cola",
+    "variant": "Original Taste",
+    "pack_count": 8,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Original",
+    "aliases": [
+      "Coke Original",
+      "Coca Cola Original"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-330-single",
+    "name": "Coca-Cola Diet 330ml Can",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Diet Coke",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-330-6",
+    "name": "Coca-Cola Diet 330ml Cans x6",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 6,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Diet 330ml Cans x6",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-330-24",
+    "name": "Coca-Cola Diet 330ml Cans x24",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 24,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Diet 330ml Cans x24",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-500",
+    "name": "Coca-Cola Diet 500ml Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Diet Coke",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-1500",
+    "name": "Coca-Cola Diet 1.5L Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Diet 1.5L Bottle",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-2000",
+    "name": "Coca-Cola Diet 2L Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 1,
+    "unit_size_ml": 2000,
+    "package_type": "bottle",
+    "search_term": "Diet Coke",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-diet-330-8",
+    "name": "Coca-Cola Diet 330ml Cans x8",
+    "brand": "Coca-Cola",
+    "variant": "Diet",
+    "pack_count": 8,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Diet Coke",
+    "aliases": [
+      "Diet Coke"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-330-single",
+    "name": "Coca-Cola Zero Sugar 330ml Can",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Zero Sugar",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-330-6",
+    "name": "Coca-Cola Zero Sugar 330ml Cans x6",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 6,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Zero Sugar 330ml Cans x6",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-330-24",
+    "name": "Coca-Cola Zero Sugar 330ml Cans x24",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 24,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Zero Sugar 330ml Cans x24",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-500",
+    "name": "Coca-Cola Zero Sugar 500ml Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Zero Sugar",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-1500",
+    "name": "Coca-Cola Zero Sugar 1.5L Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Zero Sugar 1.5L Bottle",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-2000",
+    "name": "Coca-Cola Zero Sugar 2L Bottle",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 1,
+    "unit_size_ml": 2000,
+    "package_type": "bottle",
+    "search_term": "Coca-Cola Zero Sugar",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "coca-zero-330-8",
+    "name": "Coca-Cola Zero Sugar 330ml Cans x8",
+    "brand": "Coca-Cola",
+    "variant": "Zero Sugar",
+    "pack_count": 8,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Coca-Cola Zero Sugar",
+    "aliases": [
+      "Coke Zero"
+    ]
+  },
+  {
+    "catalog_id": "monster-ultra-white-500",
+    "name": "Monster Ultra White 500ml Can",
+    "brand": "Monster",
+    "variant": "Ultra White",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Ultra White 500ml Can",
+    "aliases": [
+      "Monster Ultra White"
+    ]
+  },
+  {
+    "catalog_id": "monster-ultra-white-4",
+    "name": "Monster Ultra White 500ml Cans x4",
+    "brand": "Monster",
+    "variant": "Ultra White",
+    "pack_count": 4,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Ultra White 500ml Cans x4",
+    "aliases": [
+      "Monster Ultra White"
+    ]
+  },
+  {
+    "catalog_id": "monster-ultra-white-12",
+    "name": "Monster Ultra White 500ml Cans x12",
+    "brand": "Monster",
+    "variant": "Ultra White",
+    "pack_count": 12,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Ultra White 500ml Cans x12",
+    "aliases": [
+      "Monster Ultra White"
+    ]
+  },
+  {
+    "catalog_id": "monster-original-500",
+    "name": "Monster Energy Original 500ml Can",
+    "brand": "Monster",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Energy Original 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "monster-zero-500",
+    "name": "Monster Energy Zero Sugar 500ml Can",
+    "brand": "Monster",
+    "variant": "Zero Sugar",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Energy Zero Sugar 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "monster-paradise-500",
+    "name": "Monster Ultra Paradise 500ml Can",
+    "brand": "Monster",
+    "variant": "Ultra Paradise",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Ultra Paradise 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "monster-mango-500",
+    "name": "Monster Mango Loco 500ml Can",
+    "brand": "Monster",
+    "variant": "Mango Loco",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Mango Loco 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "monster-pipeline-500",
+    "name": "Monster Pipeline Punch 500ml Can",
+    "brand": "Monster",
+    "variant": "Pipeline Punch",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Monster Pipeline Punch 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "pepsi-original-330",
+    "name": "Pepsi 330ml Can",
+    "brand": "Pepsi",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Pepsi 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "pepsi-original-6",
+    "name": "Pepsi 330ml Cans x6",
+    "brand": "Pepsi",
+    "variant": "Original",
+    "pack_count": 6,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Pepsi 330ml Cans x6",
+    "aliases": []
+  },
+  {
+    "catalog_id": "pepsi-original-24",
+    "name": "Pepsi 330ml Cans x24",
+    "brand": "Pepsi",
+    "variant": "Original",
+    "pack_count": 24,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Pepsi 330ml Cans x24",
+    "aliases": []
+  },
+  {
+    "catalog_id": "pepsi-original-1500",
+    "name": "Pepsi 1.5L Bottle",
+    "brand": "Pepsi",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Pepsi 1.5L Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "pepsi-max-330",
+    "name": "Pepsi Max 330ml Can",
+    "brand": "Pepsi",
+    "variant": "Max",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Pepsi Max 330ml Can",
+    "aliases": [
+      "Pepsi Max"
+    ]
+  },
+  {
+    "catalog_id": "pepsi-max-6",
+    "name": "Pepsi Max 330ml Cans x6",
+    "brand": "Pepsi",
+    "variant": "Max",
+    "pack_count": 6,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Pepsi Max 330ml Cans x6",
+    "aliases": [
+      "Pepsi Max"
+    ]
+  },
+  {
+    "catalog_id": "pepsi-max-1500",
+    "name": "Pepsi Max 1.5L Bottle",
+    "brand": "Pepsi",
+    "variant": "Max",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Pepsi Max 1.5L Bottle",
+    "aliases": [
+      "Pepsi Max"
+    ]
+  },
+  {
+    "catalog_id": "sprite-330",
+    "name": "Sprite 330ml Can",
+    "brand": "Sprite",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Sprite 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "sprite-1500",
+    "name": "Sprite 1.5L Bottle",
+    "brand": "Sprite",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Sprite 1.5L Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "fanta-orange-330",
+    "name": "Fanta Orange 330ml Can",
+    "brand": "Fanta",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Fanta Orange 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "fanta-orange-1500",
+    "name": "Fanta Orange 1.5L Bottle",
+    "brand": "Fanta",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Fanta Orange 1.5L Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "7up-330",
+    "name": "7UP 330ml Can",
+    "brand": "7UP",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "7UP 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "dr-pepper-330",
+    "name": "Dr Pepper 330ml Can",
+    "brand": "Dr Pepper",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Dr Pepper 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "club-orange-330",
+    "name": "Club Orange 330ml Can",
+    "brand": "Club",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Club Orange 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "lucozade-orange-500",
+    "name": "Lucozade Energy Orange 500ml Bottle",
+    "brand": "Lucozade",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Lucozade Energy Orange 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "redbull-250",
+    "name": "Red Bull Energy Drink 250ml Can",
+    "brand": "Red Bull",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 250,
+    "package_type": "can",
+    "search_term": "Red Bull Energy Drink 250ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "redbull-250-4",
+    "name": "Red Bull Energy Drink 250ml Cans x4",
+    "brand": "Red Bull",
+    "variant": "Original",
+    "pack_count": 4,
+    "unit_size_ml": 250,
+    "package_type": "can",
+    "search_term": "Red Bull Energy Drink 250ml Cans x4",
+    "aliases": []
+  },
+  {
+    "catalog_id": "redbull-sugarfree-250",
+    "name": "Red Bull Sugarfree 250ml Can",
+    "brand": "Red Bull",
+    "variant": "Sugarfree",
+    "pack_count": 1,
+    "unit_size_ml": 250,
+    "package_type": "can",
+    "search_term": "Red Bull Sugarfree 250ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "redbull-sugarfree-4",
+    "name": "Red Bull Sugarfree 250ml Cans x4",
+    "brand": "Red Bull",
+    "variant": "Sugarfree",
+    "pack_count": 4,
+    "unit_size_ml": 250,
+    "package_type": "can",
+    "search_term": "Red Bull Sugarfree 250ml Cans x4",
+    "aliases": []
+  },
+  {
+    "catalog_id": "rockstar-500",
+    "name": "Rockstar Original 500ml Can",
+    "brand": "Rockstar",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Rockstar Original 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "relentless-500",
+    "name": "Relentless Origin 500ml Can",
+    "brand": "Relentless",
+    "variant": "Origin",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Relentless Origin 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "boost-500",
+    "name": "Boost Energy Original 500ml Can",
+    "brand": "Boost",
+    "variant": "Original",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Boost Energy Original 500ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "lucozade-sport-orange-500",
+    "name": "Lucozade Sport Orange 500ml Bottle",
+    "brand": "Lucozade Sport",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Lucozade Sport Orange 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ballygowan-still-500",
+    "name": "Ballygowan Still Water 500ml Bottle",
+    "brand": "Ballygowan",
+    "variant": "Still",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Ballygowan Still Water 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ballygowan-still-6",
+    "name": "Ballygowan Still Water 500ml Bottles x6",
+    "brand": "Ballygowan",
+    "variant": "Still",
+    "pack_count": 6,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Ballygowan Still Water 500ml Bottles x6",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ballygowan-still-1500",
+    "name": "Ballygowan Still Water 1.5L Bottle",
+    "brand": "Ballygowan",
+    "variant": "Still",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Ballygowan Still Water 1.5L Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ballygowan-sparkling-500",
+    "name": "Ballygowan Sparkling Water 500ml Bottle",
+    "brand": "Ballygowan",
+    "variant": "Sparkling",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Ballygowan Sparkling Water 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ballygowan-sparkling-6",
+    "name": "Ballygowan Sparkling Water 500ml Bottles x6",
+    "brand": "Ballygowan",
+    "variant": "Sparkling",
+    "pack_count": 6,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Ballygowan Sparkling Water 500ml Bottles x6",
+    "aliases": []
+  },
+  {
+    "catalog_id": "evian-500",
+    "name": "Evian Still Water 500ml Bottle",
+    "brand": "Evian",
+    "variant": "Still",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Evian Still Water 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "evian-6",
+    "name": "Evian Still Water 500ml Bottles x6",
+    "brand": "Evian",
+    "variant": "Still",
+    "pack_count": 6,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Evian Still Water 500ml Bottles x6",
+    "aliases": []
+  },
+  {
+    "catalog_id": "volvic-1500",
+    "name": "Volvic Still Water 1.5L Bottle",
+    "brand": "Volvic",
+    "variant": "Still",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Volvic Still Water 1.5L Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "sanpellegrino-500-6",
+    "name": "Sanpellegrino Sparkling Water 500ml Bottles x6",
+    "brand": "Sanpellegrino",
+    "variant": "Sparkling",
+    "pack_count": 6,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Sanpellegrino Sparkling Water 500ml Bottles x6",
+    "aliases": []
+  },
+  {
+    "catalog_id": "tropicana-orange-900",
+    "name": "Tropicana Pure Premium Orange Juice 900ml",
+    "brand": "Tropicana",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 900,
+    "package_type": "carton",
+    "search_term": "Tropicana Pure Premium Orange Juice 900ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "tropicana-orange-1500",
+    "name": "Tropicana Pure Premium Orange Juice 1.5L",
+    "brand": "Tropicana",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "carton",
+    "search_term": "Tropicana Pure Premium Orange Juice 1.5L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "tropicana-apple-900",
+    "name": "Tropicana Apple Juice 900ml",
+    "brand": "Tropicana",
+    "variant": "Apple",
+    "pack_count": 1,
+    "unit_size_ml": 900,
+    "package_type": "carton",
+    "search_term": "Tropicana Apple Juice 900ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "innocent-orange-900",
+    "name": "Innocent Orange Juice 900ml",
+    "brand": "Innocent",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 900,
+    "package_type": "bottle",
+    "search_term": "Innocent Orange Juice 900ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "innocent-apple-900",
+    "name": "Innocent Apple Juice 900ml",
+    "brand": "Innocent",
+    "variant": "Apple",
+    "pack_count": 1,
+    "unit_size_ml": 900,
+    "package_type": "bottle",
+    "search_term": "Innocent Apple Juice 900ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "innocent-smoothie-750",
+    "name": "Innocent Berry Smoothie 750ml",
+    "brand": "Innocent",
+    "variant": "Berry Smoothie",
+    "pack_count": 1,
+    "unit_size_ml": 750,
+    "package_type": "bottle",
+    "search_term": "Innocent Berry Smoothie 750ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "cawston-apple-1l",
+    "name": "Cawston Press Cloudy Apple Juice 1L",
+    "brand": "Cawston Press",
+    "variant": "Apple",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "carton",
+    "search_term": "Cawston Press Cloudy Apple Juice 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "cawston-rhubarb-1l",
+    "name": "Cawston Press Rhubarb Drink 1L",
+    "brand": "Cawston Press",
+    "variant": "Rhubarb",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "carton",
+    "search_term": "Cawston Press Rhubarb Drink 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ribena-blackcurrant-500",
+    "name": "Ribena Blackcurrant 500ml",
+    "brand": "Ribena",
+    "variant": "Blackcurrant",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Ribena Blackcurrant 500ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ribena-blackcurrant-1l",
+    "name": "Ribena Blackcurrant 1L",
+    "brand": "Ribena",
+    "variant": "Blackcurrant",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Ribena Blackcurrant 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "powerade-mountain-500",
+    "name": "Powerade Mountain Blast 500ml Bottle",
+    "brand": "Powerade",
+    "variant": "Mountain Blast",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Powerade Mountain Blast 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "powerade-orange-500",
+    "name": "Powerade Orange 500ml Bottle",
+    "brand": "Powerade",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Powerade Orange 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "lucozade-sport-orange-500-2",
+    "name": "Lucozade Sport Orange 500ml Bottles x4",
+    "brand": "Lucozade Sport",
+    "variant": "Orange",
+    "pack_count": 4,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Lucozade Sport Orange 500ml Bottles x4",
+    "aliases": []
+  },
+  {
+    "catalog_id": "lucozade-sport-berry-500",
+    "name": "Lucozade Sport Berry 500ml Bottle",
+    "brand": "Lucozade Sport",
+    "variant": "Berry",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Lucozade Sport Berry 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "gatorade-orange-500",
+    "name": "Gatorade Orange 500ml Bottle",
+    "brand": "Gatorade",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Gatorade Orange 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "miwadi-orange-1l",
+    "name": "MiWadi Orange Squash 1L",
+    "brand": "MiWadi",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "MiWadi Orange Squash 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "robinsons-orange-1l",
+    "name": "Robinsons Orange Squash 1L",
+    "brand": "Robinsons",
+    "variant": "Orange",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Robinsons Orange Squash 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "prime-ice-pop-500",
+    "name": "Prime Ice Pop 500ml Bottle",
+    "brand": "Prime",
+    "variant": "Ice Pop",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Prime Ice Pop 500ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "lipton-peach-1500",
+    "name": "Lipton Ice Tea Peach 1.5L",
+    "brand": "Lipton",
+    "variant": "Peach",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Lipton Ice Tea Peach 1.5L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "lipton-lemon-1500",
+    "name": "Lipton Ice Tea Lemon 1.5L",
+    "brand": "Lipton",
+    "variant": "Lemon",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Lipton Ice Tea Lemon 1.5L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "arizona-green-tea-500",
+    "name": "Arizona Green Tea with Honey 500ml",
+    "brand": "Arizona",
+    "variant": "Green Tea",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "can",
+    "search_term": "Arizona Green Tea with Honey 500ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "kombucha-ginger-330",
+    "name": "Karma Drinks Ginger Kombucha 330ml",
+    "brand": "Karma Drinks",
+    "variant": "Ginger",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "bottle",
+    "search_term": "Karma Drinks Ginger Kombucha 330ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "fever-tree-tonic-500",
+    "name": "Fever-Tree Indian Tonic Water 500ml",
+    "brand": "Fever-Tree",
+    "variant": "Indian Tonic",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Fever-Tree Indian Tonic Water 500ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "fever-tree-ginger-500",
+    "name": "Fever-Tree Ginger Ale 500ml",
+    "brand": "Fever-Tree",
+    "variant": "Ginger Ale",
+    "pack_count": 1,
+    "unit_size_ml": 500,
+    "package_type": "bottle",
+    "search_term": "Fever-Tree Ginger Ale 500ml",
+    "aliases": []
+  },
+  {
+    "catalog_id": "schweppes-lemonade-1l",
+    "name": "Schweppes Lemonade 1L",
+    "brand": "Schweppes",
+    "variant": "Lemonade",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Schweppes Lemonade 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "club-rock-shandy-2l",
+    "name": "Club Rock Shandy 2L",
+    "brand": "Club",
+    "variant": "Rock Shandy",
+    "pack_count": 1,
+    "unit_size_ml": 2000,
+    "package_type": "bottle",
+    "search_term": "Club Rock Shandy 2L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "schweppes-tonic-1l",
+    "name": "Schweppes Indian Tonic Water 1L",
+    "brand": "Schweppes",
+    "variant": "Indian Tonic",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Schweppes Indian Tonic Water 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "schweppes-slimline-1l",
+    "name": "Schweppes Slimline Tonic Water 1L",
+    "brand": "Schweppes",
+    "variant": "Slimline Tonic",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Schweppes Slimline Tonic Water 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "schweppes-ginger-1l",
+    "name": "Schweppes Ginger Ale 1L",
+    "brand": "Schweppes",
+    "variant": "Ginger Ale",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Schweppes Ginger Ale 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "7up-free-330",
+    "name": "7UP Free 330ml Can",
+    "brand": "7UP",
+    "variant": "Free",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "7UP Free 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "fanta-zero-330",
+    "name": "Fanta Orange Zero 330ml Can",
+    "brand": "Fanta",
+    "variant": "Orange Zero",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Fanta Orange Zero 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "sprite-zero-330",
+    "name": "Sprite Zero Sugar 330ml Can",
+    "brand": "Sprite",
+    "variant": "Zero Sugar",
+    "pack_count": 1,
+    "unit_size_ml": 330,
+    "package_type": "can",
+    "search_term": "Sprite Zero Sugar 330ml Can",
+    "aliases": []
+  },
+  {
+    "catalog_id": "innocent-kids-orange-4",
+    "name": "Innocent Kids Orange Juice 150ml Pouches x4",
+    "brand": "Innocent",
+    "variant": "Orange",
+    "pack_count": 4,
+    "unit_size_ml": 150,
+    "package_type": "pouch",
+    "search_term": "Innocent Kids Orange Juice 150ml Pouches x4",
+    "aliases": []
+  },
+  {
+    "catalog_id": "capri-orange-10",
+    "name": "Capri-Sun Orange 200ml Pouches x10",
+    "brand": "Capri-Sun",
+    "variant": "Orange",
+    "pack_count": 10,
+    "unit_size_ml": 200,
+    "package_type": "pouch",
+    "search_term": "Capri-Sun Orange 200ml Pouches x10",
+    "aliases": []
+  },
+  {
+    "catalog_id": "cawston-elderflower-1l",
+    "name": "Cawston Press Elderflower Drink 1L",
+    "brand": "Cawston Press",
+    "variant": "Elderflower",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "carton",
+    "search_term": "Cawston Press Elderflower Drink 1L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "volvic-touch-lemon-1500",
+    "name": "Volvic Touch of Lemon Water 1.5L",
+    "brand": "Volvic",
+    "variant": "Lemon",
+    "pack_count": 1,
+    "unit_size_ml": 1500,
+    "package_type": "bottle",
+    "search_term": "Volvic Touch of Lemon Water 1.5L",
+    "aliases": []
+  },
+  {
+    "catalog_id": "ballygowan-sport-750",
+    "name": "Ballygowan Sport Still Water 750ml Bottle",
+    "brand": "Ballygowan",
+    "variant": "Still Sport",
+    "pack_count": 1,
+    "unit_size_ml": 750,
+    "package_type": "bottle",
+    "search_term": "Ballygowan Sport Still Water 750ml Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "evian-1l",
+    "name": "Evian Still Water 1L Bottle",
+    "brand": "Evian",
+    "variant": "Still",
+    "pack_count": 1,
+    "unit_size_ml": 1000,
+    "package_type": "bottle",
+    "search_term": "Evian Still Water 1L Bottle",
+    "aliases": []
+  },
+  {
+    "catalog_id": "tropicana-grapefruit-900",
+    "name": "Tropicana Pink Grapefruit Juice 900ml",
+    "brand": "Tropicana",
+    "variant": "Pink Grapefruit",
+    "pack_count": 1,
+    "unit_size_ml": 900,
+    "package_type": "carton",
+    "search_term": "Tropicana Pink Grapefruit Juice 900ml",
+    "aliases": []
+  }
+]
