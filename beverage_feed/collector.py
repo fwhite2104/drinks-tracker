@@ -1127,7 +1127,7 @@ class TescoClient:
                     "Accept": "application/json",
                     "Content-Type": "application/json",
                     "User-Agent": "drinks-tracker/0.1",
-                    "x-apikey": self.api_key,
+                    "x-apikey": self.api_key or "",
                     "region": "IE",
                     "language": "en-IE",
                 },
@@ -1136,7 +1136,7 @@ class TescoClient:
         )
         if not isinstance(detail_payload, list):
             raise RuntimeError("Tesco GraphQL response was not a list")
-        products = []
+        products: list[dict[str, Any]] = []
         for tpnb, result in zip(tpnbs, detail_payload):
             if not isinstance(result, dict):
                 raise RuntimeError("Tesco GraphQL response contained an invalid result")

@@ -42,8 +42,54 @@ def _candidate_row(store: DiscoveryStore, candidate_id: str) -> dict[str, Any]:
     return dict(row)
 
 
-def _rejected_listing_keys(rejections: dict[str, list[dict[str, Any]]]) -> set[str]:
-    return {row["canonical_key"] for row in rejections["listings"] if row["state"] == "rejected"}
+def _candidate_for_cell(
+    store: DiscoveryStore,
+    candidate_id: str,
+    retailer: str,
+    catalog_id: str,
+    *,
+    require_evidence: bool,
+) -> dict[str, Any]:
+    candidate = _candidate_row(store, candidate_id)
+    if candidate["retailer"] != retailer:
+        raise ValueError(
+            f"candidate {candidate_id} belongs to {candidate['retailer']}, not {retailer}"
+        )
+    with closing(store.connection()) as connection:
+        associated = connection.execute(
+            "SELECT 1 FROM discovery_candidate_cells "
+            "WHERE candidate_id=? AND retailer=? AND catalog_id=?",
+            (candidate_id, retailer, catalog_id),
+        ).fetchone()
+        if associated is None:
+            raise ValueError(
+                f"candidate {candidate_id} is not associated with {retailer}/{catalog_id}"
+            )
+        if require_evidence:
+            evidence = connection.execute(
+                "SELECT 1 FROM discovery_candidate_evidence "
+                "WHERE candidate_id=? AND retailer=? AND catalog_id=? LIMIT 1",
+                (candidate_id, retailer, catalog_id),
+            ).fetchone()
+            if evidence is None:
+                raise ValueError(
+                    f"candidate {candidate_id} has no evidence for {retailer}/{catalog_id}"
+                )
+    return candidate
+
+
+def _rejected_listing_keys(
+    rejections: dict[str, list[dict[str, Any]]],
+    retailer: str,
+    catalog_id: str,
+) -> set[str]:
+    return {
+        row["canonical_key"]
+        for row in rejections["listings"]
+        if row["state"] == "rejected"
+        and row["retailer"] == retailer
+        and row.get("cell", row.get("catalog_id")) == catalog_id
+    }
 
 
 def review_list(
@@ -103,15 +149,16 @@ def approve(
     """Operator-approve one candidate; resolves competing candidates for the cell."""
     now = now or timestamp()
     mappings = load_mappings(mapping_path)
-    rejected = _rejected_listing_keys(load_rejections(rejection_path))
-    if not candidate_id.startswith(f"{retailer}:"):
-        raise ValueError(f"candidate {candidate_id} does not belong to {retailer}")
-        raise ValueError(f"candidate {candidate_id} does not belong to {retailer}")
+    candidate = _candidate_for_cell(
+        store, candidate_id, retailer, catalog_id, require_evidence=True,
+    )
+    rejected = _rejected_listing_keys(
+        load_rejections(rejection_path), retailer, catalog_id,
+    )
     if candidate_id in rejected:
         raise ValueError(
-            "candidate is rejected; reset the rejection or choose another candidate first"
+            "candidate is rejected for this cell; reset the rejection or choose another candidate first"
         )
-    candidate = _candidate_row(store, candidate_id)
     existing = approved_mapping(mappings, retailer, catalog_id)
     if existing is not None:
         if existing.get("candidate_id") == candidate_id:
@@ -194,6 +241,9 @@ def reject_listing(
 ) -> dict[str, Any]:
     """Reject one canonical candidate identity; history is appended, never deleted."""
     now = now or timestamp()
+    _candidate_for_cell(
+        store, candidate_id, retailer, catalog_id, require_evidence=False,
+    )
     existing = approved_mapping(load_mappings(mapping_path), retailer, catalog_id)
     if existing is not None and existing.get("candidate_id") == candidate_id:
         raise ValueError("candidate is an approved mapping; revoke the mapping first")
@@ -208,6 +258,18 @@ def reject_listing(
         "state": "rejected",
     }
     rejections = load_rejections(rejection_path)
+    existing_rejection = next(
+        (
+            row for row in rejections["listings"]
+            if row["canonical_key"] == candidate_id
+            and row["retailer"] == retailer
+            and row.get("cell", row.get("catalog_id")) == catalog_id
+            and row["state"] == "rejected"
+        ),
+        None,
+    )
+    if existing_rejection is not None:
+        return {"status": "rejected", "idempotent": True, "record": existing_rejection}
     rejections["listings"].append(record)
     write_rejections(rejection_path, rejections)  # durable JSON first
     store.reject_candidate(
@@ -239,6 +301,17 @@ def do_not_map_cell(
         "state": "do_not_map",
     }
     rejections = load_rejections(rejection_path)
+    existing_rejection = next(
+        (
+            row for row in rejections["cells"]
+            if row["retailer"] == retailer
+            and row.get("cell", row.get("catalog_id")) == catalog_id
+            and row["state"] == "do_not_map"
+        ),
+        None,
+    )
+    if existing_rejection is not None:
+        return {"status": "do_not_map", "idempotent": True, "record": existing_rejection}
     rejections["cells"].append(record)
     write_rejections(rejection_path, rejections)
     store.set_cell_state(
@@ -353,7 +426,9 @@ def replace_mapping(
     existing = approved_mapping(mappings, retailer, catalog_id)
     if existing is None:
         raise ValueError("no approved mapping to replace")
-    candidate = _candidate_row(store, candidate_id)
+    candidate = _candidate_for_cell(
+        store, candidate_id, retailer, catalog_id, require_evidence=True,
+    )
     if existing.get("candidate_id") == candidate_id:
         return {"status": "approved", "idempotent": True, "old": existing, "new": existing}
 

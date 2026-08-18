@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from beverage_feed.collector import BenchmarkPack
-from beverage_feed.discovery import DiscoveryStore, write_rejections
+from beverage_feed.discovery import DiscoveryStore, write_mappings, write_rejections
 from beverage_feed.discovery_adapters import (
     Capability,
     CapabilityContract,
@@ -154,6 +154,31 @@ class DiscoveryRunTests(unittest.TestCase):
         rows = dict(self.store.connection().execute(
             "SELECT catalog_id, state FROM discovery_cells").fetchall())
         self.assertEqual(rows, {"done": "approved", "reviewed": "review", "soft": "review"})
+
+    def test_new_invocation_preserves_review_state_and_does_not_research_it(self):
+        mapping_path = Path(self.tmp.name) / "mappings.json"
+        rejection_path = Path(self.tmp.name) / "rejections.json"
+        write_mappings(mapping_path, {})
+        write_rejections(rejection_path, {"listings": [], "cells": []})
+        adapter = FakeAdapter({"coke": result([EXACT_RECORD])})
+        adapter.is_collectable = lambda _listing: False
+
+        run_discovery(
+            [pack(search_term="coke")], {"dunnes": adapter}, self.store,
+            mapping_path=mapping_path, rejection_path=rejection_path,
+        )
+        run_discovery(
+            [pack(search_term="coke")], {"dunnes": adapter}, self.store,
+            mapping_path=mapping_path, rejection_path=rejection_path,
+        )
+
+        self.assertEqual(adapter.calls, ["coke"])
+        self.assertEqual(
+            self.store.connection().execute(
+                "SELECT state FROM discovery_cells"
+            ).fetchone(),
+            ("review",),
+        )
 
     def test_source_failure_pauses_run_and_keeps_cell_pending(self):
         adapter = FakeAdapter(error=RuntimeError("rate limited"))

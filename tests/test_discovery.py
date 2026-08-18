@@ -2,6 +2,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from beverage_feed.discovery import (
@@ -108,6 +109,94 @@ class DiscoveryStateTests(unittest.TestCase):
                 self.assertEqual(connection.execute("SELECT state FROM discovery_rejections").fetchone()[0], "superseded")
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM discovery_identity_links").fetchone()[0], 1)
                 self.assertEqual(connection.execute("SELECT COUNT(*) FROM price_observations").fetchone()[0], 0)
+
+    def test_reconciliation_preserves_operational_cells_and_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            database = root / "discovery.sqlite"
+            mapping_path = root / "mappings.json"
+            rejection_path = root / "rejections.json"
+            write_mappings(mapping_path, {})
+            write_rejections(rejection_path, {"listings": [], "cells": []})
+            store = DiscoveryStore(database)
+            store.set_cell_state("dunnes", "review", "review", review_category="missing")
+            store.set_cell_state("dunnes", "pending", "pending")
+            store.set_cell_state("supervalu", "inconclusive", "inconclusive")
+            store.set_cell_state("tesco", "unmapped", "unmapped")
+
+            reconcile_json_decisions(database, mapping_path, rejection_path)
+            first = store.connection().execute(
+                "SELECT retailer, catalog_id, state, review_category "
+                "FROM discovery_cells ORDER BY retailer, catalog_id"
+            ).fetchall()
+            reconcile_json_decisions(database, mapping_path, rejection_path)
+            second = store.connection().execute(
+                "SELECT retailer, catalog_id, state, review_category "
+                "FROM discovery_cells ORDER BY retailer, catalog_id"
+            ).fetchall()
+
+        self.assertEqual(second, first)
+        self.assertEqual(
+            first,
+            [
+                ("dunnes", "pending", "pending", None),
+                ("dunnes", "review", "review", "missing"),
+                ("supervalu", "inconclusive", "inconclusive", None),
+                ("tesco", "unmapped", "unmapped", None),
+            ],
+        )
+
+    def test_reconciliation_replays_explicit_json_decisions(self):
+        mappings = {"dunnes": [{
+            "catalog_id": "approved-pack",
+            "expected_product_name": "Cola 330ml Can",
+            "source_product_reference": "sku-1",
+            "source_item_id": "item-1",
+            "status": "approved",
+        }]}
+        rejections = {"listings": [{
+            "canonical_key": "dunnes:sku-3:item-3",
+            "retailer": "dunnes",
+            "catalog_id": "rejected-pack",
+            "rejected_at": "2025-01-01T00:00:00Z",
+            "decided_by": "operator",
+            "reason": "wrong pack",
+            "state": "rejected",
+        }], "cells": [{
+            "retailer": "tesco",
+            "catalog_id": "excluded-pack",
+            "rejected_at": "2025-01-01T00:00:00Z",
+            "decided_by": "operator",
+            "reason": "not comparable",
+            "state": "do_not_map",
+        }]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapping_path = root / "mappings.json"
+            rejection_path = root / "rejections.json"
+            write_mappings(mapping_path, mappings)
+            write_rejections(rejection_path, rejections)
+            store = DiscoveryStore(root / "discovery.sqlite")
+            with closing(store.connection()) as connection:
+                connection.execute(
+                    "INSERT INTO catalog_packs VALUES "
+                    "('approved-pack', 'Cola 330ml Can', 'Cola', 'Original', 1, 330, 'can', 'Cola')"
+                )
+                connection.commit()
+            store.set_cell_state("dunnes", "approved-pack", "pending")
+            store.set_cell_state("dunnes", "rejected-pack", "pending")
+            store.set_cell_state("tesco", "excluded-pack", "pending")
+
+            reconcile_json_decisions(store.database, mapping_path, rejection_path)
+            states = dict(store.connection().execute(
+                "SELECT retailer || ':' || catalog_id, state FROM discovery_cells"
+            ).fetchall())
+
+        self.assertEqual(states, {
+            "dunnes:approved-pack": "approved",
+            "dunnes:rejected-pack": "rejected",
+            "tesco:excluded-pack": "do_not_map",
+        })
 
     def test_reconciliation_repairs_sqlite_from_json_and_preserves_observation_tables(self):
         mappings = {"dunnes": [{

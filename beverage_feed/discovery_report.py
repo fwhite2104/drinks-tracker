@@ -175,15 +175,15 @@ def coverage_report(
         row["auto_approval_rate"] = _rate(
             row["first_time_auto_approved"], row["first_time_eligible_decisions"]
         )
-        for key, value in row.items():
-            if key in {"total_cells", "active", "eligible", "coverage", "inconclusive_rate", "auto_approval_rate"}:
+        for metric, value in row.items():
+            if metric in {"total_cells", "active", "eligible", "coverage", "inconclusive_rate", "auto_approval_rate"}:
                 continue
             if isinstance(value, int):
-                overall[key] += value
-            elif key in {"price_statuses", "review_age_buckets"}:
+                overall[metric] += value
+            elif metric in {"price_statuses", "review_age_buckets"}:
                 for sub_key, count in value.items():
-                    overall[key][sub_key] += count
-            elif key == "auto_approved_tiers":
+                    overall[metric][sub_key] += count
+            elif metric == "auto_approved_tiers":
                 for tier, count in value.items():
                     overall["auto_approved_tiers"][tier] = (
                         overall["auto_approved_tiers"].get(tier, 0) + count

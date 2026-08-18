@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Protocol
 
 from .collector import BenchmarkPack
 
@@ -34,6 +34,11 @@ _COUNT_RE = re.compile(r"\b(?P<count>\d+)\s*(?:x|×)\s*\d", re.I)
 _TRAILING_COUNT_RE = re.compile(r"(?:x|×)\s*(?P<count>\d+)\b", re.I)
 _PACK_RE = re.compile(r"\b(?P<count>\d+)\s*(?:pack|pk|cans?|bottles?)\b", re.I)
 _GENERIC_WORDS = {"can", "cans", "bottle", "bottles", "pack", "pk", "single", "each"}
+
+
+class _NamedListing(Protocol):
+    @property
+    def name(self) -> str: ...
 
 
 def _tokens(value: str) -> set[str]:
@@ -99,7 +104,7 @@ def _attribute_candidates(
     return candidates
 
 
-def name_matches(pack: BenchmarkPack, listing: SourceListing) -> bool:
+def name_matches(pack: BenchmarkPack, listing: _NamedListing) -> bool:
     source = _core_tokens(listing.name)
     for phrase in (pack.name, *pack.aliases):
         phrase_tokens = _core_tokens(phrase)

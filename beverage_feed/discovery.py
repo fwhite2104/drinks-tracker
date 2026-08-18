@@ -344,12 +344,12 @@ def write_rejections(path: str | Path, rejections: Mapping[str, Any]) -> None:
 
 def _mapping_source_identity(retailer: str, row: Mapping[str, Any]) -> str | None:
     if retailer == "dunnes":
-        parts = [row.get("source_product_reference"), row.get("source_item_id")]
+        values = [row.get("source_product_reference"), row.get("source_item_id")]
     elif retailer == "supervalu":
-        parts = [row.get("source_product_id")]
+        values = [row.get("source_product_id")]
     else:
-        parts = [row.get("source_tpnb")]
-    parts = [str(part) for part in parts if part]
+        values = [row.get("source_tpnb")]
+    parts = [str(value) for value in values if value]
     return ":".join(parts) or None
 
 
@@ -528,7 +528,7 @@ class DiscoveryStore:
                 (run_id, attempt_id, retailer, catalog_id, search_term, searched_at or timestamp(), complete_text, request_kind, safe_record(request_metadata)),
             )
             connection.commit()
-            return int(cursor.lastrowid)
+            return int(cursor.lastrowid or 0)
 
     def record_evidence(self, candidate_id: str, catalog_id: str, *, retailer: str, raw_attributes: Any = None, normalized_attributes: Any = None, inference_basis: Any = None, attribute_diffs: Any = None, raw_price_value: Any = None, price_parse_status: str | None = None, price_parse_reason: str | None = None, recorded_at: str | None = None) -> int:
         if price_parse_status is not None and price_parse_status not in PRICE_PARSE_STATUSES:
@@ -539,7 +539,7 @@ class DiscoveryStore:
                 (candidate_id, retailer, catalog_id, recorded_at or timestamp(), _json(raw_attributes, {}), _json(normalized_attributes, {}), _json(inference_basis, {}), _json(attribute_diffs, {}), None if raw_price_value is None else str(raw_price_value), price_parse_status, price_parse_reason),
             )
             connection.commit()
-            return int(cursor.lastrowid)
+            return int(cursor.lastrowid or 0)
 
     def set_cell_state(self, retailer: str, catalog_id: str, state: str, *, review_category: str | None = None, candidate_id: str | None = None, decided_by: str | None = None, reason: str | None = None, changed_at: str | None = None) -> None:
         if state not in CELL_STATES:
@@ -638,7 +638,35 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
         ).fetchall()
         connection.execute("DELETE FROM catalog_mappings")
         connection.execute("DELETE FROM discovery_rejections")
-        connection.execute("DELETE FROM discovery_cells")
+
+        def upsert_cell(
+            retailer: str,
+            catalog_id: str,
+            state: str,
+            review_category: str | None = None,
+            candidate_id: str | None = None,
+            decided_at: str | None = None,
+            decided_by: str | None = None,
+            reason: str | None = None,
+        ) -> None:
+            connection.execute(
+                """
+                INSERT INTO discovery_cells
+                    (retailer, catalog_id, state, review_category, candidate_id,
+                     decided_at, decided_by, reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(retailer, catalog_id) DO UPDATE SET
+                    state=excluded.state,
+                    review_category=excluded.review_category,
+                    candidate_id=excluded.candidate_id,
+                    decided_at=excluded.decided_at,
+                    decided_by=excluded.decided_by,
+                    reason=excluded.reason
+                """ ,
+                (retailer, catalog_id, state, review_category, candidate_id,
+                 decided_at, decided_by, reason),
+            )
+
         for retailer, rows in mappings.items():
             for row in rows:
                 # Fixture case: superseded mappings remain in JSON history but
@@ -658,9 +686,12 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                     (row["catalog_id"], retailer, row["expected_product_name"], source_ref, source_item, row["status"], row.get("decision_kind"), row.get("decided_by"), row.get("decided_at") or row.get("approved_at"), row.get("discovery_run_id"), row.get("matched_source_identity") or _mapping_source_identity(retailer, row), row.get("identity_tier"), row.get("candidate_id"), row.get("decision_reason")),
                 )
                 if row["status"] == "approved":
-                    connection.execute(
-                        "INSERT INTO discovery_cells(retailer, catalog_id, state, candidate_id, decided_at, decided_by, reason) VALUES (?, ?, 'approved', ?, ?, ?, ?)",
-                        (retailer, row["catalog_id"], row.get("candidate_id"), row.get("decided_at") or row.get("approved_at"), row.get("decided_by"), row.get("decision_reason")),
+                    upsert_cell(
+                        retailer, row["catalog_id"], "approved",
+                        candidate_id=row.get("candidate_id"),
+                        decided_at=row.get("decided_at") or row.get("approved_at"),
+                        decided_by=row.get("decided_by"),
+                        reason=row.get("decision_reason"),
                     )
         for section in ("listings", "cells"):
             for row in rejections[section]:
@@ -670,15 +701,24 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                     "INSERT INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state, superseded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (section, key, row["retailer"], cell, row["rejected_at"], row["decided_by"], row.get("reason"), row["state"], row.get("superseded_at")),
                 )
-                if row["state"] == "do_not_map":
+                if section == "listings" and row["state"] == "rejected":
                     connection.execute(
-                        "INSERT INTO discovery_cells(retailer, catalog_id, state, decided_at, decided_by, reason) VALUES (?, ?, 'do_not_map', ?, ?, ?)",
-                        (row["retailer"], cell, row["rejected_at"], row["decided_by"], row.get("reason")),
+                        "UPDATE catalog_candidates SET status='rejected' WHERE candidate_id=?",
+                        (key,),
+                    )
+                if row["state"] == "do_not_map":
+                    upsert_cell(
+                        row["retailer"], cell, "do_not_map",
+                        decided_at=row["rejected_at"],
+                        decided_by=row["decided_by"],
+                        reason=row.get("reason"),
                     )
                 elif row["state"] == "rejected":
-                    connection.execute(
-                        "INSERT INTO discovery_cells(retailer, catalog_id, state, decided_at, decided_by, reason) VALUES (?, ?, 'rejected', ?, ?, ?)",
-                        (row["retailer"], cell, row["rejected_at"], row["decided_by"], row.get("reason")),
+                    upsert_cell(
+                        row["retailer"], cell, "rejected",
+                        decided_at=row["rejected_at"],
+                        decided_by=row["decided_by"],
+                        reason=row.get("reason"),
                     )
         for challenge_retailer, challenge_catalog, challenge_candidate, challenge_at, challenge_by, challenge_reason in challenges:
             connection.execute(

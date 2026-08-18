@@ -52,8 +52,16 @@ class ReviewCliTests(unittest.TestCase):
             source_product_reference="sku-2", source_item_id="item-2",
             source_product_name="Cola 330ml Can",
         )
+        for candidate_id in ("dunnes:sku-1:item-1", "dunnes:sku-2:item-2"):
+            self.store.associate_candidate(candidate_id, "pack-1", "Cola")
         self.store.record_evidence(
             "dunnes:sku-1:item-1", "pack-1", retailer="dunnes",
+            raw_attributes={"size": "330ml"}, normalized_attributes={"unit_size_ml": 330},
+            inference_basis={"unit_size_ml": "name"}, attribute_diffs={},
+            raw_price_value="1.20", price_parse_status="valid",
+        )
+        self.store.record_evidence(
+            "dunnes:sku-2:item-2", "pack-1", retailer="dunnes",
             raw_attributes={"size": "330ml"}, normalized_attributes={"unit_size_ml": 330},
             inference_basis={"unit_size_ml": "name"}, attribute_diffs={},
             raw_price_value="1.20", price_parse_status="valid",
@@ -97,6 +105,43 @@ class ReviewCliTests(unittest.TestCase):
         )
         self.assertTrue(again["idempotent"])
         self.assertEqual(len(load_mappings(self.mapping_path)["dunnes"]), 1)
+
+    def test_decisions_require_the_candidate_to_belong_to_the_requested_cell(self):
+        with self.assertRaisesRegex(ValueError, "not associated"):
+            approve(
+                self.store, retailer="dunnes", catalog_id="pack-2",
+                candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+                rejection_path=self.rejection_path, decided_by="alice",
+            )
+        with self.assertRaisesRegex(ValueError, "not associated"):
+            reject_listing(
+                self.store, retailer="dunnes", catalog_id="pack-2",
+                candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+                rejection_path=self.rejection_path, decided_by="alice",
+            )
+
+    def test_decisions_reject_a_candidate_whose_record_belongs_to_another_retailer(self):
+        self.store.upsert_candidate(
+            "dunnes:foreign:item", retailer="supervalu", identity_key="foreign",
+            identity_basis="product_id", identity_tier="product",
+            source_product_name="Cola 330ml Can",
+        )
+        self.store.associate_candidate("dunnes:foreign:item", "pack-1", "Cola")
+        with self.assertRaisesRegex(ValueError, "belongs to supervalu"):
+            approve(
+                self.store, retailer="dunnes", catalog_id="pack-1",
+                candidate_id="dunnes:foreign:item", mapping_path=self.mapping_path,
+                rejection_path=self.rejection_path, decided_by="alice",
+            )
+
+    def test_approve_requires_evidence_for_the_requested_cell(self):
+        self.store.associate_candidate("dunnes:sku-1:item-1", "pack-2", "Other Cola")
+        with self.assertRaisesRegex(ValueError, "no evidence"):
+            approve(
+                self.store, retailer="dunnes", catalog_id="pack-2",
+                candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+                rejection_path=self.rejection_path, decided_by="alice",
+            )
 
     def test_approve_resolves_competing_candidates_and_checks_retailer(self):
         self.store.associate_candidate("dunnes:sku-1:item-1", "pack-1", "Cola")
@@ -149,6 +194,35 @@ class ReviewCliTests(unittest.TestCase):
         self.assertEqual(state, ("review",))
         self.assertIn(("approved",), history)  # provenance retained
 
+    def test_multiple_candidates_in_one_cell_can_be_rejected_and_replayed(self):
+        for candidate_id, when in (
+            ("dunnes:sku-1:item-1", "2025-01-01T00:00:00Z"),
+            ("dunnes:sku-2:item-2", "2025-01-02T00:00:00Z"),
+        ):
+            reject_listing(
+                self.store, retailer="dunnes", candidate_id=candidate_id,
+                catalog_id="pack-1", mapping_path=self.mapping_path,
+                rejection_path=self.rejection_path, decided_by="alice", now=when,
+            )
+
+        self.assertEqual(len(load_rejections(self.rejection_path)["listings"]), 2)
+        with closing(self.store.connection()) as connection:
+            connection.execute("UPDATE catalog_candidates SET status='pending_review'")
+            connection.commit()
+        reconcile_json_decisions(
+            self.store.database, self.mapping_path, self.rejection_path,
+        )
+        statuses = dict(self.store.connection().execute(
+            "SELECT candidate_id, status FROM catalog_candidates"
+        ).fetchall())
+        self.assertEqual(set(statuses.values()), {"rejected"})
+        self.assertEqual(
+            self.store.connection().execute(
+                "SELECT state FROM discovery_cells WHERE retailer='dunnes' AND catalog_id='pack-1'"
+            ).fetchone(),
+            ("rejected",),
+        )
+
     def test_listing_rejection_persists_durable_history(self):
         reject_listing(
             self.store, retailer="dunnes", candidate_id="dunnes:sku-2:item-2",
@@ -161,6 +235,14 @@ class ReviewCliTests(unittest.TestCase):
         self.assertEqual(record["rejected_at"], "2025-01-01T00:00:00Z")
         self.assertEqual(record["decided_by"], "alice")
         self.assertEqual(record["state"], "rejected")
+        again = reject_listing(
+            self.store, retailer="dunnes", candidate_id="dunnes:sku-2:item-2",
+            catalog_id="pack-1", mapping_path=self.mapping_path,
+            rejection_path=self.rejection_path, decided_by="alice", reason="wrong size",
+            now="2025-01-01T00:00:00Z",
+        )
+        self.assertTrue(again["idempotent"])
+        self.assertEqual(len(load_rejections(self.rejection_path)["listings"]), 1)
         status = self.store.connection().execute(
             "SELECT status FROM catalog_candidates WHERE candidate_id='dunnes:sku-2:item-2'"
         ).fetchone()
@@ -197,6 +279,13 @@ class ReviewCliTests(unittest.TestCase):
         )
         record = load_rejections(self.rejection_path)["cells"][0]
         self.assertEqual(record["state"], "do_not_map")
+        again = do_not_map_cell(
+            self.store, retailer="tesco", catalog_id="pack-1",
+            rejection_path=self.rejection_path, decided_by="alice", reason="never sold",
+            now="2025-01-01T00:00:00Z",
+        )
+        self.assertTrue(again["idempotent"])
+        self.assertEqual(len(load_rejections(self.rejection_path)["cells"]), 1)
         state = self.store.connection().execute(
             "SELECT state FROM discovery_cells WHERE retailer='tesco'").fetchone()
         self.assertEqual(state, ("do_not_map",))
@@ -247,6 +336,25 @@ class ReviewCliTests(unittest.TestCase):
             candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
             rejection_path=self.rejection_path, decided_by="alice",
         )
+        self.store.upsert_candidate(
+            "dunnes:sku-3:item-3", retailer="dunnes", identity_key="sku-3:item-3",
+            identity_basis="product_reference:item_id", identity_tier="composite",
+            source_product_reference="sku-3", source_item_id="item-3",
+            source_product_name="Cola 330ml Can",
+        )
+        self.store.associate_candidate("dunnes:sku-3:item-3", "pack-2", "Cola")
+        self.store.record_evidence(
+            "dunnes:sku-3:item-3", "pack-2", retailer="dunnes",
+            raw_attributes={"size": "330ml"}, normalized_attributes={"unit_size_ml": 330},
+            inference_basis={"unit_size_ml": "name"}, attribute_diffs={},
+            raw_price_value="1.20", price_parse_status="valid",
+        )
+        with self.assertRaisesRegex(ValueError, "not associated"):
+            replace_mapping(
+                self.store, retailer="dunnes", catalog_id="pack-1",
+                candidate_id="dunnes:sku-3:item-3", mapping_path=self.mapping_path,
+                decided_by="bob", reason="wrong cell",
+            )
         result = replace_mapping(
             self.store, retailer="dunnes", catalog_id="pack-1",
             candidate_id="dunnes:sku-2:item-2", mapping_path=self.mapping_path,

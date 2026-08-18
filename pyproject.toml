@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools==75.8.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drinks-tracker"
+version = "0.1.0"
+description = "Local Irish beverage price feed"
+requires-python = ">=3.11"
+
+[project.optional-dependencies]
+dev = [
+    "mypy==1.15.0",
+    "pytest==8.3.5",
+]
+
+[tool.setuptools.packages.find]
+include = ["beverage_feed*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = ["--strict-config"]
+
+[tool.mypy]
+files = ["beverage_feed"]
+python_version = "3.11"
+check_untyped_defs = true
+disallow_untyped_defs = true
+ignore_missing_imports = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true

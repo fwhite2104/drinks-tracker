@@ -74,7 +74,7 @@ class DiscoveryResult:
 
     @property
     def batch_sizes(self) -> dict[str, list[int]]:
-        result = {kind: [] for kind in sorted(_REQUEST_KINDS)}
+        result: dict[str, list[int]] = {kind: [] for kind in sorted(_REQUEST_KINDS)}
         for event in self.request_events:
             result[event.kind].append(event.batch_size)
         return result
@@ -186,8 +186,8 @@ def _first(record: Mapping[str, Any], *keys: str) -> Any:
 
 def _structured_attributes(record: Mapping[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     # Fixture case: Tesco puts packSize and tax metadata below details.
-    details = record.get("details") if isinstance(record.get("details"), Mapping) else {}
-    source = dict(details)
+    details = record.get("details")
+    source = dict(details) if isinstance(details, Mapping) else {}
     source.update(record)
     raw: dict[str, Any] = {}
     values: dict[str, Any] = {}
@@ -318,14 +318,14 @@ def normalize_listing(
             conflicts[key] = {"structured": structured_value, "name": name_value}
         if structured_value is not None:
             attributes[key] = (
-                _canonical_text(structured_value, aliases)
+                _canonical_text(structured_value, alias_map)
                 if key in {"brand", "variant", "package_type"}
                 else structured_value
             )
             basis[key] = "structured"
         elif name_value is not None:
             attributes[key] = (
-                _canonical_text(name_value, aliases)
+                _canonical_text(name_value, alias_map)
                 if key in {"brand", "variant", "package_type"}
                 else name_value
             )
@@ -362,8 +362,8 @@ def normalize_listing(
 
 
 def _completeness(payload: Mapping[str, Any], count: int, limit: int | None = None) -> tuple[Completeness, dict[str, Any]]:
-    pagination = payload.get("pagination") if isinstance(payload.get("pagination"), Mapping) else {}
-    pagination = dict(pagination)
+    pagination_value = payload.get("pagination")
+    pagination = dict(pagination_value) if isinstance(pagination_value, Mapping) else {}
     for key in ("total", "offset", "page", "next", "hasMore", "has_more", "totalPages", "total_pages"):
         if key in payload and key not in pagination:
             pagination[key] = payload[key]
@@ -383,7 +383,7 @@ def _records(payload: Mapping[str, Any], retailer: str) -> list[Mapping[str, Any
     if retailer == "dunnes":
         # Fixture case: VTEX nests itemId and seller price below each product.
         products = payload.get("data", {}).get("productSearch", {}).get("products", [])
-        result = []
+        result: list[Mapping[str, Any]] = []
         for product in products if isinstance(products, list) else []:
             if not isinstance(product, Mapping):
                 continue
