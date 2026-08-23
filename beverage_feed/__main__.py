@@ -17,6 +17,10 @@ if argv and argv[0] == "basketwatch":
     from .basketwatch import main as basketwatch_main
 
     raise SystemExit(basketwatch_main(argv[1:]))
+if argv and argv[0] == "dashboard":
+    from .dashboard import main as dashboard_main
+
+    raise SystemExit(dashboard_main(argv[1:]))
 
 from .collector import main
 

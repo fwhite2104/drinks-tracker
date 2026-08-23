@@ -39,8 +39,12 @@ Companion docs: `AGENTS.md` (agent skills overview), `docs/agents/domain.md`
   - `discovery.py` — durable discovery state (store, schema, JSON decisions).
   - `discovery_adapters.py`, `discovery_decisions.py`, `discovery_run.py`,
     `discovery_report.py`, `discovery_cli.py` — discovery pipeline.
-- `__main__.py` dispatches subcommands (`discovery`, `review`, `report`, else
-  collection) to each module's `main(argv) -> int`.
+  - `dashboard_read.py` — read-only Operator Dashboard data seam (JSON + SQLite
+    `mode=ro`; never creates or migrates the database).
+  - `dashboard.py` — local 127.0.0.1 HTTP Operator Dashboard + launcher `main`.
+- `__main__.py` dispatches subcommands (`discovery`, `review`, `report`,
+  `basketwatch`, `dashboard`, else collection) to each module's
+  `main(argv) -> int`.
 - `__init__.py` re-exports the public API: `from .x import (...)`, then an
   explicit `__all__`. Add public names there; keep internals module-private.
 - Throwaway exploration scripts (e.g. `camoufox_tesco.py`, `supervalu_*.py`,
