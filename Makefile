@@ -1,4 +1,4 @@
-.PHONY: build up down collect discover review report serve test ingest-basketwatch
+.PHONY: build up down collect discover review report serve test ingest-basketwatch dashboard
 
 build:
 	docker compose build
@@ -29,3 +29,6 @@ test:
 
 ingest-basketwatch:
 	docker compose run --rm collector python -m beverage_feed basketwatch $(ARGS)
+
+dashboard:
+	.venv/bin/python -m beverage_feed dashboard $(ARGS)
