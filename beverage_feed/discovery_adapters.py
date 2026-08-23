@@ -248,7 +248,7 @@ def _identity(retailer: str, record: Mapping[str, Any], name: str, attributes: M
             return item, "item"
         if reference:
             return reference, "product"
-    elif retailer == "supervalu":
+    elif retailer in {"supervalu", "lidl", "aldi"}:
         product = _text(_first(record, "productId", "product_id", "sku"))
         if product:
             return product, "product"
@@ -401,8 +401,11 @@ def _records(payload: Mapping[str, Any], retailer: str) -> list[Mapping[str, Any
                 merged["_source_item"] = item
                 result.append(merged)
         return result
-    # Fixture cases: SuperValu uses items; Tesco uses hydrated products.
-    products = payload.get("items") if retailer == "supervalu" else payload.get("products")
+    # Fixture cases: SuperValu/Lidl/Aldi use items; Tesco uses hydrated products.
+    products = (
+        payload.get("items") if retailer in {"supervalu", "lidl", "aldi"}
+        else payload.get("products")
+    )
     return [item for item in products if isinstance(item, Mapping)] if isinstance(products, list) else []
 
 
@@ -531,8 +534,79 @@ class TescoDiscoveryAdapter(DiscoveryAdapter):
         return self._result(payload, (RequestEvent("hydration"),))
 
 
+class LidlDiscoveryAdapter(DiscoveryAdapter):
+    """Search + optional product-page hydration for Lidl Ireland."""
+
+    retailer = "lidl"
+    max_requests_per_search = 1
+
+    def __init__(
+        self,
+        client: Callable[[str], Mapping[str, Any]] | None = None,
+        *,
+        hydrator: Callable[[str], Mapping[str, Any]] | None = None,
+    ):
+        if client is None:
+            from .collector import LidlClient
+            client = LidlClient()
+        self.hydrator = hydrator or getattr(client, "fetch_product", None)
+        self.capabilities = CapabilityContract({
+            "product": Capability(
+                "product", True, "search + product-page hydration",
+                "tested product-ID collection path",
+            ),
+        })
+        super().__init__(client, limit=100)
+
+    def search(self, pack: BenchmarkPack) -> DiscoveryResult:
+        payload = self.client(pack.search_term)
+        return self._result(payload, (RequestEvent("search"),), pack.aliases)
+
+    def hydrate(self, product_id: str) -> DiscoveryResult:
+        if self.hydrator is None:
+            raise RuntimeError("Lidl product-ID hydration is not supported")
+        payload = self.hydrator(str(product_id))
+        return self._result(payload, (RequestEvent("hydration"),))
+
+
+class AldiDiscoveryAdapter(DiscoveryAdapter):
+    """Search + optional SKU hydration for Aldi Ireland."""
+
+    retailer = "aldi"
+    max_requests_per_search = 1
+
+    def __init__(
+        self,
+        client: Callable[[str], Mapping[str, Any]] | None = None,
+        *,
+        hydrator: Callable[[str], Mapping[str, Any]] | None = None,
+    ):
+        if client is None:
+            from .collector import AldiClient
+            client = AldiClient()
+        self.hydrator = hydrator or getattr(client, "fetch_product", None)
+        self.capabilities = CapabilityContract({
+            "product": Capability(
+                "product", True, "search + SKU hydration",
+                "tested product-ID collection path",
+            ),
+        })
+        super().__init__(client, limit=50)
+
+    def search(self, pack: BenchmarkPack) -> DiscoveryResult:
+        payload = self.client(pack.search_term)
+        return self._result(payload, (RequestEvent("search"),), pack.aliases)
+
+    def hydrate(self, product_id: str) -> DiscoveryResult:
+        if self.hydrator is None:
+            raise RuntimeError("Aldi product-ID hydration is not supported")
+        payload = self.hydrator(str(product_id))
+        return self._result(payload, (RequestEvent("hydration"),))
+
+
 __all__ = [
-    "Capability", "CapabilityContract", "DiscoveryAdapter", "DiscoveryResult", "DunnesDiscoveryAdapter",
+    "AldiDiscoveryAdapter", "Capability", "CapabilityContract", "DiscoveryAdapter",
+    "DiscoveryResult", "DunnesDiscoveryAdapter", "LidlDiscoveryAdapter",
     "NormalizedListing", "PriceEvidence", "RequestEvent", "SuperValuDiscoveryAdapter",
     "TescoDiscoveryAdapter", "normalize_listing",
 ]

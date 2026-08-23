@@ -7,6 +7,8 @@ JSON commits before SQLite, so reconciliation repairs interrupted decisions.
 
 from __future__ import annotations
 
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -185,4 +187,135 @@ def decide_cell(
     return review(sorted(diffs)[0], "conflicting-candidates", reason, diffs=diffs)
 
 
-__all__ = ["decide_cell", "exact_match"]
+def apply_mapping_replacement(
+    store: DiscoveryStore,
+    *,
+    retailer: str,
+    catalog_id: str,
+    candidate_id: str,
+    mapping_path: str | Path,
+    decided_by: str,
+    reason: str,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Atomically remap a cell: old mapping retained, marked superseded_by."""
+    now = now or timestamp()
+    mappings = load_mappings(mapping_path)
+    rows = mappings.get(retailer, [])
+    existing = approved_mapping(mappings, retailer, catalog_id)
+    if existing is None:
+        raise ValueError("no approved mapping to replace")
+    candidate = store.validate_candidate_for_cell(
+        candidate_id, retailer, catalog_id, require_evidence=True,
+    )
+    if existing.get("candidate_id") == candidate_id:
+        return {"status": "approved", "idempotent": True, "old": existing, "new": existing}
+
+    existing["status"] = "rejected"
+    existing["superseded_by"] = candidate_id
+    new_row = {
+        "catalog_id": catalog_id,
+        "expected_product_name": candidate["source_product_name"],
+        "status": "approved",
+        "decision_kind": "operator",
+        "decided_by": decided_by,
+        "decided_at": now,
+        "matched_source_identity": candidate["identity_key"],
+        "identity_tier": candidate["identity_tier"],
+        "candidate_id": candidate_id,
+        "decision_reason": reason,
+        **source_fields(retailer, candidate["identity_key"], candidate["identity_tier"]),
+    }
+    rows.append(new_row)
+    write_mappings(mapping_path, mappings)  # one logical JSON commit
+    store.set_cell_state(
+        retailer, catalog_id, "approved",
+        candidate_id=candidate_id, decided_by=decided_by, reason=reason,
+    )
+    store.diagnostic(
+        event="mapping_replaced",
+        retailer=retailer, catalog_id=catalog_id,
+        details={
+            "old_candidate_id": existing.get("candidate_id"),
+            "new_candidate_id": candidate_id,
+            "decided_by": decided_by,
+            "reason": reason,
+        },
+    )
+    return {"status": "approved", "idempotent": False, "old": existing, "new": new_row}
+
+
+def resolve_challenge(
+    store: DiscoveryStore,
+    *,
+    retailer: str,
+    catalog_id: str,
+    action: str,
+    decided_by: str,
+    mapping_path: str | Path,
+    reason: str | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Keep or replace the approved mapping for a pending challenge cell."""
+    if action not in {"keep", "replace"}:
+        raise ValueError("challenge action must be keep or replace")
+    now = now or timestamp()
+    with closing(store.connection()) as connection:
+        connection.row_factory = sqlite3.Row
+        cell = connection.execute(
+            "SELECT * FROM discovery_cells "
+            "WHERE retailer=? AND catalog_id=? AND state='review' "
+            "AND review_category='challenge'",
+            (retailer, catalog_id),
+        ).fetchone()
+    if cell is None:
+        raise ValueError(f"no pending challenge for {retailer}/{catalog_id}")
+    challenger_id = cell["candidate_id"]
+    if not challenger_id:
+        raise ValueError(f"challenge for {retailer}/{catalog_id} has no challenger candidate")
+
+    if action == "keep":
+        existing = approved_mapping(load_mappings(mapping_path), retailer, catalog_id)
+        store.set_cell_state(
+            retailer, catalog_id, "approved",
+            candidate_id=existing.get("candidate_id") if existing else None,
+            decided_by=decided_by,
+            reason=reason or "challenge kept: existing mapping retained",
+            changed_at=now,
+        )
+        store.diagnostic(
+            event="challenge_kept",
+            retailer=retailer, catalog_id=catalog_id,
+            details={"challenger_candidate_id": challenger_id, "decided_by": decided_by},
+        )
+        return {
+            "status": "kept",
+            "retailer": retailer,
+            "catalog_id": catalog_id,
+            "challenger_candidate_id": challenger_id,
+        }
+
+    if not reason or not str(reason).strip():
+        raise ValueError("replacement reason is required when resolving a challenge with replace")
+    result = apply_mapping_replacement(
+        store,
+        retailer=retailer,
+        catalog_id=catalog_id,
+        candidate_id=challenger_id,
+        mapping_path=mapping_path,
+        decided_by=decided_by,
+        reason=reason,
+        now=now,
+    )
+    return {
+        "status": "replaced",
+        "retailer": retailer,
+        "catalog_id": catalog_id,
+        "challenger_candidate_id": challenger_id,
+        "result": result,
+    }
+
+
+__all__ = [
+    "apply_mapping_replacement", "decide_cell", "exact_match", "resolve_challenge",
+]
