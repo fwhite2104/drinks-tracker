@@ -21,7 +21,6 @@ from .discovery import (
     DiscoveryStore,
     approved_mapping,
     candidate_id_for,
-    ensure_discovery_schema,
     load_mappings,
     load_rejections,
     reconcile_json_decisions,
@@ -215,7 +214,7 @@ def reject_listing(
         None,
     )
     if existing_rejection is not None:
-        existing_rejection["superseded_at"] = now
+        return {"status": "rejected", "idempotent": True, "record": existing_rejection}
     record = {
         "canonical_key": candidate_id,
         "retailer": retailer,
@@ -267,7 +266,7 @@ def do_not_map_cell(
         None,
     )
     if existing_rejection is not None:
-        existing_rejection["superseded_at"] = now
+        return {"status": "do_not_map", "idempotent": True, "record": existing_rejection}
     rejections["cells"].append(record)
     write_rejections(rejection_path, rejections)
     store.set_cell_state(

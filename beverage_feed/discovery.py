@@ -168,7 +168,10 @@ _MAPPING_COLUMNS = {
     "identity_tier": "TEXT",
     "candidate_id": "TEXT",
     "decision_reason": "TEXT",
+    "challenge_pending": "TEXT",
 }
+
+_SUPPORTED_RETAILERS = {"dunnes", "supervalu", "tesco", "lidl", "aldi"}
 
 
 def _json(value: Any, default: Any = None) -> str | None:
@@ -228,6 +231,8 @@ _MAPPING_SOURCE_KEYS = {
     "dunnes": {"source_product_reference", "source_item_id"},
     "supervalu": {"source_product_id"},
     "tesco": {"source_tpnb"},
+    "lidl": {"source_product_id"},
+    "aldi": {"source_product_id"},
 }
 _REJECTION_LISTING_KEYS = {
     "canonical_key", "retailer", "catalog_id", "cell", "rejected_at", "decided_by", "reason",
@@ -243,7 +248,7 @@ def _validate_mapping_object(value: Any) -> dict[str, list[dict[str, Any]]]:
         raise ValueError("mapping file must contain a retailer object")
     result: dict[str, list[dict[str, Any]]] = {}
     for retailer, rows in value.items():
-        if retailer not in {"dunnes", "supervalu", "tesco"}:
+        if retailer not in _SUPPORTED_RETAILERS:
             raise ValueError(f"unsupported retailer in mapping file: {retailer}")
         if not isinstance(rows, list):
             raise ValueError(f"mappings for {retailer} must be a list")
@@ -345,10 +350,15 @@ def write_rejections(path: str | Path, rejections: Mapping[str, Any]) -> None:
 def _mapping_source_identity(retailer: str, row: Mapping[str, Any]) -> str | None:
     if retailer == "dunnes":
         values = [row.get("source_product_reference"), row.get("source_item_id")]
-    elif retailer == "supervalu":
+    elif retailer in {"supervalu", "lidl", "aldi"}:
         values = [row.get("source_product_id")]
-    else:
+    elif retailer == "tesco":
         values = [row.get("source_tpnb")]
+    else:
+        values = [
+            row.get("source_product_reference") or row.get("source_product_id") or row.get("source_tpnb"),
+            row.get("source_item_id"),
+        ]
     parts = [str(value) for value in values if value]
     return ":".join(parts) or None
 
@@ -383,9 +393,11 @@ def source_fields(retailer: str, identity: str, identity_tier: str | None = None
         if identity_tier == "product":
             return {"source_product_reference": identity}
         return {"source_product_reference": reference, "source_item_id": item or reference}
-    if retailer == "supervalu":
+    if retailer in {"supervalu", "lidl", "aldi"}:
         return {"source_product_id": identity}
-    return {"source_tpnb": identity}
+    if retailer == "tesco":
+        return {"source_tpnb": identity}
+    raise ValueError(f"unsupported retailer for source fields: {retailer}")
 
 
 
@@ -611,6 +623,54 @@ class DiscoveryStore:
             ).rowcount
             connection.commit()
         return changed
+
+    def validate_candidate_for_cell(
+        self,
+        candidate_id: str,
+        retailer: str,
+        catalog_id: str,
+        *,
+        require_evidence: bool,
+    ) -> dict[str, Any]:
+        """Return the candidate row when it belongs to the requested cell.
+
+        Raises ``ValueError`` when the candidate is unknown, belongs to another
+        retailer, is not associated with the cell, or (when required) has no
+        evidence for that cell.
+        """
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                "SELECT * FROM catalog_candidates WHERE candidate_id=?",
+                (candidate_id,),
+            ).fetchone()
+            if row is None:
+                raise ValueError(f"unknown Catalog Candidate: {candidate_id}")
+            candidate = dict(row)
+            if candidate["retailer"] != retailer:
+                raise ValueError(
+                    f"candidate {candidate_id} belongs to {candidate['retailer']}, not {retailer}"
+                )
+            associated = connection.execute(
+                "SELECT 1 FROM discovery_candidate_cells "
+                "WHERE candidate_id=? AND retailer=? AND catalog_id=?",
+                (candidate_id, retailer, catalog_id),
+            ).fetchone()
+            if associated is None:
+                raise ValueError(
+                    f"candidate {candidate_id} is not associated with {retailer}/{catalog_id}"
+                )
+            if require_evidence:
+                evidence = connection.execute(
+                    "SELECT 1 FROM discovery_candidate_evidence "
+                    "WHERE candidate_id=? AND retailer=? AND catalog_id=? LIMIT 1",
+                    (candidate_id, retailer, catalog_id),
+                ).fetchone()
+                if evidence is None:
+                    raise ValueError(
+                        f"candidate {candidate_id} has no evidence for {retailer}/{catalog_id}"
+                    )
+        return candidate
 
     def diagnostic(self, *, event: str, level: str = "info", message: str | None = None, run_id: str | None = None, attempt_id: str | None = None, retailer: str | None = None, catalog_id: str | None = None, details: Any = None) -> None:
         with closing(self.connection()) as connection:
