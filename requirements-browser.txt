@@ -1,0 +1,3 @@
+# Optional Playwright fallback for retailer clients whose JSON endpoints
+# become structurally unstable.  Never required for normal collection.
+playwright>=1.45,<2.0

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 from contextlib import closing
 from datetime import timedelta
@@ -20,6 +21,7 @@ from .discovery import (
     DiscoveryStore,
     approved_mapping,
     candidate_id_for,
+    ensure_discovery_schema,
     load_mappings,
     load_rejections,
     reconcile_json_decisions,
@@ -27,55 +29,9 @@ from .discovery import (
     write_mappings,
     write_rejections,
 )
+from .discovery_decisions import apply_mapping_replacement, resolve_challenge
 
 REVIEW_CATEGORIES = ("missing", "conflicting", "conflicting-candidates", "challenge")
-
-
-def _candidate_row(store: DiscoveryStore, candidate_id: str) -> dict[str, Any]:
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        row = connection.execute(
-            "SELECT * FROM catalog_candidates WHERE candidate_id=?", (candidate_id,)
-        ).fetchone()
-    if row is None:
-        raise ValueError(f"unknown Catalog Candidate: {candidate_id}")
-    return dict(row)
-
-
-def _candidate_for_cell(
-    store: DiscoveryStore,
-    candidate_id: str,
-    retailer: str,
-    catalog_id: str,
-    *,
-    require_evidence: bool,
-) -> dict[str, Any]:
-    candidate = _candidate_row(store, candidate_id)
-    if candidate["retailer"] != retailer:
-        raise ValueError(
-            f"candidate {candidate_id} belongs to {candidate['retailer']}, not {retailer}"
-        )
-    with closing(store.connection()) as connection:
-        associated = connection.execute(
-            "SELECT 1 FROM discovery_candidate_cells "
-            "WHERE candidate_id=? AND retailer=? AND catalog_id=?",
-            (candidate_id, retailer, catalog_id),
-        ).fetchone()
-        if associated is None:
-            raise ValueError(
-                f"candidate {candidate_id} is not associated with {retailer}/{catalog_id}"
-            )
-        if require_evidence:
-            evidence = connection.execute(
-                "SELECT 1 FROM discovery_candidate_evidence "
-                "WHERE candidate_id=? AND retailer=? AND catalog_id=? LIMIT 1",
-                (candidate_id, retailer, catalog_id),
-            ).fetchone()
-            if evidence is None:
-                raise ValueError(
-                    f"candidate {candidate_id} has no evidence for {retailer}/{catalog_id}"
-                )
-    return candidate
 
 
 def _rejected_listing_keys(
@@ -149,8 +105,8 @@ def approve(
     """Operator-approve one candidate; resolves competing candidates for the cell."""
     now = now or timestamp()
     mappings = load_mappings(mapping_path)
-    candidate = _candidate_for_cell(
-        store, candidate_id, retailer, catalog_id, require_evidence=True,
+    candidate = store.validate_candidate_for_cell(
+        candidate_id, retailer, catalog_id, require_evidence=True,
     )
     rejected = _rejected_listing_keys(
         load_rejections(rejection_path), retailer, catalog_id,
@@ -241,22 +197,12 @@ def reject_listing(
 ) -> dict[str, Any]:
     """Reject one canonical candidate identity; history is appended, never deleted."""
     now = now or timestamp()
-    _candidate_for_cell(
-        store, candidate_id, retailer, catalog_id, require_evidence=False,
+    store.validate_candidate_for_cell(
+        candidate_id, retailer, catalog_id, require_evidence=False,
     )
     existing = approved_mapping(load_mappings(mapping_path), retailer, catalog_id)
     if existing is not None and existing.get("candidate_id") == candidate_id:
         raise ValueError("candidate is an approved mapping; revoke the mapping first")
-    record = {
-        "canonical_key": candidate_id,
-        "retailer": retailer,
-        "catalog_id": catalog_id,
-        "cell": catalog_id,
-        "rejected_at": now,
-        "decided_by": decided_by,
-        "reason": reason,
-        "state": "rejected",
-    }
     rejections = load_rejections(rejection_path)
     existing_rejection = next(
         (
@@ -269,7 +215,17 @@ def reject_listing(
         None,
     )
     if existing_rejection is not None:
-        return {"status": "rejected", "idempotent": True, "record": existing_rejection}
+        existing_rejection["superseded_at"] = now
+    record = {
+        "canonical_key": candidate_id,
+        "retailer": retailer,
+        "catalog_id": catalog_id,
+        "cell": catalog_id,
+        "rejected_at": now,
+        "decided_by": decided_by,
+        "reason": reason,
+        "state": "rejected",
+    }
     rejections["listings"].append(record)
     write_rejections(rejection_path, rejections)  # durable JSON first
     store.reject_candidate(
@@ -311,7 +267,7 @@ def do_not_map_cell(
         None,
     )
     if existing_rejection is not None:
-        return {"status": "do_not_map", "idempotent": True, "record": existing_rejection}
+        existing_rejection["superseded_at"] = now
     rejections["cells"].append(record)
     write_rejections(rejection_path, rejections)
     store.set_cell_state(
@@ -419,101 +375,129 @@ def replace_mapping(
     reason: str,
     now: str | None = None,
 ) -> dict[str, Any]:
-    """Atomically remap a cell: old mapping retained, marked superseded_by."""
-    now = now or timestamp()
-    mappings = load_mappings(mapping_path)
-    rows = mappings.get(retailer, [])
-    existing = approved_mapping(mappings, retailer, catalog_id)
-    if existing is None:
-        raise ValueError("no approved mapping to replace")
-    candidate = _candidate_for_cell(
-        store, candidate_id, retailer, catalog_id, require_evidence=True,
+    """Atomically remap a cell; delegates to the shared decision core."""
+    return apply_mapping_replacement(
+        store, retailer=retailer, catalog_id=catalog_id, candidate_id=candidate_id,
+        mapping_path=mapping_path, decided_by=decided_by, reason=reason, now=now,
     )
-    if existing.get("candidate_id") == candidate_id:
-        return {"status": "approved", "idempotent": True, "old": existing, "new": existing}
 
-    existing["status"] = "rejected"
-    existing["superseded_by"] = candidate_id
-    new_row = {
-        "catalog_id": catalog_id,
-        "expected_product_name": candidate["source_product_name"],
-        "status": "approved",
-        "decision_kind": "operator",
-        "decided_by": decided_by,
-        "decided_at": now,
-        "matched_source_identity": candidate["identity_key"],
-        "identity_tier": candidate["identity_tier"],
-        "candidate_id": candidate_id,
-        "decision_reason": reason,
-        **source_fields(retailer, candidate["identity_key"], candidate["identity_tier"]),
-    }
-    rows.append(new_row)
-    write_mappings(mapping_path, mappings)  # one logical JSON commit
-    store.set_cell_state(
-        retailer, catalog_id, "approved",
-        candidate_id=candidate_id, decided_by=decided_by, reason=reason,
+
+def challenge_list(
+    store: DiscoveryStore,
+    *,
+    mapping_path: str | Path,
+    retailer: str | None = None,
+) -> list[dict[str, Any]]:
+    """Group pending challenges with approved vs challenger evidence side by side."""
+    mappings = load_mappings(mapping_path)
+    query = (
+        "SELECT * FROM discovery_cells "
+        "WHERE state='review' AND review_category='challenge'"
     )
-    store.diagnostic(
-        event="mapping_replaced",
-        retailer=retailer, catalog_id=catalog_id,
-        details={
-            "old_candidate_id": existing.get("candidate_id"),
-            "new_candidate_id": candidate_id,
-            "decided_by": decided_by,
-            "reason": reason,
-        },
-    )
-    return {"status": "approved", "idempotent": False, "old": existing, "new": new_row}
+    parameters: list[str] = []
+    if retailer:
+        query += " AND retailer=?"
+        parameters.append(retailer)
+    query += " ORDER BY retailer, catalog_id"
+
+    grouped: list[dict[str, Any]] = []
+    with closing(store.connection()) as connection:
+        connection.row_factory = sqlite3.Row
+        for cell in connection.execute(query, parameters):
+            existing = approved_mapping(mappings, cell["retailer"], cell["catalog_id"])
+            challenger_row = connection.execute(
+                "SELECT * FROM discovery_candidate_evidence "
+                "WHERE retailer=? AND catalog_id=? AND candidate_id=? "
+                "ORDER BY evidence_id DESC LIMIT 1",
+                (cell["retailer"], cell["catalog_id"], cell["candidate_id"]),
+            ).fetchone()
+            # Stamp the pending challenge on the mapping row (forward-migrated
+            # field); idempotent and never touches approved status.
+            connection.execute(
+                "UPDATE catalog_mappings SET challenge_pending=? "
+                "WHERE retailer=? AND catalog_id=?",
+                (cell["candidate_id"], cell["retailer"], cell["catalog_id"]),
+            )
+            grouped.append({
+                "retailer": cell["retailer"],
+                "catalog_id": cell["catalog_id"],
+                "challenger_candidate_id": cell["candidate_id"],
+                "reason": cell["reason"],
+                "approved_mapping": existing,
+                "challenger_attributes": (
+                    json.loads(challenger_row["normalized_attributes"])
+                    if challenger_row is not None and challenger_row["normalized_attributes"]
+                    else None
+                ),
+                "challenger_name": (
+                    json.loads(challenger_row["raw_attributes"]).get("name")
+                    if challenger_row is not None and challenger_row["raw_attributes"]
+                    else None
+                ),
+            })
+        connection.commit()
+    return grouped
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Operator review and remapping commands")
-    parser.add_argument("--database", type=Path, default=Path("feed.sqlite"))
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")),
+    )
     parser.add_argument("--mapping", type=Path, default=Path("data/mappings.json"))
     parser.add_argument("--rejections", type=Path, default=Path("data/rejections.json"))
     parser.add_argument("--decided-by", default="operator")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p = subparsers.add_parser("review-list")
-    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--category", choices=REVIEW_CATEGORIES)
 
     p = subparsers.add_parser("approve")
-    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--catalog-id", required=True)
     p.add_argument("--candidate-id", required=True)
     p.add_argument("--reason")
 
     p = subparsers.add_parser("revoke")
-    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--catalog-id", required=True)
     p.add_argument("--reason")
 
     p = subparsers.add_parser("reject")
-    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--catalog-id", required=True)
     p.add_argument("--candidate-id", required=True)
     p.add_argument("--reason")
 
     p = subparsers.add_parser("do-not-map")
-    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--catalog-id", required=True)
     p.add_argument("--reason")
 
     p = subparsers.add_parser("retry-rejections")
-    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--older-than-days", type=int)
 
     p = subparsers.add_parser("retry-reviews")
-    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--category", choices=REVIEW_CATEGORIES)
     p.add_argument("--older-than-days", type=int)
 
     p = subparsers.add_parser("replace")
-    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco"))
+    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--catalog-id", required=True)
     p.add_argument("--candidate-id", required=True)
     p.add_argument("--reason", required=True)
+
+    p = subparsers.add_parser("challenges")
+    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
+    p.add_argument(
+        "--resolve", action="store_true",
+        help="interactively keep/replace/skip each pending challenge",
+    )
 
     args = parser.parse_args(argv)
     store = DiscoveryStore(args.database)
@@ -524,7 +508,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(entries, indent=2, default=str))
         return 0
     if args.command == "approve":
-        result = approve(
+        result: Any = approve(
             store, retailer=args.retailer, catalog_id=args.catalog_id,
             candidate_id=args.candidate_id, mapping_path=args.mapping,
             rejection_path=args.rejections, decided_by=args.decided_by, reason=args.reason,
@@ -557,6 +541,44 @@ def main(argv: list[str] | None = None) -> int:
             category=args.category, older_than_days=args.older_than_days,
         )
         result = {"reopened": count}
+    elif args.command == "challenges":
+        challenges = challenge_list(
+            store, mapping_path=args.mapping, retailer=args.retailer,
+        )
+        if not args.resolve:
+            print(json.dumps(challenges, indent=2, default=str))
+            return 0
+        results = []
+        for challenge in challenges:
+            print(
+                f"== {challenge['retailer']} / {challenge['catalog_id']} ==\n"
+                f"  approved : {challenge['approved_mapping']}\n"
+                f"  challenger: {challenge['challenger_candidate_id']}"
+                f" ({challenge['challenger_name']})\n"
+                f"  challenger attributes: {challenge['challenger_attributes']}"
+            )
+            answer = input("resolve? [keep/replace/skip] ").strip().lower()
+            if answer == "keep":
+                results.append(resolve_challenge(
+                    store, retailer=challenge["retailer"],
+                    catalog_id=challenge["catalog_id"], action="keep",
+                    decided_by=args.decided_by, mapping_path=args.mapping,
+                ))
+            elif answer == "replace":
+                reason = input("replacement reason: ").strip()
+                results.append(resolve_challenge(
+                    store, retailer=challenge["retailer"],
+                    catalog_id=challenge["catalog_id"], action="replace",
+                    decided_by=args.decided_by, mapping_path=args.mapping,
+                    reason=reason,
+                ))
+            else:
+                results.append({
+                    "status": "skipped",
+                    "retailer": challenge["retailer"],
+                    "catalog_id": challenge["catalog_id"],
+                })
+        result = results
     else:  # replace
         result = replace_mapping(
             store, retailer=args.retailer, catalog_id=args.catalog_id,
@@ -568,6 +590,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 __all__ = [
-    "approve", "do_not_map_cell", "reject_listing", "reopen_reviews", "replace_mapping",
-    "reset_rejections", "revoke", "review_list", "main",
+    "approve", "challenge_list", "do_not_map_cell", "reject_listing", "reopen_reviews",
+    "replace_mapping", "reset_rejections", "revoke", "review_list", "main",
 ]

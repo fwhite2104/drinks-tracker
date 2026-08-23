@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sqlite3
 from contextlib import closing
 from datetime import timedelta
@@ -18,7 +19,7 @@ from typing import Any
 from .collector import as_datetime, timestamp
 from .discovery import DiscoveryStore, load_mappings, reconcile_json_decisions
 
-RETAILERS = ("dunnes", "supervalu", "tesco")
+RETAILERS = ("dunnes", "supervalu", "tesco", "lidl", "aldi")
 _CELL_COUNTS = (
     "approved", "review", "review_missing", "review_conflicting",
     "review_conflicting_candidates", "review_challenge", "unmapped", "pending",
@@ -59,6 +60,29 @@ def _review_key(category: str | None) -> str:
 
 def _rate(numerator: int, denominator: int) -> float:
     return round(numerator / denominator, 4) if denominator else 0.0
+
+
+# Metrics derived by formula rather than summed from per-retailer rows.
+_COMPUTED_METRICS = {"active", "eligible", "coverage", "inconclusive_rate",
+                     "auto_approval_rate", "disagreement_rate"}
+# Metrics pre-set at initialization; don't accumulate from per-retailer rows.
+_PRESET_METRICS = {"total_cells"}
+
+
+def _accumulate_overall(overall: dict[str, Any], row: dict[str, Any]) -> None:
+    """Add *row*'s raw counts into *overall*.
+
+    Computed metrics (rates and denominators) are skipped — they are
+    recalculated from overall totals after all rows have been accumulated.
+    """
+    for metric, value in row.items():
+        if metric in _COMPUTED_METRICS or metric in _PRESET_METRICS:
+            continue
+        if isinstance(value, int):
+            overall[metric] += value
+        elif isinstance(value, dict):
+            for sub_key, count in value.items():
+                overall[metric][sub_key] = overall[metric].get(sub_key, 0) + count
 
 
 def coverage_report(
@@ -175,19 +199,7 @@ def coverage_report(
         row["auto_approval_rate"] = _rate(
             row["first_time_auto_approved"], row["first_time_eligible_decisions"]
         )
-        for metric, value in row.items():
-            if metric in {"total_cells", "active", "eligible", "coverage", "inconclusive_rate", "auto_approval_rate"}:
-                continue
-            if isinstance(value, int):
-                overall[metric] += value
-            elif metric in {"price_statuses", "review_age_buckets"}:
-                for sub_key, count in value.items():
-                    overall[metric][sub_key] += count
-            elif metric == "auto_approved_tiers":
-                for tier, count in value.items():
-                    overall["auto_approved_tiers"][tier] = (
-                        overall["auto_approved_tiers"].get(tier, 0) + count
-                    )
+        _accumulate_overall(overall, row)
     overall["active"] = overall["total_cells"] - overall["do_not_map"]
     overall["eligible"] = overall["approved"] + overall["unmapped"] + overall["rejected"]
     overall["coverage"] = _rate(overall["approved"], overall["active"])
@@ -233,7 +245,11 @@ def format_report(report: dict[str, Any]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Report Catalog Mapping discovery coverage")
-    parser.add_argument("--database", type=Path, default=Path("feed.sqlite"))
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")),
+    )
     parser.add_argument("--catalog", type=Path, default=Path("data/catalog.json"))
     parser.add_argument("--mapping", type=Path, default=Path("data/mappings.json"))
     parser.add_argument("--rejections", type=Path, default=Path("data/rejections.json"))

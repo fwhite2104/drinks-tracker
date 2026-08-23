@@ -1,0 +1,2 @@
+# Price collection across all configured retailers, every four hours.
+0 */4 * * * python -m beverage_feed

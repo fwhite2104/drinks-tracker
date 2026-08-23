@@ -13,6 +13,10 @@ if argv and argv[0] == "report":
     from .discovery_report import main as report_main
 
     raise SystemExit(report_main(argv[1:]))
+if argv and argv[0] == "basketwatch":
+    from .basketwatch import main as basketwatch_main
+
+    raise SystemExit(basketwatch_main(argv[1:]))
 
 from .collector import main
 

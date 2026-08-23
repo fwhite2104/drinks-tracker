@@ -1,0 +1,38 @@
+services:
+  collector:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DRINKS_DATABASE: /data/feed.sqlite
+    volumes:
+      - data:/data
+    command: ["supercronic", "/app/crontabs/collector.cron"]
+
+  discovery:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DRINKS_DATABASE: /data/feed.sqlite
+    volumes:
+      - data:/data
+    command: ["supercronic", "/app/crontabs/discovery.cron"]
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DRINKS_DATABASE: /data/feed.sqlite
+    volumes:
+      - data:/data
+    ports:
+      - "8000:8000"
+    command: ["uvicorn", "beverage_feed.api:app", "--host", "0.0.0.0", "--port", "8000"]
+
+volumes:
+  data:

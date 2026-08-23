@@ -61,6 +61,22 @@ class TescoMapping:
     status: str = "approved"
 
 
+@dataclass(frozen=True)
+class LidlMapping:
+    catalog_id: str
+    expected_product_name: str
+    source_product_id: str | None = None
+    status: str = "approved"
+
+
+@dataclass(frozen=True)
+class AldiMapping:
+    catalog_id: str
+    expected_product_name: str
+    source_product_id: str | None = None
+    status: str = "approved"
+
+
 class DunnesClient:
     """Fetch the small VTEX GraphQL response needed by the collector."""
 
@@ -197,7 +213,24 @@ CREATE TABLE IF NOT EXISTS price_observations (
     observed_at TEXT NOT NULL,
     FOREIGN KEY (run_id) REFERENCES collection_runs(run_id)
 );
+CREATE TABLE IF NOT EXISTS retailers (
+    retailer_slug TEXT PRIMARY KEY,
+    display_name TEXT NOT NULL,
+    tier INTEGER NOT NULL,
+    country TEXT NOT NULL DEFAULT 'IE',
+    data_source_type TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1
+);
 """
+
+# Tier 1 retailer registry, seeded idempotently by ensure_schema().
+_RETAILER_SEED = (
+    ("tesco", "Tesco Ireland", 1),
+    ("dunnes", "Dunnes Stores", 1),
+    ("supervalu", "SuperValu", 1),
+    ("lidl", "Lidl Ireland", 1),
+    ("aldi", "Aldi Ireland", 1),
+)
 
 
 def timestamp() -> str:
@@ -228,6 +261,40 @@ def _decimal_price(value: Any) -> Decimal:
 
 def _decimal_text(value: Decimal, places: str = "0.01") -> str:
     return format(value.quantize(Decimal(places), rounding=ROUND_HALF_UP), "f")
+
+
+_GENERIC_PACKAGE_TOKENS = {"can", "cans", "bottle", "bottles", "carton", "cartons", "pouch", "pouches"}
+
+
+def _dunnes_drs_deposit(offer: Mapping[str, Any]) -> Decimal | None:
+    """Extract the Dunnes refundable deposit from offer evidence.
+
+    Source limitation (validated against live responses 2026-08): the VTEX
+    GraphQL schema rejects ``taxDetails``, ``drsDeposit``, ``deposit`` and
+    ``depositAmount`` as unknown fields (HTTP 400), while the valid ``Tax``
+    and ``taxPercentage`` fields are always zero — so no live offer carries
+    deposit evidence today.  The documented precedence is implemented anyway
+    (a taxDetails record whose group/name identifies a deposit, then
+    ``drsDeposit``, then ``deposit``, then ``depositAmount``) so a future
+    source change needs no code change here; callers record a
+    ``drs_not_available`` diagnostic when this returns ``None``.
+    """
+    tax_details = offer.get("taxDetails")
+    if isinstance(tax_details, list):
+        for detail in tax_details:
+            if not isinstance(detail, Mapping):
+                continue
+            label = " ".join(
+                str(detail.get(key) or "")
+                for key in ("groupName", "group", "name", "type")
+            )
+            if "deposit" in label.lower():
+                amount = detail.get("amount")
+                if amount is None:
+                    amount = detail.get("value")
+                if amount is not None:
+                    return _decimal_price(amount)
+    return _optional_price(offer, "drsDeposit", "deposit", "depositAmount")
 
 
 def _normalise_name(value: str) -> set[str]:
@@ -266,9 +333,34 @@ def _find_listing(
     raise LookupError("mapped Dunnes product was not found")
 
 
+def _validate_listing(name: str, pack: BenchmarkPack) -> str | None:
+    """Check that the returned product still matches the Catalog Pack.
+
+    Returns ``None`` when the listing looks like the expected pack,
+    or a short reason string when attributes have drifted.
+    """
+    name_tokens = _normalise_name(name)
+    # Validate only the core brand + variant tokens; unit-size tokens may
+    # normalise differently (e.g. "330ml" vs "330" + "ml").
+    core = _normalise_name(pack.brand) | _normalise_name(pack.variant)
+    if core and not core.issubset(name_tokens):
+        return f"name mismatch: expected {core} not in {name_tokens}"
+    return None
+
+
 def ensure_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(SCHEMA)
     connection.execute("PRAGMA foreign_keys = ON")
+    # Seed the central retailer lookup table; INSERT OR IGNORE keeps this
+    # idempotent and never disturbs operator edits to existing rows.
+    connection.executemany(
+        """
+        INSERT OR IGNORE INTO retailers
+            (retailer_slug, display_name, tier, country, data_source_type)
+        VALUES (?, ?, ?, 'IE', 'scraper')
+        """,
+        _RETAILER_SEED,
+    )
     # Keep a database created by the first Dunnes-only milestone usable.
     for table, column, definition in (
         ("collection_results", "source_scope", "TEXT"),
@@ -484,13 +576,22 @@ def current_feed(
                    ) AS position
             FROM collection_results AS cr
             {where}
+        ),
+        latest_observations AS (
+            SELECT po.*,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY po.run_id, po.retailer, po.catalog_id
+                       ORDER BY po.observed_at DESC, po.observation_id DESC
+                   ) AS obs_position
+            FROM price_observations AS po
         )
         SELECT {_OBSERVATION_COLUMNS}
         FROM latest_results AS lr
-        JOIN price_observations AS po
+        JOIN latest_observations AS po
           ON po.run_id = lr.run_id
          AND po.catalog_id = lr.catalog_id
          AND po.retailer = lr.retailer
+         AND po.obs_position = 1
         LEFT JOIN catalog_packs AS cp ON cp.catalog_id = po.catalog_id
         WHERE lr.position = 1 AND lr.status = 'observed'
           AND NOT EXISTS (
@@ -592,6 +693,10 @@ def collect_one(
         try:
             payload = fetcher(pack.search_term)
             product, item, offer = _find_listing(payload, mapping)
+            reason = _validate_listing(product.get("productName", ""), pack)
+            if reason is not None:
+                status = "source_error"
+                error = f"stale source identifier: {reason}"
         except LookupError as exc:
             status = "not_found"
             error = str(exc)
@@ -601,24 +706,34 @@ def collect_one(
 
     observed_at = timestamp()
     duration_ms = round((time.monotonic() - started) * 1000, 1)
-    observed = status == "observed"
     displayed_price: Decimal | None = None
+    drs_deposit: Decimal | None = None
     component_unit_price: str | None = None
     price_per_litre: str | None = None
 
-    if observed:
+    if status == "observed":
         assert product is not None and item is not None and offer is not None
-        displayed_price = _decimal_price(offer["Price"])
-        component_unit_price = _decimal_text(displayed_price / pack.pack_count)
-        litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
-        price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
+        try:
+            displayed_price = _decimal_price(offer["Price"])
+            drs_deposit = _dunnes_drs_deposit(offer)
+            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
+            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
+            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
+        except Exception as exc:
+            # Malformed prices demote to source_error; never throw mid-observation.
+            status = "source_error"
+            error = str(exc)
+            displayed_price = None
+            drs_deposit = None
+            component_unit_price = None
+            price_per_litre = None
 
     summary = {
         "run_id": run_id,
         "retailer": "dunnes",
         "catalog_id": pack.catalog_id,
         "status": status,
-        "observed_count": int(observed),
+        "observed_count": int(status == "observed"),
         "failed_count": int(status == "source_error"),
         "duration_ms": duration_ms,
     }
@@ -648,7 +763,10 @@ def collect_one(
         )
         connection.execute(
             """
-            INSERT INTO catalog_mappings VALUES (?, 'dunnes', ?, ?, ?, ?)
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name,
+                 source_product_reference, source_item_id, status)
+            VALUES (?, 'dunnes', ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
@@ -703,16 +821,16 @@ def collect_one(
                     """,
                     (candidate_id, reference, item_id, name, price, raw_record, observed_at),
                 )
-        if observed:
+        if status == "observed":
             assert product is not None and item is not None and displayed_price is not None
             connection.execute(
                 """
                 INSERT INTO price_observations (
                     run_id, catalog_id, retailer, source_product_reference,
-                    source_item_id, source_product_name, displayed_price, currency,
-                    pack_count, unit_size_ml, package_type, component_unit_price,
-                    price_per_litre, observed_at
-                ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
+                    source_item_id, source_product_name, displayed_price, drs_deposit,
+                    currency, pack_count, unit_size_ml, package_type,
+                    component_unit_price, price_per_litre, observed_at
+                ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     run_id,
@@ -721,6 +839,7 @@ def collect_one(
                     item.get("itemId", ""),
                     product.get("productName", ""),
                     _decimal_text(displayed_price),
+                    _decimal_text(drs_deposit) if drs_deposit is not None else None,
                     pack.pack_count,
                     pack.unit_size_ml,
                     pack.package_type,
@@ -729,6 +848,24 @@ def collect_one(
                     observed_at,
                 ),
             )
+            if drs_deposit is None:
+                # Validated source limitation: no live VTEX offer carries
+                # deposit evidence (see _dunnes_drs_deposit).
+                connection.execute(
+                    """
+                    INSERT INTO collection_diagnostics
+                        (run_id, retailer, catalog_id, level, event, message,
+                         raw_record, request_metadata, created_at)
+                    VALUES (?, 'dunnes', ?, 'warning', 'drs_not_available', ?, NULL, NULL, ?)
+                    """,
+                    (
+                        run_id,
+                        pack.catalog_id,
+                        "Dunnes VTEX offer evidence exposes no DRS deposit;"
+                        " stored as NULL",
+                        timestamp(),
+                    ),
+                )
         connection.commit()
     return summary | ({"error": error} if error else {})
 
@@ -874,10 +1011,16 @@ def collect_supervalu_one(
     database: str | Path,
     *,
     store_id: str | None = None,
+    hydrator: Callable[[str], Mapping[str, Any]] | None = None,
     _run_id: str | None = None,
     _started_at: str | None = None,
 ) -> dict[str, Any]:
-    """Collect one mapped pack from one configured SuperValu store."""
+    """Collect one mapped pack from one configured SuperValu store.
+
+    When *mapping.source_product_id* is known, uses direct product-ID
+    hydration (via *hydrator* or ``fetcher.fetch_product``) instead of
+    repeating the catalog search.
+    """
     if pack.catalog_id != mapping.catalog_id:
         raise ValueError("catalog pack and SuperValu mapping must have the same catalog_id")
     if pack.pack_count < 1 or pack.unit_size_ml < 1:
@@ -899,7 +1042,26 @@ def collect_supervalu_one(
         error = "catalog mapping is not approved"
     else:
         try:
-            item = _find_supervalu_listing(fetcher(pack.search_term), mapping)
+            # Direct hydration via stable source identifier where available.
+            if mapping.source_product_id:
+                hydrate = hydrator or getattr(fetcher, "fetch_product", None)
+                if hydrate is not None and callable(hydrate):
+                    payload = hydrate(str(mapping.source_product_id))
+                    items = payload.get("items")
+                    if isinstance(items, list) and items:
+                        item = items[0] if isinstance(items[0], dict) else None
+                    elif isinstance(payload, dict) and payload.get("productId"):
+                        item = payload
+                    if item is None:
+                        raise LookupError(f"SuperValu product {mapping.source_product_id} returned no item")
+                else:
+                    item = _find_supervalu_listing(fetcher(pack.search_term), mapping)
+            else:
+                item = _find_supervalu_listing(fetcher(pack.search_term), mapping)
+            reason = _validate_listing(item.get("name", ""), pack)
+            if reason is not None:
+                status = "source_error"
+                error = f"stale source identifier: {reason}"
         except LookupError as exc:
             status = "not_found"
             error = str(exc)
@@ -977,7 +1139,10 @@ def collect_supervalu_one(
         )
         connection.execute(
             """
-            INSERT INTO catalog_mappings VALUES (?, 'supervalu', ?, ?, ?, ?)
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name,
+                 source_product_reference, source_item_id, status)
+            VALUES (?, 'supervalu', ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
@@ -1256,6 +1421,10 @@ def collect_tesco_one(
                 else fetcher(pack.search_term)
             )
             item = _find_tesco_listing(payload, mapping)
+            reason = _validate_listing(item.get("title", ""), pack)
+            if reason is not None:
+                status = "source_error"
+                error = f"stale source identifier: {reason}"
         except LookupError as exc:
             status = "not_found"
             error = str(exc)
@@ -1313,7 +1482,10 @@ def collect_tesco_one(
         )
         connection.execute(
             """
-            INSERT INTO catalog_mappings VALUES (?, 'tesco', ?, ?, ?, ?)
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name,
+                 source_product_reference, source_item_id, status)
+            VALUES (?, 'tesco', ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
@@ -1372,6 +1544,779 @@ def collect_tesco_one(
                 """,
                 (run_id, pack.catalog_id,
                  "direct TPNB hydration expected; falling back to search", timestamp()),
+            )
+        connection.commit()
+    return summary | ({"error": error} if error else {})
+
+
+LIDL_SEARCH_ENDPOINT = "https://www.lidl.ie/q/api/search"
+LIDL_BASE_URL = "https://www.lidl.ie"
+LIDL_SEARCH_ACCEPT = "application/mindshift.search+json"
+_LIDL_PDP_SCRIPT = re.compile(
+    r'<script type="application/json" data-nuxt-data="pdp-view"[^>]*>(.*?)</script>',
+    re.S,
+)
+
+
+def _lidl_price_record(price: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Flatten one Lidl price block into retained source-evidence fields."""
+    price = price if isinstance(price, Mapping) else {}
+    record: dict[str, Any] = {"specialTaxes": price.get("specialTaxes") or []}
+    base_price = price.get("basePrice")
+    if isinstance(base_price, Mapping) and base_price.get("text") is not None:
+        record["basePriceText"] = base_price["text"]
+    if price.get("price") is not None:
+        record["price"] = price["price"]
+    if price.get("oldPrice"):
+        record["oldPrice"] = price["oldPrice"]
+    packaging = price.get("packaging")
+    if isinstance(packaging, Mapping) and packaging.get("text") is not None:
+        record["packSize"] = packaging["text"]
+    return record
+
+
+def _lidl_search_record(item: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize one search gridbox item into a flat listing record."""
+    gridbox = item.get("gridbox")
+    data = gridbox.get("data") if isinstance(gridbox, Mapping) else {}
+    if not isinstance(data, Mapping):
+        data = {}
+    keyfacts_raw = data.get("keyfacts")
+    keyfacts: Mapping[str, Any] = keyfacts_raw if isinstance(keyfacts_raw, Mapping) else {}
+    name = (
+        data.get("fullTitle") or keyfacts.get("fullTitle")
+        or data.get("title") or keyfacts.get("title") or ""
+    )
+    product_id = data.get("productId") or data.get("erpNumber") or item.get("code") or ""
+    record = _lidl_price_record(data.get("price"))
+    record["productId"] = str(product_id)
+    record["name"] = str(name)
+    if data.get("canonicalPath"):
+        record["url"] = data["canonicalPath"]
+    if data.get("multipack") is not None:
+        record["multipack"] = data["multipack"]
+    return record
+
+
+def _lidl_deref(elements: list[Any], index: Any, depth: int = 0) -> Any:
+    """Resolve one Nuxt ``__NUXT_DATA__`` reference against the payload array."""
+    if not isinstance(index, int) or depth > 50:
+        return index
+    if index < 0 or index >= len(elements):
+        return index
+    value = elements[index]
+    if isinstance(value, dict):
+        return {key: _lidl_deref(elements, item, depth + 1) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_lidl_deref(elements, item, depth + 1) for item in value]
+    return value
+
+
+class LidlClient:
+    """Fetch Lidl Ireland search results and product pages.
+
+    Source limitations (validated against live responses): the documented
+    ``/p/api`` endpoints return 404; the working search API is
+    ``/q/api/search`` and requires ``Accept: application/mindshift.search+json``.
+    Each search returns one page of up to ``fetchsize`` items; the client does
+    not paginate beyond the first page.  Lidl Plus loyalty prices are not
+    exposed by this source, so ``clubcard_price`` stays ``None``.
+    """
+
+    def __init__(
+        self,
+        endpoint: str = LIDL_SEARCH_ENDPOINT,
+        base_url: str = LIDL_BASE_URL,
+        opener: urllib.request.OpenerDirector | None = None,
+        min_request_interval: float = 1.0,
+    ):
+        if min_request_interval < 0:
+            raise ValueError("Lidl request interval must not be negative")
+        self.endpoint = endpoint
+        self.base_url = base_url.rstrip("/")
+        self.opener = opener or urllib.request.build_opener()
+        self.min_request_interval = min_request_interval
+        self._last_request_at: float | None = None
+
+    def __call__(self, search_term: str) -> dict[str, Any]:
+        """Search Lidl Ireland products."""
+        if not search_term.strip():
+            raise ValueError("Lidl search term must not be empty")
+        payload = self._request_json(
+            self.endpoint + "?" + urllib.parse.urlencode({
+                "assortment": "IE",
+                "locale": "en_IE",
+                "q": search_term,
+                "version": "2.1.1",
+                "fetchsize": "100",
+            })
+        )
+        if not isinstance(payload, dict):
+            raise RuntimeError("Lidl search response was not a JSON object")
+        items = payload.get("items")
+        if items is None and payload.get("resultType") in {"empty", "redirect"}:
+            # Observed live: empty and redirect results carry no items list.
+            items = []
+        if not isinstance(items, list):
+            raise RuntimeError("Lidl search response has no items list")
+        records = [
+            _lidl_search_record(item)
+            for item in items
+            if isinstance(item, Mapping)
+        ]
+        total: Any = payload.get("numFound")
+        if total is None and payload.get("resultType") == "empty":
+            total = 0  # an empty result set is a complete result set
+        return {
+            "items": records,
+            "pagination": {"total": total, "offset": payload.get("offset", 0)},
+        }
+
+    def fetch_product(self, product_id: str) -> dict[str, Any]:
+        """Fetch one Lidl product where supported.
+
+        Lidl has no JSON product endpoint.  The product ID resolves through
+        the search API's redirect to a server-rendered product page whose
+        embedded Nuxt data carries the same price evidence.  Returns
+        ``{"items": []}`` when the ID does not resolve to that product's
+        own page.
+        """
+        identifier = str(product_id).strip()
+        if not identifier:
+            raise ValueError("Lidl product_id must not be empty")
+        redirect = self._request_json(
+            self.endpoint + "?" + urllib.parse.urlencode({
+                "assortment": "IE",
+                "locale": "en_IE",
+                "q": identifier,
+                "version": "2.1.1",
+            })
+        )
+        if not isinstance(redirect, dict):
+            raise RuntimeError("Lidl product lookup was not a JSON object")
+        path = redirect.get("redirectURL")
+        if not isinstance(path, str) or not path:
+            return {"items": []}
+        html = self._request_text(self.base_url + path)
+        record = self._record_from_product_page(identifier, html)
+        return {"items": [record]} if record else {"items": []}
+
+    def _record_from_product_page(
+        self, product_id: str, html: str
+    ) -> dict[str, Any] | None:
+        """Extract one listing record from a Lidl product page."""
+        match = _LIDL_PDP_SCRIPT.search(html)
+        if match is None:
+            raise RuntimeError("Lidl product page has no embedded product data")
+        try:
+            elements = json.loads(match.group(1))
+        except ValueError as exc:
+            raise RuntimeError(f"Lidl product page data is invalid JSON: {exc}") from exc
+        if not isinstance(elements, list):
+            raise RuntimeError("Lidl product page data has an unexpected shape")
+        product: dict[str, Any] = {}
+        price_block: dict[str, Any] | None = None
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            if "erpNumber" in element and not product:
+                candidate_id = _lidl_deref(
+                    elements, element.get("productId", element.get("erpNumber"))
+                )
+                if str(candidate_id or "") == product_id:
+                    product = {
+                        key: _lidl_deref(elements, element[key])
+                        for key in ("keyfacts", "canonicalPath", "multipack")
+                        if key in element
+                    }
+            if "specialTaxes" in element and "price" in element:
+                resolved = {
+                    key: _lidl_deref(elements, value) for key, value in element.items()
+                }
+                if not isinstance(resolved.get("price"), (int, float)):
+                    continue
+                if "startDate" not in element:
+                    # The plain block is the current price; dated blocks are
+                    # campaign windows and only serve as a fallback.
+                    price_block = resolved
+                    break
+                price_block = price_block or resolved
+        if not product or price_block is None:
+            return None
+        keyfacts_raw = product.get("keyfacts")
+        keyfacts: Mapping[str, Any] = keyfacts_raw if isinstance(keyfacts_raw, Mapping) else {}
+        name = keyfacts.get("fullTitle") or keyfacts.get("title") or ""
+        record = _lidl_price_record(price_block)
+        record["productId"] = str(product_id)
+        record["name"] = str(name)
+        if product.get("canonicalPath"):
+            record["url"] = product["canonicalPath"]
+        if product.get("multipack") is not None:
+            record["multipack"] = product["multipack"]
+        return record
+
+    def _throttle(self) -> None:
+        if self._last_request_at is not None:
+            delay = self.min_request_interval - (time.monotonic() - self._last_request_at)
+            if delay > 0:
+                time.sleep(delay)
+
+    def _request_json(self, url: str) -> Any:
+        return json.loads(self._request_text(url, accept=LIDL_SEARCH_ACCEPT))
+
+    def _request_text(self, url: str, *, accept: str = "text/html") -> str:
+        self._throttle()
+        request = urllib.request.Request(
+            url,
+            headers={"Accept": accept, "User-Agent": "drinks-tracker/0.1"},
+        )
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                if getattr(response, "status", 200) >= 400:
+                    raise RuntimeError(f"Lidl HTTP {response.status}")
+                body = response.read()
+        except Exception as exc:
+            if isinstance(exc, RuntimeError):
+                raise
+            raise RuntimeError(f"Lidl request failed: {exc}") from exc
+        finally:
+            self._last_request_at = time.monotonic()
+        try:
+            return body.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RuntimeError(f"Lidl response was not UTF-8: {exc}") from exc
+
+
+def _find_lidl_listing(
+    payload: Mapping[str, Any], mapping: LidlMapping
+) -> dict[str, Any]:
+    items = payload.get("items")
+    if not isinstance(items, list):
+        raise ValueError("Lidl response has no items list")
+    expected_tokens = _normalise_name(mapping.expected_product_name)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        product_id = str(item.get("productId") or "")
+        if mapping.source_product_id and product_id != str(mapping.source_product_id):
+            continue
+        if not mapping.source_product_id and not expected_tokens.issubset(
+            _normalise_name(str(item.get("name") or ""))
+        ):
+            continue
+        return item
+    raise LookupError("mapped Lidl product was not found")
+
+
+def _lidl_drs_deposit(item: Mapping[str, Any]) -> Decimal | None:
+    """Extract the Lidl refundable deposit from price evidence.
+
+    Verified evidence shape: the current price block carries the deposit in
+    ``basePrice.text`` (for example ``"€2.25 Deposit Return"``) in place of
+    the usual unit-price text.  ``specialTaxes`` entries naming a deposit
+    are honoured first, but that list has not been observed populated for
+    Lidl Ireland, so its entry shape is unverified.
+    """
+    for tax in item.get("specialTaxes") or []:
+        if not isinstance(tax, Mapping):
+            continue
+        label = " ".join(
+            str(tax.get(key) or "")
+            for key in ("label", "name", "type", "group", "groupName")
+        )
+        if "deposit" not in label.lower():
+            continue
+        amount = tax.get("amount")
+        if amount is None:
+            amount = tax.get("value")
+        if amount is not None:
+            return _decimal_price(amount)
+    text = item.get("basePriceText")
+    if text is not None and re.search(r"deposit", str(text), re.IGNORECASE):
+        match = re.search(r"€\s*([0-9]+(?:[.,][0-9]+)?)", str(text))
+        if match:
+            return _decimal_price(match.group(1).replace(",", "."))
+    return None
+
+
+def collect_lidl_one(
+    pack: BenchmarkPack,
+    mapping: LidlMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    database: str | Path,
+    *,
+    _run_id: str | None = None,
+    _started_at: str | None = None,
+) -> dict[str, Any]:
+    """Collect one mapped pack from Lidl Ireland's storefront."""
+    if pack.catalog_id != mapping.catalog_id:
+        raise ValueError("catalog pack and Lidl mapping must have the same catalog_id")
+    if pack.pack_count < 1 or pack.unit_size_ml < 1:
+        raise ValueError("pack composition must contain positive count and size")
+
+    started_at = _started_at or timestamp()
+    started = time.monotonic()
+    run_id = _run_id or uuid.uuid4().hex
+    own_run = _run_id is None
+    status = "observed"
+    error: str | None = None
+    item: dict[str, Any] | None = None
+    if mapping.status != "approved":
+        status = "unmapped"
+        error = "catalog mapping is not approved"
+    else:
+        try:
+            direct_fetcher = getattr(fetcher, "fetch_product", None)
+            payload = (
+                direct_fetcher(str(mapping.source_product_id))
+                if mapping.source_product_id and callable(direct_fetcher)
+                else fetcher(pack.search_term)
+            )
+            item = _find_lidl_listing(payload, mapping)
+            reason = _validate_listing(item.get("name", ""), pack)
+            if reason is not None:
+                status = "source_error"
+                error = f"stale source identifier: {reason}"
+        except LookupError as exc:
+            status = "not_found"
+            error = str(exc)
+        except Exception as exc:
+            status = "source_error"
+            error = str(exc)
+
+    displayed_price: Decimal | None = None
+    drs_deposit: Decimal | None = None
+    component_unit_price: str | None = None
+    price_per_litre: str | None = None
+    if status == "observed":
+        assert item is not None
+        try:
+            displayed_price = _decimal_price(item.get("price"))
+            drs_deposit = _lidl_drs_deposit(item)
+            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
+            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
+            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
+        except Exception as exc:
+            status = "source_error"
+            error = str(exc)
+
+    source_product_id = (
+        str(item.get("productId") or "") if item else str(mapping.source_product_id or "")
+    )
+    summary = {
+        "run_id": run_id,
+        "retailer": "lidl",
+        "catalog_id": pack.catalog_id,
+        "status": status,
+        "observed_count": int(status == "observed"),
+        "failed_count": int(status == "source_error"),
+        "duration_ms": round((time.monotonic() - started) * 1000, 1),
+    }
+
+    database_path = Path(database)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(database_path)) as connection:
+        ensure_schema(connection)
+        connection.execute(
+            """
+            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(catalog_id) DO UPDATE SET
+                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
+                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
+                package_type=excluded.package_type, search_term=excluded.search_term
+            """,
+            (pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
+             pack.unit_size_ml, pack.package_type, pack.search_term),
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name,
+                 source_product_reference, source_item_id, status)
+            VALUES (?, 'lidl', ?, ?, ?, ?)
+            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
+                expected_product_name=excluded.expected_product_name,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id, status=excluded.status
+            """,
+            (mapping.catalog_id, mapping.expected_product_name,
+             source_product_id or mapping.source_product_id, None, mapping.status),
+        )
+        if own_run:
+            connection.execute(
+                """
+                INSERT INTO collection_runs
+                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (run_id, started_at, timestamp(),
+                 "completed" if status != "source_error" else "failed",
+                 summary["observed_count"], summary["failed_count"], json.dumps(summary)),
+            )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, error,
+                 source_product_reference, source_item_id, source_scope, recorded_at)
+            VALUES (?, ?, 'lidl', ?, ?, ?, NULL, NULL, ?)
+            """,
+            (run_id, pack.catalog_id, status, error,
+             source_product_id or None, timestamp()),
+        )
+        if status == "observed":
+            assert item is not None and displayed_price is not None
+            connection.execute(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price, clubcard_price,
+                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
+                    package_type, component_unit_price, price_per_litre, observed_at
+                ) VALUES (?, ?, 'lidl', ?, ?, ?, ?, NULL, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
+                """,
+                (run_id, pack.catalog_id, source_product_id, source_product_id,
+                 item.get("name", ""), _decimal_text(displayed_price),
+                 _decimal_text(drs_deposit) if drs_deposit is not None else None,
+                 pack.pack_count, pack.unit_size_ml, pack.package_type,
+                 component_unit_price, price_per_litre, timestamp()),
+            )
+        connection.commit()
+    return summary | ({"error": error} if error else {})
+
+
+ALDI_SEARCH_ENDPOINT = "https://asl.api.aldi.ie/commerce/v3/product-search"
+ALDI_PRODUCT_ENDPOINT = "https://asl.api.aldi.ie/commerce/v2/products"
+ALDI_SEARCH_LIMIT = 30  # the API rejects page sizes outside {12,16,24,30,32,48,60}
+
+
+def _aldi_record(item: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize one Aldi product into a flat listing record.
+
+    Source prices are integer cents; the euro display strings are retained
+    instead so no float conversion is ever needed.  The bottle deposit is
+    only retained when the source reports a positive amount, because ``0``
+    means the listing carries no deposit rather than a zero deposit.
+    """
+    price = item.get("price")
+    price = price if isinstance(price, Mapping) else {}
+    record: dict[str, Any] = {
+        "productId": str(item.get("sku") or ""),
+        "name": str(item.get("name") or ""),
+    }
+    if item.get("brandName"):
+        record["brand"] = item["brandName"]
+    if price.get("amountRelevantDisplay") is not None:
+        record["price"] = price["amountRelevantDisplay"]
+    elif price.get("amount") is not None:
+        record["price"] = f"€{_decimal_text(Decimal(str(price["amount"])) / 100)}"
+    if price.get("wasPriceDisplay"):
+        record["oldPrice"] = price["wasPriceDisplay"]
+    if price.get("comparisonDisplay"):
+        record["unitPriceText"] = price["comparisonDisplay"]
+    if item.get("sellingSize") is not None:
+        # sellingSize is the total selling size (e.g. "1.98 L" for a 6-pack),
+        # so it feeds the total-volume evidence, not the unit-size evidence.
+        record["totalVolume"] = item["sellingSize"]
+    if price.get("bottleDeposit"):
+        record["bottleDepositText"] = (
+            price.get("bottleDepositDisplay")
+            or f"€{_decimal_text(Decimal(str(price["bottleDeposit"])) / 100)}"
+        )
+    return record
+
+
+class AldiClient:
+    """Fetch Aldi Ireland grocery search results and product details.
+
+    Source limitations (validated against live responses): the storefront
+    pages at ``groceries.aldi.ie`` block non-browser clients (HTTP 403), but
+    the underlying ``asl.api.aldi.ie`` JSON endpoints answer directly.  Each
+    search returns one page of at most ``ALDI_SEARCH_LIMIT`` items and the
+    client does not paginate further.  No loyalty price is exposed by this
+    source, so ``clubcard_price`` stays ``None``.
+    """
+
+    def __init__(
+        self,
+        search_endpoint: str = ALDI_SEARCH_ENDPOINT,
+        product_endpoint: str = ALDI_PRODUCT_ENDPOINT,
+        opener: urllib.request.OpenerDirector | None = None,
+        min_request_interval: float = 1.0,
+    ):
+        if min_request_interval < 0:
+            raise ValueError("Aldi request interval must not be negative")
+        self.search_endpoint = search_endpoint
+        self.product_endpoint = product_endpoint
+        self.opener = opener or urllib.request.build_opener()
+        self.min_request_interval = min_request_interval
+        self._last_request_at: float | None = None
+
+    def __call__(self, search_term: str) -> dict[str, Any]:
+        """Search Aldi Ireland products."""
+        if not search_term.strip():
+            raise ValueError("Aldi search term must not be empty")
+        payload = self._request_json(
+            self.search_endpoint + "?" + urllib.parse.urlencode({
+                "currency": "EUR",
+                "serviceType": "walk-in",
+                "q": search_term,
+                "limit": str(ALDI_SEARCH_LIMIT),
+                "offset": "0",
+                "sort": "relevance",
+            })
+        )
+        if not isinstance(payload, dict):
+            raise RuntimeError("Aldi search response was not a JSON object")
+        items = payload.get("data")
+        if not isinstance(items, list):
+            raise RuntimeError("Aldi search response has no data list")
+        meta_raw = payload.get("meta")
+        meta: Mapping[str, Any] = meta_raw if isinstance(meta_raw, Mapping) else {}
+        pagination_raw = meta.get("pagination")
+        pagination: Mapping[str, Any] = (
+            pagination_raw if isinstance(pagination_raw, Mapping) else {}
+        )
+        return {
+            "items": [_aldi_record(item) for item in items if isinstance(item, Mapping)],
+            "pagination": {
+                "total": pagination.get("totalCount"),
+                "offset": pagination.get("offset", 0),
+            },
+        }
+
+    def fetch_product(self, product_id: str) -> dict[str, Any]:
+        """Fetch one Aldi product by its numeric SKU."""
+        identifier = str(product_id).strip()
+        if not identifier:
+            raise ValueError("Aldi product_id must not be empty")
+        payload = self._request_json(
+            self.product_endpoint + "?" + urllib.parse.urlencode({
+                "serviceType": "walk-in",
+                "skus": identifier,
+                "limit": str(ALDI_SEARCH_LIMIT),
+            })
+        )
+        if not isinstance(payload, dict):
+            raise RuntimeError("Aldi product response was not a JSON object")
+        items = payload.get("data")
+        records = [
+            _aldi_record(item)
+            for item in (items if isinstance(items, list) else [])
+            if isinstance(item, Mapping)
+        ]
+        matching = [r for r in records if r["productId"] == identifier]
+        return {"items": matching}
+
+    def _throttle(self) -> None:
+        if self._last_request_at is not None:
+            delay = self.min_request_interval - (time.monotonic() - self._last_request_at)
+            if delay > 0:
+                time.sleep(delay)
+
+    def _request_json(self, url: str) -> Any:
+        self._throttle()
+        request = urllib.request.Request(
+            url,
+            headers={"Accept": "application/json", "User-Agent": "drinks-tracker/0.1"},
+        )
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                if getattr(response, "status", 200) >= 400:
+                    raise RuntimeError(f"Aldi HTTP {response.status}")
+                body = response.read()
+        except Exception as exc:
+            if isinstance(exc, RuntimeError):
+                raise
+            raise RuntimeError(f"Aldi request failed: {exc}") from exc
+        finally:
+            self._last_request_at = time.monotonic()
+        try:
+            return json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise RuntimeError(f"Aldi response was not valid JSON: {exc}") from exc
+
+
+def _find_aldi_listing(
+    payload: Mapping[str, Any], mapping: AldiMapping
+) -> dict[str, Any]:
+    items = payload.get("items")
+    if not isinstance(items, list):
+        raise ValueError("Aldi response has no items list")
+    expected_tokens = _normalise_name(mapping.expected_product_name)
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        product_id = str(item.get("productId") or "")
+        if mapping.source_product_id and product_id != str(mapping.source_product_id):
+            continue
+        if not mapping.source_product_id and not expected_tokens.issubset(
+            _normalise_name(str(item.get("name") or ""))
+        ):
+            continue
+        return item
+    raise LookupError("mapped Aldi product was not found")
+
+
+def _aldi_drs_deposit(item: Mapping[str, Any]) -> Decimal | None:
+    """Extract the Aldi refundable deposit from price evidence.
+
+    The source exposes a structured ``price.bottleDeposit`` (integer cents)
+    with a euro display string.  Verified limitation: every captured Aldi IE
+    online listing reported a zero deposit — DRS-eligible cans and small PET
+    bottles are not observable in the online range — so only the display-
+    string path is validated against live data.
+    """
+    text = item.get("bottleDepositText")
+    if text is None:
+        return None
+    return _decimal_price(text)
+
+
+def collect_aldi_one(
+    pack: BenchmarkPack,
+    mapping: AldiMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    database: str | Path,
+    *,
+    _run_id: str | None = None,
+    _started_at: str | None = None,
+) -> dict[str, Any]:
+    """Collect one mapped pack from Aldi Ireland's grocery API."""
+    if pack.catalog_id != mapping.catalog_id:
+        raise ValueError("catalog pack and Aldi mapping must have the same catalog_id")
+    if pack.pack_count < 1 or pack.unit_size_ml < 1:
+        raise ValueError("pack composition must contain positive count and size")
+
+    started_at = _started_at or timestamp()
+    started = time.monotonic()
+    run_id = _run_id or uuid.uuid4().hex
+    own_run = _run_id is None
+    status = "observed"
+    error: str | None = None
+    item: dict[str, Any] | None = None
+    if mapping.status != "approved":
+        status = "unmapped"
+        error = "catalog mapping is not approved"
+    else:
+        try:
+            direct_fetcher = getattr(fetcher, "fetch_product", None)
+            payload = (
+                direct_fetcher(str(mapping.source_product_id))
+                if mapping.source_product_id and callable(direct_fetcher)
+                else fetcher(pack.search_term)
+            )
+            item = _find_aldi_listing(payload, mapping)
+            # Aldi keeps the brand in a structured field rather than the
+            # product name, so validate against the combined evidence.
+            evidence_name = " ".join(
+                str(part) for part in (item.get("brand"), item.get("name")) if part
+            )
+            reason = _validate_listing(evidence_name, pack)
+            if reason is not None:
+                status = "source_error"
+                error = f"stale source identifier: {reason}"
+        except LookupError as exc:
+            status = "not_found"
+            error = str(exc)
+        except Exception as exc:
+            status = "source_error"
+            error = str(exc)
+
+    displayed_price: Decimal | None = None
+    drs_deposit: Decimal | None = None
+    component_unit_price: str | None = None
+    price_per_litre: str | None = None
+    if status == "observed":
+        assert item is not None
+        try:
+            displayed_price = _decimal_price(item.get("price"))
+            drs_deposit = _aldi_drs_deposit(item)
+            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
+            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
+            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
+        except Exception as exc:
+            status = "source_error"
+            error = str(exc)
+
+    source_product_id = (
+        str(item.get("productId") or "") if item else str(mapping.source_product_id or "")
+    )
+    summary = {
+        "run_id": run_id,
+        "retailer": "aldi",
+        "catalog_id": pack.catalog_id,
+        "status": status,
+        "observed_count": int(status == "observed"),
+        "failed_count": int(status == "source_error"),
+        "duration_ms": round((time.monotonic() - started) * 1000, 1),
+    }
+
+    database_path = Path(database)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(database_path)) as connection:
+        ensure_schema(connection)
+        connection.execute(
+            """
+            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(catalog_id) DO UPDATE SET
+                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
+                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
+                package_type=excluded.package_type, search_term=excluded.search_term
+            """,
+            (pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
+             pack.unit_size_ml, pack.package_type, pack.search_term),
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name,
+                 source_product_reference, source_item_id, status)
+            VALUES (?, 'aldi', ?, ?, ?, ?)
+            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
+                expected_product_name=excluded.expected_product_name,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id, status=excluded.status
+            """,
+            (mapping.catalog_id, mapping.expected_product_name,
+             source_product_id or mapping.source_product_id, None, mapping.status),
+        )
+        if own_run:
+            connection.execute(
+                """
+                INSERT INTO collection_runs
+                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (run_id, started_at, timestamp(),
+                 "completed" if status != "source_error" else "failed",
+                 summary["observed_count"], summary["failed_count"], json.dumps(summary)),
+            )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, error,
+                 source_product_reference, source_item_id, source_scope, recorded_at)
+            VALUES (?, ?, 'aldi', ?, ?, ?, NULL, NULL, ?)
+            """,
+            (run_id, pack.catalog_id, status, error,
+             source_product_id or None, timestamp()),
+        )
+        if status == "observed":
+            assert item is not None and displayed_price is not None
+            connection.execute(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price, clubcard_price,
+                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
+                    package_type, component_unit_price, price_per_litre, observed_at
+                ) VALUES (?, ?, 'aldi', ?, ?, ?, ?, NULL, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
+                """,
+                (run_id, pack.catalog_id, source_product_id, source_product_id,
+                 item.get("name", ""), _decimal_text(displayed_price),
+                 _decimal_text(drs_deposit) if drs_deposit is not None else None,
+                 pack.pack_count, pack.unit_size_ml, pack.package_type,
+                 component_unit_price, price_per_litre, timestamp()),
             )
         connection.commit()
     return summary | ({"error": error} if error else {})
@@ -1532,6 +2477,16 @@ def collect_run(
                         )
                     elif retailer_name == "tesco":
                         result = collect_tesco_one(
+                            pack, mapping, fetcher, database_path,
+                            _run_id=run_id, _started_at=started_at,
+                        )
+                    elif retailer_name == "lidl":
+                        result = collect_lidl_one(
+                            pack, mapping, fetcher, database_path,
+                            _run_id=run_id, _started_at=started_at,
+                        )
+                    elif retailer_name == "aldi":
+                        result = collect_aldi_one(
                             pack, mapping, fetcher, database_path,
                             _run_id=run_id, _started_at=started_at,
                         )
@@ -1716,6 +2671,8 @@ def _load_mappings(mapping_path: Path) -> dict[str, list[Any]]:
         "dunnes": DunnesMapping,
         "supervalu": SuperValuMapping,
         "tesco": TescoMapping,
+        "lidl": LidlMapping,
+        "aldi": AldiMapping,
     }
     mappings: dict[str, list[Any]] = {}
     for retailer, rows in raw.items():
@@ -1734,13 +2691,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--catalog", type=Path, default=Path("data/catalog.json"))
     parser.add_argument("--mapping", type=Path, default=Path("data/mappings.json"))
     parser.add_argument("--catalog-id", help="stable catalog_id to collect")
-    parser.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco"))
+    parser.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     parser.add_argument(
         "--supervalu-store-id",
         default=os.environ.get("SUPERVALU_STORE_ID"),
         help="configured SuperValu store identifier (or SUPERVALU_STORE_ID)",
     )
-    parser.add_argument("--database", type=Path, default=Path("feed.sqlite"))
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")),
+    )
     args = parser.parse_args(argv)
 
     catalog = load_catalog(args.catalog)
@@ -1764,6 +2725,10 @@ def main(argv: list[str] | None = None) -> int:
             adapters[retailer] = SuperValuClient(args.supervalu_store_id)
         elif retailer == "tesco":
             adapters[retailer] = TescoClient()
+        elif retailer == "lidl":
+            adapters[retailer] = LidlClient()
+        elif retailer == "aldi":
+            adapters[retailer] = AldiClient()
 
     summary = collect_run(
         catalog,

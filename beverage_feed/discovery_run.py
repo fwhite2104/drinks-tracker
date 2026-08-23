@@ -13,7 +13,15 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any, Mapping
 
-from .collector import BenchmarkPack, DunnesClient, SuperValuClient, TescoClient, timestamp
+from .collector import (
+    AldiClient,
+    BenchmarkPack,
+    DunnesClient,
+    LidlClient,
+    SuperValuClient,
+    TescoClient,
+    timestamp,
+)
 from .discovery import (
     DiscoveryStore, candidate_id_for, load_rejections, reconcile_json_decisions,
 )
@@ -326,8 +334,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--catalog", type=Path, default=Path("data/catalog.json"))
     parser.add_argument("--mapping", type=Path, default=Path("data/mappings.json"))
     parser.add_argument("--rejections", type=Path, default=Path("data/rejections.json"))
-    parser.add_argument("--database", type=Path, default=Path("feed.sqlite"))
-    parser.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco"))
+    parser.add_argument(
+        "--database",
+        type=Path,
+        default=Path(os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")),
+    )
+    parser.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     parser.add_argument(
         "--request-cap", type=int, default=DEFAULT_REQUEST_CAP,
         help="per-retailer outbound request cap for this run",
@@ -345,10 +357,14 @@ def main(argv: list[str] | None = None) -> int:
     catalog = load_catalog(args.catalog)
     store = DiscoveryStore(args.database)
 
-    retailers = [args.retailer] if args.retailer else ["dunnes", "supervalu", "tesco"]
+    retailers = [args.retailer] if args.retailer else ["dunnes", "supervalu", "tesco", "lidl", "aldi"]
     adapters: dict[str, DiscoveryAdapter] = {}
     from .discovery_adapters import (
-        DunnesDiscoveryAdapter, SuperValuDiscoveryAdapter, TescoDiscoveryAdapter,
+        AldiDiscoveryAdapter,
+        DunnesDiscoveryAdapter,
+        LidlDiscoveryAdapter,
+        SuperValuDiscoveryAdapter,
+        TescoDiscoveryAdapter,
     )
     for name in retailers:
         if name == "dunnes":
@@ -357,8 +373,12 @@ def main(argv: list[str] | None = None) -> int:
             if not args.supervalu_store_id:
                 parser.error("--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu")
             adapters[name] = SuperValuDiscoveryAdapter(SuperValuClient(args.supervalu_store_id))
-        else:
+        elif name == "tesco":
             adapters[name] = TescoDiscoveryAdapter(TescoClient())
+        elif name == "lidl":
+            adapters[name] = LidlDiscoveryAdapter(LidlClient())
+        else:
+            adapters[name] = AldiDiscoveryAdapter(AldiClient())
 
     summary = run_discovery(
         catalog, adapters, store,
