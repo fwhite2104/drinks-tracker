@@ -9,6 +9,7 @@ import json
 import os
 import re
 import sqlite3
+import sys
 import time
 import urllib.parse
 import urllib.request
@@ -956,6 +957,20 @@ class SuperValuClient:
         payload = self._get(url)
         if not isinstance(payload, dict):
             raise RuntimeError("SuperValu product response was not a JSON object")
+        # The detail endpoint keys identity by ``sku``; downstream hydration
+        # checks ``productId``. Normalize, and mirror the formatted price into
+        # ``priceNumeric`` so numeric-first readers see it.
+        if not payload.get("productId") and payload.get("sku"):
+            payload["productId"] = payload["sku"]
+        if payload.get("priceNumeric") is None and payload.get("price") is not None:
+            try:
+                from decimal import Decimal as _D
+
+                payload["priceNumeric"] = float(
+                    str(payload["price"]).replace("€", "").strip()
+                )
+            except (ValueError, TypeError):
+                pass
         return payload
 
     def _get(self, url: str, *, parse_json: bool = True) -> Any:
@@ -2739,16 +2754,24 @@ def main(argv: list[str] | None = None) -> int:
 
     adapters: dict[str, Callable[[str], Mapping[str, Any]]] = {}
     for retailer in configured_retailers:
-        if retailer == "dunnes":
-            adapters[retailer] = DunnesClient()
-        elif retailer == "supervalu":
-            adapters[retailer] = SuperValuClient(args.supervalu_store_id)
-        elif retailer == "tesco":
-            adapters[retailer] = TescoClient()
-        elif retailer == "lidl":
-            adapters[retailer] = LidlClient()
-        elif retailer == "aldi":
-            adapters[retailer] = AldiClient()
+        try:
+            if retailer == "dunnes":
+                adapters[retailer] = DunnesClient()
+            elif retailer == "supervalu":
+                adapters[retailer] = SuperValuClient(args.supervalu_store_id)
+            elif retailer == "tesco":
+                adapters[retailer] = TescoClient()
+            elif retailer == "lidl":
+                adapters[retailer] = LidlClient()
+            elif retailer == "aldi":
+                adapters[retailer] = AldiClient()
+        except ValueError as exc:
+            # A single unconfigured retailer (e.g. missing API key) must not
+            # block collection across every other configured retailer.
+            print(f"skipping {retailer}: {exc}", file=sys.stderr)
+            configured_retailers.remove(retailer)
+    if not adapters:
+        raise ValueError("no collectable retailers; configure the missing credentials")
 
     summary = collect_run(
         catalog,
