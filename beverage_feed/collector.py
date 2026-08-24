@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 
-DUNNES_ENDPOINT = "https://www.dunnesstores.com/_v/segment/graphql/v1"
+DUNNES_ENDPOINT = "https://storefrontgateway.dunnesstoresgrocery.com/api/stores"
+DUNNES_STORE_ID = os.environ.get("DUNNES_STORE_ID", "258")
 
 
 @dataclass(frozen=True)
@@ -78,36 +79,33 @@ class AldiMapping:
 
 
 class DunnesClient:
-    """Fetch the small VTEX GraphQL response needed by the collector."""
+    """Search the Dunnes Stores *grocery* storefront gateway.
 
-    def __init__(self, endpoint: str = DUNNES_ENDPOINT):
-        self.endpoint = endpoint
+    The grocery site (dunnesstoresgrocery.com) exposes a JSON search API on a
+    separate ``storefrontgateway`` host that is not Cloudflare-gated. Its item
+    shape already carries ``Price`` and ``taxDetails`` keys compatible with the
+    downstream VTEX-style parsing, so this client translates each result into
+    the ``productSearch.products`` envelope the collector expects.
+    """
+
+    def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID):
+        self.endpoint = endpoint.rstrip("/")
+        self.store_id = store_id
 
     def __call__(self, search_term: str) -> dict[str, Any]:
-        query = f'''query {{
-          productSearch(fullText: {json.dumps(search_term)}, from: 0, to: 49)
-            @context(provider: "vtex.search-graphql@0.72.0") {{
-            products {{
-              productName
-              productReference
-              items {{
-                itemId
-                sellers {{
-                  commertialOffer {{ Price ListPrice }}
-                }}
-              }}
-            }}
-          }}
-        }}'''
-        request = urllib.request.Request(
+        if not search_term.strip():
+            raise ValueError("Dunnes search term must not be empty")
+        url = "{}/{}/search?{}".format(
             self.endpoint,
-            data=json.dumps({"query": query}).encode(),
+            self.store_id,
+            urllib.parse.urlencode({"q": search_term, "take": 50}),
+        )
+        request = urllib.request.Request(
+            url,
             headers={
-                "Content-Type": "application/json",
                 "Accept": "application/json",
                 "User-Agent": "drinks-tracker/0.1",
             },
-            method="POST",
         )
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
@@ -119,10 +117,32 @@ class DunnesClient:
                 raise
             raise RuntimeError(f"Dunnes request failed: {exc}") from exc
 
-        if payload.get("errors"):
-            message = payload["errors"][0].get("message", "GraphQL error")
-            raise RuntimeError(f"Dunnes GraphQL error: {message}")
-        return payload
+        items = payload.get("items") if isinstance(payload, dict) else None
+        if not isinstance(items, list):
+            raise RuntimeError("Dunnes response has no items list")
+
+        products: list[dict[str, Any]] = []
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            # Offer carries both the VTEX-style "Price" key the collector
+            # reads and the gateway's own fields (taxDetails for DRS etc.).
+            offer = dict(item)
+            offer["Price"] = item.get("priceNumeric")
+            offer["ListPrice"] = item.get("wasPriceNumeric")
+            products.append(
+                {
+                    "productName": item.get("name", ""),
+                    "productReference": item.get("productId", ""),
+                    "items": [
+                        {
+                            "itemId": item.get("sku", ""),
+                            "sellers": [{"commertialOffer": offer}],
+                        }
+                    ],
+                }
+            )
+        return {"data": {"productSearch": {"products": products}}}
 
 
 SCHEMA = """
