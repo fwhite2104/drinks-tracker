@@ -2043,7 +2043,7 @@ def _aldi_record(item: Mapping[str, Any]) -> dict[str, Any]:
     if price.get("amountRelevantDisplay") is not None:
         record["price"] = price["amountRelevantDisplay"]
     elif price.get("amount") is not None:
-        record["price"] = f"€{_decimal_text(Decimal(str(price["amount"])) / 100)}"
+        record["price"] = "€{}".format(_decimal_text(Decimal(str(price["amount"])) / 100))
     if price.get("wasPriceDisplay"):
         record["oldPrice"] = price["wasPriceDisplay"]
     if price.get("comparisonDisplay"):
@@ -2055,7 +2055,7 @@ def _aldi_record(item: Mapping[str, Any]) -> dict[str, Any]:
     if price.get("bottleDeposit"):
         record["bottleDepositText"] = (
             price.get("bottleDepositDisplay")
-            or f"€{_decimal_text(Decimal(str(price["bottleDeposit"])) / 100)}"
+            or "€{}".format(_decimal_text(Decimal(str(price["bottleDeposit"])) / 100))
         )
     return record
 

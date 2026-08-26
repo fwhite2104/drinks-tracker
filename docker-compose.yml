@@ -7,8 +7,8 @@ services:
     environment:
       DRINKS_DATABASE: /data/feed.sqlite
     volumes:
-      - data:/data
-    command: ["supercronic", "/app/crontabs/collector.cron"]
+      - ./data:/data
+    command: ["supercronic /app/crontabs/collector.cron"]
 
   discovery:
     build: .
@@ -18,8 +18,8 @@ services:
     environment:
       DRINKS_DATABASE: /data/feed.sqlite
     volumes:
-      - data:/data
-    command: ["supercronic", "/app/crontabs/discovery.cron"]
+      - ./data:/data
+    command: ["supercronic /app/crontabs/discovery.cron"]
 
   api:
     build: .
@@ -29,10 +29,9 @@ services:
     environment:
       DRINKS_DATABASE: /data/feed.sqlite
     volumes:
-      - data:/data
+      - ./data:/data
     ports:
       - "8000:8000"
+    entrypoint: []
     command: ["uvicorn", "beverage_feed.api:app", "--host", "0.0.0.0", "--port", "8000"]
 
-volumes:
-  data:

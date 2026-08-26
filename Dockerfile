@@ -22,4 +22,9 @@ ENV DRINKS_DATABASE=/data/feed.sqlite \
 
 VOLUME /data
 
-CMD ["supercronic", "/app/crontabs/collector.cron"]
+# supercronic crashes with "Failed to fork exec" when it runs as the
+# container's PID 1; keeping sh as PID 1 (no exec) sidesteps it. Signals:
+# docker stop falls back to SIGKILL after the grace period, which is fine
+# for scheduled collection.
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["supercronic /app/crontabs/collector.cron"]
