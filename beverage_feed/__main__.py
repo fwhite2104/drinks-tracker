@@ -1,4 +1,31 @@
+"""Entry point for ``python -m beverage_feed``.
+
+Loads git-ignored ``.env`` values into the environment before dispatching, so
+local and cron invocations see the same credentials that docker-compose
+supplies via its env_file. Values already set in the environment win.
+"""
+
+import os
 import sys
+from pathlib import Path
+
+
+def _load_env_file(path: Path = Path(".env")) -> None:
+    """Set unset environment variables from a dotenv file (stdlib only)."""
+    if not path.is_file():
+        return
+    for raw_line in path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+_load_env_file()
 
 argv = sys.argv[1:]
 if argv and argv[0] == "discovery":

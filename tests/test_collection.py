@@ -22,6 +22,7 @@ from beverage_feed.collector import (
     _aldi_drs_deposit,
     _dunnes_drs_deposit,
     _lidl_drs_deposit,
+    _validate_listing,
     collect_aldi_one,
     collect_catalog,
     collect_lidl_one,
@@ -1891,6 +1892,46 @@ class CollectionCommandTests(unittest.TestCase):
 
         self.assertEqual(observation, ("2.49", None))
         self.assertIn(("drs_not_available",), events)
+
+
+class ValidateListingTests(unittest.TestCase):
+    def setUp(self):
+        self.pack = BenchmarkPack(
+            catalog_id="coca-diet-2000",
+            name="Coca-Cola Diet 2L Bottle",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+
+    def test_accepts_exact_core_tokens(self):
+        self.assertIsNone(_validate_listing("Coca-Cola Diet 2 Litre", self.pack))
+
+    def test_accepts_alias_phrase(self):
+        self.assertIsNone(_validate_listing("Diet Coke Soft Drink 2 Litre", self.pack))
+
+    def test_rejects_unrelated_name(self):
+        reason = _validate_listing("Sprite Zero Sugar 2 Litre", self.pack)
+        self.assertIn("name mismatch", reason or "")
+
+    def test_alias_does_not_widen_to_other_packs(self):
+        stranger = BenchmarkPack(
+            catalog_id="coca-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+            aliases=("Coke Zero",),
+        )
+        self.assertIsNone(_validate_listing("Diet Coke Soft Drink 2 Litre", self.pack))
+        self.assertIsNotNone(_validate_listing("Diet Coke Soft Drink 2 Litre", stranger))
 
 
 if __name__ == "__main__":

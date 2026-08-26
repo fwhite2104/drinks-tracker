@@ -362,11 +362,18 @@ def _validate_listing(name: str, pack: BenchmarkPack) -> str | None:
     """
     name_tokens = _normalise_name(name)
     # Validate only the core brand + variant tokens; unit-size tokens may
-    # normalise differently (e.g. "330ml" vs "330" + "ml").
+    # normalise differently (e.g. "330ml" vs "330" + "ml"). Retailer titles
+    # may use a known pack alias instead (e.g. "Diet Coke" for a Coca-Cola
+    # Diet pack), mirroring matching.name_matches.
     core = _normalise_name(pack.brand) | _normalise_name(pack.variant)
-    if core and not core.issubset(name_tokens):
-        return f"name mismatch: expected {core} not in {name_tokens}"
-    return None
+    if not core or core.issubset(name_tokens):
+        return None
+    if any(
+        _normalise_name(alias) and _normalise_name(alias).issubset(name_tokens)
+        for alias in pack.aliases
+    ):
+        return None
+    return f"name mismatch: expected {core} not in {name_tokens}"
 
 
 def ensure_schema(connection: sqlite3.Connection) -> None:
