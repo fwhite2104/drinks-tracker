@@ -229,3 +229,189 @@ def test_health_reports_all_table_counts(client):
     assert body["collection_results"] == 2
     assert body["approved_mappings"] == 1
     assert body["code_mtime"]  # staleness signal for stale-container debugging
+
+
+def _seed_consumer_scenario(database: Path) -> None:
+    """Seed one pack exercising every consumer cell state."""
+    with closing(sqlite3.connect(database)) as connection:
+        connection.executemany(
+            """
+            INSERT INTO collection_runs
+                (run_id, started_at, finished_at, status, observed_count,
+                 failed_count, summary)
+            VALUES (?, ?, ?, 'ok', 0, 0, '{}')
+            """,
+            [
+                ("run-a", "2026-01-01T10:00:00Z", "2026-01-01T10:01:00Z"),
+                ("run-b", "2026-01-02T10:00:00Z", "2026-01-02T10:01:00Z"),
+            ],
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES ('cola-330', 'Cola 330ml Can', 'Cola', 'Original', 1, 330,
+                    'can', 'Cola Original')
+            """
+        )
+        mappings = [
+            ("cola-330", "tesco", "approved"),
+            ("cola-330", "dunnes", "approved"),
+            ("cola-330", "supervalu", "approved"),
+            ("cola-330", "lidl", "approved"),
+            ("cola-330", "aldi", "dormant"),
+        ]
+        connection.executemany(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES (?, ?, 'Cola 330ml Can', ?)
+            """,
+            mappings,
+        )
+        results = [
+            # tesco: latest result observed → observed cell (is_best)
+            ("run-b", "cola-330", "tesco", "observed", "2026-01-02T10:00:30Z"),
+            # dunnes: latest result source_error → temporarily_unavailable
+            ("run-b", "cola-330", "dunnes", "source_error", "2026-01-02T10:00:30Z"),
+            # lidl: latest result not_found after an older observation → last_seen
+            ("run-a", "cola-330", "lidl", "observed", "2026-01-01T10:00:30Z"),
+            ("run-b", "cola-330", "lidl", "not_found", "2026-01-02T10:00:30Z"),
+            # supervalu: approved, never any result → awaiting_price
+        ]
+        connection.executemany(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, recorded_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            results,
+        )
+        observations = [
+            ("run-b", "cola-330", "tesco", "2.10", "2026-01-02T10:00:45Z"),
+            ("run-a", "cola-330", "lidl", "1.95", "2026-01-01T10:00:45Z"),
+        ]
+        connection.executemany(
+            """
+            INSERT INTO price_observations
+                (run_id, catalog_id, retailer, source_product_reference,
+                 source_item_id, source_product_name, displayed_price, currency,
+                 pack_count, unit_size_ml, package_type, observed_at)
+            VALUES (?, ?, ?, 'ref', 'item', 'Cola 330ml Can', ?, 'EUR',
+                    1, 330, 'can', ?)
+            """,
+            observations,
+        )
+        connection.commit()
+
+
+def test_consumer_feed_covers_all_five_states(client):
+    database = Path(client.app.state.database)
+    _seed_consumer_scenario(database)
+    body = client.get("/consumer/feed").json()
+
+    assert body["standing_rule"] == "A missing price is not a stock or retirement claim."
+    assert body["pack_count"] == 2
+    pack = next(p for p in body["packs"] if p["catalog_id"] == "cola-330")
+    cells = {c["retailer"]: c for c in pack["retailers"]}
+
+    # aldi is dormant → omitted entirely, never a synthetic slot
+    assert "aldi" not in cells
+
+    tesco = cells["tesco"]
+    assert tesco["state"] == "observed"
+    assert tesco["displayed_price"] == "2.10"
+    assert tesco["is_best"] is True
+    assert tesco["currency"] == "EUR"
+
+    assert cells["dunnes"]["state"] == "temporarily_unavailable"
+    assert cells["dunnes"]["displayed_price"] is None
+
+    assert cells["supervalu"]["state"] == "awaiting_price"
+
+    lidl = cells["lidl"]
+    assert lidl["state"] == "last_seen"
+    assert lidl["displayed_price"] is None  # old price never shown as current
+    assert lidl["last_seen_at"] == "2026-01-01T10:00:45Z"
+
+    assert tesco["is_best"] is True
+    assert all(c["is_best"] is False for r, c in cells.items() if r != "tesco")
+
+
+def test_consumer_feed_shows_unmapped_retailer_as_not_available(client):
+    # The fixture pack only has an approved aldi mapping; the other four
+    # retailers must appear as not_available slots, not vanish.
+    body = client.get("/consumer/feed").json()
+
+    assert body["pack_count"] == 1
+    cells = {c["retailer"]: c for c in body["packs"][0]["retailers"]}
+    assert cells["aldi"]["state"] == "observed"
+    assert cells["tesco"]["state"] == "not_available"
+    assert cells["dunnes"]["state"] == "not_available"
+
+
+def test_consumer_feed_filters_by_catalog_id(client):
+    database = Path(client.app.state.database)
+    _seed_consumer_scenario(database)
+
+    body = client.get("/consumer/feed", params={"catalog_id": "cola-330"}).json()
+    assert [p["catalog_id"] for p in body["packs"]] == ["cola-330"]
+
+    empty = client.get(
+        "/consumer/feed", params={"catalog_id": "does-not-exist"}
+    ).json()
+    assert empty["packs"] == []
+    assert empty["pack_count"] == 0
+
+
+def test_runs_survives_a_corrupt_summary_without_a_500(client):
+    """A malformed run summary degrades to the raw string, never an error."""
+    from beverage_feed.collector import ensure_schema
+
+    database = Path(client.app.state.database)
+    with closing(sqlite3.connect(database)) as connection:
+        ensure_schema(connection)
+        connection.execute(
+            "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("run-other", "2026-01-01T00:00:00Z", "2026-01-01T00:01:00Z",
+             "failed", 0, 1, "{}"),
+        )
+        connection.execute(
+            "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("run-bad", "2026-01-01T00:00:00Z", "2026-01-01T00:01:00Z",
+             "failed", 0, 1, "{not json"),
+        )
+        connection.commit()
+
+    response = client.get("/runs")
+    assert response.status_code == 200
+    runs = response.json()
+    bad = next(run for run in runs if run["run_id"] == "run-bad")
+    assert bad["summary"] == "{not json"
+
+
+def test_results_filter_by_run_id(client):
+    from beverage_feed.collector import ensure_schema
+
+    database = Path(client.app.state.database)
+    with closing(sqlite3.connect(database)) as connection:
+        ensure_schema(connection)
+        connection.execute(
+            "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+            ("run-other", "2026-01-01T00:00:00Z", "2026-01-01T00:01:00Z",
+             "failed", 0, 1, "{}"),
+        )
+        connection.execute(
+            "INSERT INTO collection_results "
+            "(run_id, catalog_id, retailer, status, error, recorded_at) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            ("run-other", PACK.catalog_id, "tesco", "not_found",
+             "no catalog mapping configured", "2026-01-01T00:00:00Z"),
+        )
+        connection.commit()
+
+    matching = client.get("/results", params={"run_id": "run-other"}).json()
+    assert [row["run_id"] for row in matching] == ["run-other"]
+    everything = client.get("/results").json()
+    assert {"run-other"} <= {row["run_id"] for row in everything}

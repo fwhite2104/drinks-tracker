@@ -16,7 +16,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
-from .collector import BenchmarkPack, load_catalog
+from .collector import BenchmarkPack, current_feed, load_catalog, timestamp
 from .discovery import load_mappings, load_rejections
 
 # Observation projection mirrored from collector._OBSERVATION_COLUMNS so the
@@ -846,7 +846,7 @@ def pack_detail(snapshot: WorkspaceSnapshot, catalog_id: str) -> dict[str, Any] 
     }
 
 
-def _consumer_cell(
+def consumer_cell(
     *,
     pack: BenchmarkPack,
     retailer_slug: str,
@@ -856,7 +856,12 @@ def _consumer_cell(
     seen: dict[str, Any] | None,
     latest_result: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Build one consumer-facing retailer slot, or None to omit (dormant)."""
+    """Build one consumer-facing retailer slot, or None to omit (dormant).
+
+    This is the single source of truth for consumer cell semantics — both the
+    dashboard Consumer Feed Preview and the ``/consumer/feed`` API endpoint
+    render through it, so the two surfaces cannot drift.
+    """
     if mapping_state == "dormant":
         return None
 
@@ -977,7 +982,7 @@ def feed_preview(
                     )
                 except (sqlite3.Error, OSError):
                     seen = None
-            cell = _consumer_cell(
+            cell = consumer_cell(
                 pack=pack,
                 retailer_slug=slug,
                 display_name=retailer["display_name"],
@@ -1020,6 +1025,168 @@ def feed_preview(
         )
 
     return {
+        "standing_rule": "A missing price is not a stock or retirement claim.",
+        "retailers": [
+            {"slug": r["slug"], "display_name": r["display_name"]}
+            for r in SUPPORTED_RETAILERS
+        ],
+        "packs": packs_out,
+        "pack_count": len(packs_out),
+    }
+
+
+def consumer_feed_from_database(
+    database: Path,
+    *,
+    catalog_id: str | None = None,
+) -> dict[str, Any]:
+    """Consumer Exact-Pack Comparison feed built from SQLite alone.
+
+    The API has no JSON workspace, so mapping state comes from the
+    ``catalog_mappings`` table instead of ``mappings.json``. Cell semantics
+    still flow through :func:`consumer_cell`, shared with the dashboard, so
+    states, labels, DRS/Clubcard handling, and dormant omission cannot drift
+    between the two surfaces.
+
+    Default list scope matches :func:`feed_preview`: packs with at least one
+    approved, non-dormant mapping.
+    """
+    with closing(_open_readonly(database)) as connection:
+        pack_rows = connection.execute(
+            """
+            SELECT catalog_id, name, brand, variant, pack_count,
+                   unit_size_ml, package_type, search_term
+            FROM catalog_packs ORDER BY name, catalog_id
+            """
+        ).fetchall()
+        mapping_states = {
+            (row["retailer"], row["catalog_id"]): row["status"]
+            for row in connection.execute(
+                "SELECT retailer, catalog_id, status FROM catalog_mappings"
+            )
+        }
+        last_observed = {
+            (row["retailer"], row["catalog_id"]): row["observed_at"]
+            for row in connection.execute(
+                """
+                SELECT retailer, catalog_id, MAX(observed_at) AS observed_at
+                FROM price_observations GROUP BY retailer, catalog_id
+                """
+            )
+        }
+        latest_result_status = {
+            (row["retailer"], row["catalog_id"]): row["status"]
+            for row in connection.execute(
+                """
+                SELECT retailer, catalog_id, status
+                FROM (
+                    SELECT retailer, catalog_id, status,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY retailer, catalog_id
+                               ORDER BY recorded_at DESC, rowid DESC
+                           ) AS position
+                    FROM collection_results
+                )
+                WHERE position = 1
+                """
+            )
+        }
+
+    feed_index = {
+        (row["retailer"], row["catalog_id"]): row
+        for row in current_feed(database)
+    }
+
+    packs_out: list[dict[str, Any]] = []
+    for row in pack_rows:
+        pack = BenchmarkPack(
+            catalog_id=row["catalog_id"],
+            name=row["name"],
+            brand=row["brand"],
+            variant=row["variant"],
+            pack_count=row["pack_count"],
+            unit_size_ml=row["unit_size_ml"],
+            package_type=row["package_type"],
+            search_term=row["search_term"],
+        )
+        if catalog_id is not None and pack.catalog_id != catalog_id:
+            continue
+        approved_slugs = [
+            slug
+            for slug in RETAILER_SLUGS
+            if mapping_states.get((slug, pack.catalog_id)) == "approved"
+        ]
+        if not approved_slugs:
+            continue
+
+        cells: list[dict[str, Any]] = []
+        observed_prices: list[Decimal] = []
+        for retailer in SUPPORTED_RETAILERS:
+            slug = retailer["slug"]
+            key = (slug, pack.catalog_id)
+            status = mapping_states.get(key)
+            if status == "dormant":
+                continue
+            current = feed_index.get(key)
+            last_obs = last_observed.get(key)
+            seen = None
+            if status == "approved" and last_obs is not None:
+                seen = {
+                    "availability": (
+                        "current" if current is not None else "not_seen_since"
+                    ),
+                    "observed_at": last_obs,
+                    "not_seen_since": None if current is not None else last_obs,
+                }
+            latest_result = (
+                {"status": latest_result_status[key]}
+                if key in latest_result_status
+                else None
+            )
+            cell = consumer_cell(
+                pack=pack,
+                retailer_slug=slug,
+                display_name=retailer["display_name"],
+                mapping_state=status or "not_available",
+                current=current,
+                seen=seen,
+                latest_result=latest_result,
+            )
+            if cell is None:
+                continue
+            if cell["state"] == "observed" and cell.get("displayed_price") is not None:
+                price = _as_decimal(cell["displayed_price"])
+                if price is not None:
+                    observed_prices.append(price)
+            cells.append(cell)
+
+        best = min(observed_prices) if observed_prices else None
+        for cell in cells:
+            if cell["state"] == "observed" and cell.get("displayed_price") is not None:
+                price = _as_decimal(cell["displayed_price"])
+                cell["is_best"] = bool(best is not None and price == best)
+            else:
+                cell["is_best"] = False
+
+        packs_out.append(
+            {
+                "catalog_id": pack.catalog_id,
+                "name": pack.name,
+                "brand": pack.brand,
+                "variant": pack.variant,
+                "pack_count": pack.pack_count,
+                "unit_size_ml": pack.unit_size_ml,
+                "package_type": pack.package_type,
+                "pack_label": (
+                    f"{pack.brand} {pack.variant} · "
+                    f"{pack.pack_count}×{pack.unit_size_ml}ml {pack.package_type}"
+                ),
+                "retailers": cells,
+            }
+        )
+
+    return {
+        "generated_at": timestamp(),
         "standing_rule": "A missing price is not a stock or retirement claim.",
         "retailers": [
             {"slug": r["slug"], "display_name": r["display_name"]}

@@ -25,6 +25,7 @@ from .collector import (
     price_history,
     timestamp,
 )
+from .dashboard_read import consumer_feed_from_database
 
 _DEFAULT_DATABASE = "data/feed.sqlite"
 _FRESHNESS_DAYS = 7
@@ -111,6 +112,19 @@ def last_seen_for(
     if observation is None:
         raise HTTPException(status_code=404, detail="pair has never been observed")
     return observation
+
+
+@app.get("/consumer/feed")
+def consumer_feed(catalog_id: str | None = Query(default=None)) -> dict[str, Any]:
+    """Consumer Exact-Pack Comparison feed.
+
+    One entry per Benchmark Catalog pack with at least one approved mapping;
+    per-retailer slots carry the five consumer states (observed / last_seen /
+    awaiting_price / temporarily_unavailable / not_available) with Displayed
+    Price, Clubcard Price, DRS Deposit, and Component Unit Price exactly as
+    the Operator Dashboard's Consumer Feed Preview renders them.
+    """
+    return consumer_feed_from_database(app.state.database, catalog_id=catalog_id)
 
 
 @app.get("/health")

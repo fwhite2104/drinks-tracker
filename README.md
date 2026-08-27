@@ -90,8 +90,8 @@ DRINKS_DATABASE=data/feed.sqlite uvicorn beverage_feed.api:app --port 8000
 ```
 
 Endpoints: `/catalog`, `/prices/current`, `/prices/history`, `/last-seen`,
-`/health`, `/coverage`. Curated views only surface observed prices from
-approved mappings. Raw, no-frills views of everything ingestion has recorded:
+`/health`, `/coverage`, `/consumer/feed`. Curated views only surface observed
+prices from approved mappings. Raw, no-frills views of everything ingestion has recorded:
 
 - `/results` — every collection result (including `unmapped`, `not_found`,
   `source_error`) with the reason it was dropped. Filters:
@@ -99,6 +99,22 @@ approved mappings. Raw, no-frills views of everything ingestion has recorded:
 - `/candidates` — raw scraped listings not yet tied to a Benchmark Catalog
   pack. Filters: `retailer`, `status`, `limit`.
 - `/runs` — recent collection runs with their summaries.
+
+### Consumer feed
+
+```sh
+curl "http://localhost:8000/consumer/feed"
+curl "http://localhost:8000/consumer/feed?catalog_id=coca-zero-2000"
+```
+
+The mobile-app data source: one entry per pack with at least one approved
+mapping, and per-retailer slots carrying the five consumer states
+(`observed`, `last_seen`, `awaiting_price`, `temporarily_unavailable`,
+`not_available`) with Displayed Price, Clubcard Price, DRS Deposit, and
+Component Unit Price — identical semantics to the dashboard's Consumer Feed
+Preview (both render through `dashboard_read.consumer_cell`). Dormant
+mappings are omitted; `is_best` flags the cheapest current price; a missing
+price is never a stock or retirement claim.
 
 `/health` includes `code_mtime` (build time of the running code): if a fresh
 run still behaves like old code, compare it against the latest commit — a
