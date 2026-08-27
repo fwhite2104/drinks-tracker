@@ -6,15 +6,17 @@ served from the SQLite database resolved from ``DRINKS_DATABASE``.
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 from contextlib import asynccontextmanager, closing
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query
 
+from . import collector
 from .collector import (
     as_datetime,
     current_feed,
@@ -56,10 +58,15 @@ app = FastAPI(
 )
 
 
-def _read_rows(database: Path, query: str) -> list[dict[str, Any]]:
+def _read_rows(
+    database: Path, query: str, parameters: tuple[Any, ...] = ()
+) -> list[dict[str, Any]]:
     with closing(sqlite3.connect(database)) as connection:
         connection.row_factory = sqlite3.Row
-        return [dict(row) for row in connection.execute(query).fetchall()]
+        return [
+            dict(row)
+            for row in connection.execute(query, parameters).fetchall()
+        ]
 
 
 @app.get("/catalog")
@@ -108,15 +115,141 @@ def last_seen_for(
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    """API status, active database path, and total observation count."""
-    rows = _read_rows(
-        app.state.database, "SELECT COUNT(*) AS count FROM price_observations"
-    )
+    """API status, active database path, and table counts.
+
+    ``code_mtime`` reflects when the running beverage_feed code was last
+    changed (build time inside containers). If a freshly collected run still
+    behaves like old code, compare ``code_mtime`` against the latest commit:
+    a stale container image is the usual culprit.
+    """
+    counts = _read_rows(
+        app.state.database,
+        """
+        SELECT
+            (SELECT COUNT(*) FROM price_observations) AS observations,
+            (SELECT COUNT(*) FROM collection_results) AS collection_results,
+            (SELECT COUNT(*) FROM catalog_candidates) AS candidates,
+            (SELECT COUNT(*) FROM catalog_mappings WHERE status = 'approved')
+                AS approved_mappings,
+            (SELECT COUNT(*) FROM catalog_packs) AS catalog_packs
+        """,
+    )[0]
     return {
         "status": "ok",
         "database": str(app.state.database),
-        "observations": rows[0]["count"],
+        "code_mtime": _code_mtime(),
+        **counts,
     }
+
+
+def _code_mtime() -> str | None:
+    """Modification time of the running collector module, ISO-8601 UTC."""
+    path = Path(collector.__file__ or "collector.py")
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return None
+    return datetime.fromtimestamp(mtime, tz=timezone.utc).isoformat()
+
+
+@app.get("/runs")
+def runs(
+    limit: int = Query(default=20, ge=1, le=200),
+) -> list[dict[str, Any]]:
+    """Recent collection runs with their operator-facing summaries."""
+    rows = _read_rows(
+        app.state.database,
+        """
+        SELECT run_id, started_at, finished_at, status,
+               observed_count, failed_count, summary
+        FROM collection_runs
+        ORDER BY started_at DESC, rowid DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    for row in rows:
+        try:
+            row["summary"] = json.loads(row["summary"])
+        except (TypeError, json.JSONDecodeError):
+            pass
+    return rows
+
+
+@app.get("/results")
+def results(
+    retailer: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    run_id: str | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=5000),
+) -> list[dict[str, Any]]:
+    """Raw collection results: every retailer-pack decision, no curation.
+
+    Unlike ``/prices/current`` this includes ``unmapped``, ``not_found`` and
+    ``source_error`` rows, so a scraped-but-dropped product is visible here
+    with the reason it was dropped.
+    """
+    clauses = ["1=1"]
+    parameters: list[Any] = []
+    if retailer:
+        clauses.append("cr.retailer = ?")
+        parameters.append(retailer)
+    if status:
+        clauses.append("cr.status = ?")
+        parameters.append(status)
+    if run_id:
+        clauses.append("cr.run_id = ?")
+        parameters.append(run_id)
+    parameters.append(limit)
+    return _read_rows(
+        app.state.database,
+        f"""
+        SELECT cr.run_id, cr.catalog_id, cp.name AS pack_name, cr.retailer,
+               cr.status, cr.error, cr.source_product_reference,
+               cr.source_item_id, cr.source_scope, cr.recorded_at
+        FROM collection_results AS cr
+        LEFT JOIN catalog_packs AS cp ON cp.catalog_id = cr.catalog_id
+        WHERE {" AND ".join(clauses)}
+        ORDER BY cr.recorded_at DESC, cr.rowid DESC
+        LIMIT ?
+        """,
+        tuple(parameters),
+    )
+
+
+@app.get("/candidates")
+def candidates(
+    retailer: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=500, ge=1, le=5000),
+) -> list[dict[str, Any]]:
+    """Raw retailer listings captured during collection (Catalog Candidates).
+
+    These are products seen in retailer searches that are not yet tied to a
+    Benchmark Catalog pack. They never appear in ``/prices/current``; this
+    endpoint is the no-frills view of everything ingestion has seen.
+    """
+    clauses = ["1=1"]
+    parameters: list[Any] = []
+    if retailer:
+        clauses.append("retailer = ?")
+        parameters.append(retailer)
+    if status:
+        clauses.append("status = ?")
+        parameters.append(status)
+    parameters.append(limit)
+    return _read_rows(
+        app.state.database,
+        f"""
+        SELECT candidate_id, retailer, source_product_reference, source_item_id,
+               source_product_name, displayed_price, status, first_seen_at
+        FROM catalog_candidates
+        WHERE {" AND ".join(clauses)}
+        ORDER BY first_seen_at DESC, rowid DESC
+        LIMIT ?
+        """,
+        tuple(parameters),
+    )
 
 
 @app.get("/coverage")

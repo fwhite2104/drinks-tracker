@@ -145,3 +145,87 @@ def test_lifespan_migrates_an_empty_database(monkeypatch, tmp_path):
             }
 
     assert {"price_observations", "collection_runs", "retailers"} <= tables
+
+
+# --- raw, no-frills endpoints -----------------------------------------------
+
+
+def _insert_unmapped_result(database: Path, run_id: str, catalog_id: str) -> None:
+    """Simulate a scraped-but-unmapped cell exactly as collect_run records it."""
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, error, recorded_at)
+            VALUES (?, ?, 'tesco', 'unmapped', 'no catalog mapping configured', ?)
+            """,
+            (run_id, catalog_id, "2026-01-01T00:00:00Z"),
+        )
+        connection.commit()
+
+
+def test_results_includes_unmapped_rows_with_reasons(client):
+    _insert_unmapped_result(
+        Path(client.app.state.database), "run-raw-1", PACK.catalog_id
+    )
+    body = client.get("/results").json()
+
+    statuses = {row["status"] for row in body}
+    assert {"observed", "unmapped"} <= statuses
+    unmapped = next(row for row in body if row["status"] == "unmapped")
+    assert unmapped["error"] == "no catalog mapping configured"
+    assert unmapped["pack_name"] == PACK.name
+
+
+def test_results_filter_by_status_and_retailer(client):
+    _insert_unmapped_result(
+        Path(client.app.state.database), "run-raw-2", PACK.catalog_id
+    )
+    assert client.get("/results", params={"status": "unmapped"}).json() != []
+    assert client.get("/results", params={"status": "source_error"}).json() == []
+    tesco_only = client.get("/results", params={"retailer": "tesco"}).json()
+    assert {row["retailer"] for row in tesco_only} == {"tesco"}
+
+
+def test_runs_returns_recent_runs_with_parsed_summary(client):
+    body = client.get("/runs").json()
+
+    assert len(body) >= 1
+    run = body[0]
+    assert set(run) >= {"run_id", "started_at", "status", "summary"}
+    assert isinstance(run["summary"], dict)
+
+
+def test_candidates_returns_raw_scraped_listings(client):
+    database = Path(client.app.state.database)
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO catalog_candidates (
+                candidate_id, retailer, source_product_reference,
+                source_item_id, source_product_name, displayed_price,
+                raw_record, status, first_seen_at
+            ) VALUES (?, 'dunnes', 'ref-1', 'item-1', 'Diet Coke 500ml',
+                      '2.15', '{}', 'pending_review', '2026-01-01T00:00:00Z')
+            """,
+            ("test-candidate-1",),
+        )
+        connection.commit()
+
+    body = client.get("/candidates").json()
+    assert len(body) == 1
+    assert body[0]["source_product_name"] == "Diet Coke 500ml"
+    assert body[0]["status"] == "pending_review"
+
+
+def test_health_reports_all_table_counts(client):
+    _insert_unmapped_result(
+        Path(client.app.state.database), "run-raw-3", PACK.catalog_id
+    )
+    body = client.get("/health").json()
+
+    assert body["status"] == "ok"
+    assert body["observations"] == 1
+    assert body["collection_results"] == 2
+    assert body["approved_mappings"] == 1
+    assert body["code_mtime"]  # staleness signal for stale-container debugging
