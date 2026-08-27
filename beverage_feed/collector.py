@@ -6,6 +6,7 @@ import argparse
 import http.cookiejar
 from contextlib import closing
 import json
+import logging
 import os
 import re
 import sqlite3
@@ -23,6 +24,8 @@ from typing import Any, Callable, Mapping
 
 DUNNES_ENDPOINT = "https://storefrontgateway.dunnesstoresgrocery.com/api/stores"
 DUNNES_STORE_ID = os.environ.get("DUNNES_STORE_ID", "258")
+
+logger = logging.getLogger("beverage_feed.collector")
 
 
 @dataclass(frozen=True)
@@ -2404,6 +2407,42 @@ def _record_collection_result(
         connection.commit()
 
 
+def _log_decision(
+    run_id: str,
+    retailer: str,
+    pack: BenchmarkPack,
+    result: Mapping[str, Any],
+    *,
+    mapping_configured: bool,
+) -> None:
+    """Emit one structured line per retailer-pack decision.
+
+    This is the per-product audit trail for "why is this product missing?":
+    every cell is logged exactly once with the stage that accepted or
+    rejected it (unmapped → no approved mapping; not_found / source_error →
+    rejected at collection with the reason; observed → became an observation).
+    """
+    status = result["status"]
+    level = {
+        "observed": logging.INFO,
+        "unmapped": logging.INFO,
+        "not_found": logging.WARNING,
+        "source_error": logging.ERROR,
+    }.get(status, logging.WARNING)
+    fields = [
+        f"run={run_id}",
+        f"retailer={retailer}",
+        f"pack={pack.catalog_id}",
+        f"decision={status}",
+        f"mapping={'configured' if mapping_configured else 'missing'}",
+    ]
+    if result.get("error"):
+        fields.append(f"reason={result['error']}")
+    if result.get("source_product_reference"):
+        fields.append(f"ref={result['source_product_reference']}")
+    logger.log(level, " ".join(fields))
+
+
 def _mapping_rows(value: Any) -> list[Any]:
     if value is None:
         return []
@@ -2547,6 +2586,13 @@ def collect_run(
                     )
 
             status = result["status"]
+            _log_decision(
+                run_id,
+                retailer_name,
+                pack,
+                result,
+                mapping_configured=mapping is not None,
+            )
             summary["observed_count"] += result.get("observed_count", 0)
             if status == "source_error":
                 summary["failed_count"] += 1
@@ -2745,6 +2791,13 @@ def main(argv: list[str] | None = None) -> int:
         default=Path(os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")),
     )
     args = parser.parse_args(argv)
+
+    # Per-cell decision logs go to stderr; the operator-facing run summary is
+    # printed at the end of main(). Override with DRINKS_LOG_LEVEL if needed.
+    logging.basicConfig(
+        level=os.environ.get("DRINKS_LOG_LEVEL", "INFO").upper(),
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
 
     catalog = load_catalog(args.catalog)
     if args.catalog_id and not any(pack.catalog_id == args.catalog_id for pack in catalog):
