@@ -25,6 +25,8 @@ import json
 import os
 import sqlite3
 import sys
+import urllib.error
+import urllib.request
 import zipfile
 from contextlib import closing
 from pathlib import Path
@@ -157,13 +159,34 @@ def pull_latest_batch(
     zip_request = Request(
         f"{api}/artifacts/{match['id']}/zip", headers=headers
     )
-    with urlopen(zip_request, timeout=60) as response:
-        archive = zipfile.ZipFile(io.BytesIO(response.read()))
-        names = [n for n in archive.namelist() if n.endswith(".json")]
-        if len(names) != 1:
-            raise RuntimeError(f"artifact {artifact!r} must contain one JSON batch")
-        batch = json.loads(archive.read(names[0]))
+    archive = zipfile.ZipFile(io.BytesIO(_download_zip(zip_request)))
+    names = [name for name in archive.namelist() if name.endswith(".json")]
+    if len(names) != 1:
+        raise RuntimeError(f"artifact {artifact!r} must contain one JSON batch")
+    batch = json.loads(archive.read(names[0]))
     return ingest_batch(_batch_database(), batch)
+
+
+class _DropAuthRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Follow redirects WITHOUT the Authorization header.
+
+    Artifact downloads 302 to a short-lived signed URL on a different host;
+    replaying the bearer token there makes Azure reject the request (401).
+    The default handler strips auth on cross-host redirects only in some
+    code paths — this guarantees it.
+    """
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+        new = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if new is not None:
+            new.headers.pop("Authorization", None)
+        return new
+
+
+def _download_zip(request: Request) -> bytes:
+    opener = urllib.request.build_opener(_DropAuthRedirectHandler)
+    with opener.open(request, timeout=60) as response:
+        return response.read()
 
 
 def _api_get(url: str, headers: dict[str, str]) -> dict[str, Any]:
