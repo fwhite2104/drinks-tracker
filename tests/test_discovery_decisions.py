@@ -19,7 +19,8 @@ from beverage_feed.discovery_adapters import (
     DiscoveryAdapter,
     normalize_listing,
 )
-from beverage_feed.discovery_decisions import decide_cell
+from beverage_feed.discovery_cli import approve
+from beverage_feed.discovery_decisions import decide_cell, resolve_challenge
 
 
 def make_pack(catalog_id="pack-1"):
@@ -208,6 +209,151 @@ class DecideCellTests(unittest.TestCase):
         observations = self.store.connection().execute(
             "SELECT COUNT(*) FROM price_observations").fetchone()[0]
         self.assertEqual(observations, 0)
+
+
+class ChallengeResolutionTests(unittest.TestCase):
+    """The keep/replace operator decision on a pending mapping challenge."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.store = DiscoveryStore(self.root / "feed.sqlite")
+        self.mapping_path = self.root / "mappings.json"
+        self.rejection_path = self.root / "rejections.json"
+        write_rejections(self.rejection_path, {"listings": [], "cells": []})
+        write_mappings(self.mapping_path, {"dunnes": []})
+        self.store.upsert_candidate(
+            "dunnes:sku-1:item-1", retailer="dunnes", identity_key="sku-1:item-1",
+            identity_basis="product_reference:item_id", identity_tier="composite",
+            source_product_reference="sku-1", source_item_id="item-1",
+            source_product_name="Cola 330ml Can",
+        )
+        self.store.upsert_candidate(
+            "dunnes:sku-2:item-2", retailer="dunnes", identity_key="sku-2:item-2",
+            identity_basis="product_reference:item_id", identity_tier="composite",
+            source_product_reference="sku-2", source_item_id="item-2",
+            source_product_name="Cola 330ml Can",
+        )
+        for candidate_id in ("dunnes:sku-1:item-1", "dunnes:sku-2:item-2"):
+            self.store.associate_candidate(candidate_id, "pack-1", "Cola")
+        self.store.record_evidence(
+            "dunnes:sku-1:item-1", "pack-1", retailer="dunnes",
+            raw_attributes={"size": "330ml"}, normalized_attributes={"unit_size_ml": 330},
+            inference_basis={"unit_size_ml": "name"}, attribute_diffs={},
+            raw_price_value="1.20", price_parse_status="valid",
+        )
+        self.store.record_evidence(
+            "dunnes:sku-2:item-2", "pack-1", retailer="dunnes",
+            raw_attributes={"size": "330ml"}, normalized_attributes={"unit_size_ml": 330},
+            inference_basis={"unit_size_ml": "name"}, attribute_diffs={},
+            raw_price_value="1.25", price_parse_status="valid",
+        )
+
+    def _approve_then_challenge(self):
+        approve(
+            self.store, retailer="dunnes", catalog_id="pack-1",
+            candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+            rejection_path=self.rejection_path, decided_by="alice",
+        )
+        # A late challenger surfaces: the cell reopens as a challenge without
+        # demoting the approved mapping.
+        self.store.set_cell_state(
+            "dunnes", "pack-1", "review", review_category="challenge",
+            candidate_id="dunnes:sku-2:item-2",
+        )
+
+    def test_keep_resolves_challenge_and_retains_existing_mapping(self):
+        self._approve_then_challenge()
+        result = resolve_challenge(
+            self.store, retailer="dunnes", catalog_id="pack-1", action="keep",
+            decided_by="bob", mapping_path=self.mapping_path,
+        )
+        self.assertEqual(result["status"], "kept")
+        self.assertEqual(result["challenger_candidate_id"], "dunnes:sku-2:item-2")
+        state = self.store.connection().execute(
+            "SELECT state, candidate_id FROM discovery_cells "
+            "WHERE retailer='dunnes' AND catalog_id='pack-1'"
+        ).fetchone()
+        self.assertEqual(state, ("approved", "dunnes:sku-1:item-1"))
+        rows = load_mappings(self.mapping_path)["dunnes"]
+        self.assertEqual(
+            [(row["status"], row["candidate_id"]) for row in rows],
+            [("approved", "dunnes:sku-1:item-1")],
+        )
+        event = self.store.connection().execute(
+            "SELECT event FROM discovery_diagnostics "
+            "WHERE retailer='dunnes' AND catalog_id='pack-1' AND event='challenge_kept'"
+        ).fetchone()
+        self.assertIsNotNone(event)
+
+    def test_keep_without_an_existing_mapping_still_closes_the_challenge(self):
+        self.store.set_cell_state(
+            "dunnes", "pack-1", "review", review_category="challenge",
+            candidate_id="dunnes:sku-2:item-2",
+        )
+        result = resolve_challenge(
+            self.store, retailer="dunnes", catalog_id="pack-1", action="keep",
+            decided_by="bob", mapping_path=self.mapping_path,
+        )
+        self.assertEqual(result["status"], "kept")
+        state = self.store.connection().execute(
+            "SELECT state, candidate_id FROM discovery_cells "
+            "WHERE retailer='dunnes' AND catalog_id='pack-1'"
+        ).fetchone()
+        self.assertEqual(state, ("approved", None))
+        self.assertEqual(load_mappings(self.mapping_path)["dunnes"], [])
+
+    def test_replace_swaps_the_mapping_and_supersedes_the_old_candidate(self):
+        self._approve_then_challenge()
+        result = resolve_challenge(
+            self.store, retailer="dunnes", catalog_id="pack-1", action="replace",
+            decided_by="bob", mapping_path=self.mapping_path,
+            reason="supplier relisted the pack",
+        )
+        self.assertEqual(result["status"], "replaced")
+        rows = load_mappings(self.mapping_path)["dunnes"]
+        by_status = {row["status"]: row for row in rows}
+        self.assertEqual(by_status["approved"]["candidate_id"], "dunnes:sku-2:item-2")
+        self.assertEqual(by_status["rejected"]["superseded_by"], "dunnes:sku-2:item-2")
+        state = self.store.connection().execute(
+            "SELECT state, candidate_id FROM discovery_cells "
+            "WHERE retailer='dunnes' AND catalog_id='pack-1'"
+        ).fetchone()
+        self.assertEqual(state, ("approved", "dunnes:sku-2:item-2"))
+
+    def test_replace_requires_a_reason(self):
+        self._approve_then_challenge()
+        with self.assertRaisesRegex(ValueError, "replacement reason is required"):
+            resolve_challenge(
+                self.store, retailer="dunnes", catalog_id="pack-1", action="replace",
+                decided_by="bob", mapping_path=self.mapping_path, reason="   ",
+            )
+
+    def test_invalid_action_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "keep or replace"):
+            resolve_challenge(
+                self.store, retailer="dunnes", catalog_id="pack-1", action="defer",
+                decided_by="bob", mapping_path=self.mapping_path,
+            )
+
+    def test_resolving_a_cell_without_a_pending_challenge_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "no pending challenge"):
+            resolve_challenge(
+                self.store, retailer="dunnes", catalog_id="pack-1", action="keep",
+                decided_by="bob", mapping_path=self.mapping_path,
+            )
+
+    def test_challenge_without_a_challenger_candidate_is_rejected(self):
+        self.store.set_cell_state(
+            "dunnes", "pack-1", "review", review_category="challenge",
+            candidate_id=None,
+        )
+        with self.assertRaisesRegex(ValueError, "no challenger candidate"):
+            resolve_challenge(
+                self.store, retailer="dunnes", catalog_id="pack-1", action="keep",
+                decided_by="bob", mapping_path=self.mapping_path,
+            )
 
 
 if __name__ == "__main__":

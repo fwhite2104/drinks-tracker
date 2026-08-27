@@ -2,6 +2,7 @@ import io
 import json
 import sqlite3
 import tempfile
+import urllib.error
 from contextlib import closing, redirect_stdout
 from decimal import Decimal
 import unittest
@@ -12,6 +13,7 @@ from beverage_feed.collector import (
     AldiClient,
     AldiMapping,
     BenchmarkPack,
+    DunnesClient,
     DunnesMapping,
     LidlClient,
     LidlMapping,
@@ -1932,6 +1934,240 @@ class ValidateListingTests(unittest.TestCase):
         )
         self.assertIsNone(_validate_listing("Diet Coke Soft Drink 2 Litre", self.pack))
         self.assertIsNotNone(_validate_listing("Diet Coke Soft Drink 2 Litre", stranger))
+
+
+class _FakeHTTPResponse:
+    """Minimal urlopen response: context manager with a status and a body."""
+
+    def __init__(self, status, body):
+        self.status = status
+        self._body = body
+
+    def read(self):
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+class DunnesClientTests(unittest.TestCase):
+    """Network-boundary contract of the Dunnes storefront gateway client.
+
+    urllib.request.urlopen is intercepted (the network seam), so no live
+    endpoint is ever contacted; everything else runs the real client code.
+    """
+
+    def setUp(self):
+        self.client = DunnesClient()
+
+    def test_blank_search_term_is_rejected_before_any_request(self):
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            self.client("   ")
+
+    def test_request_targets_the_gateway_search_api(self):
+        captured = {}
+
+        def fake_urlopen(request, timeout=None):
+            captured["url"] = request.full_url
+            captured["headers"] = dict(request.header_items())
+            return _FakeHTTPResponse(200, json.dumps({"items": []}).encode())
+
+        with patch("urllib.request.urlopen", fake_urlopen):
+            self.client("Coca-Cola Zero")
+        self.assertIn("q=Coca-Cola+Zero", captured["url"])
+        self.assertIn("take=50", captured["url"])
+        headers = {k.lower(): v for k, v in captured["headers"].items()}
+        self.assertEqual(headers.get("accept"), "application/json")
+
+    def test_http_error_status_raises_a_runtime_error(self):
+        with patch(
+            "urllib.request.urlopen",
+            lambda request, timeout=None: _FakeHTTPResponse(503, b"{}"),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Dunnes HTTP 503"):
+                self.client("Coca-Cola Zero")
+
+    def test_connection_failure_is_wrapped_and_chained(self):
+        error = urllib.error.URLError("connection refused")
+
+        def fake_urlopen(request, timeout=None):
+            raise error
+
+        with patch("urllib.request.urlopen", fake_urlopen):
+            with self.assertRaises(RuntimeError) as ctx:
+                self.client("Coca-Cola Zero")
+        self.assertIn("Dunnes request failed", str(ctx.exception))
+        self.assertIs(ctx.exception.__cause__, error)
+
+    def test_payload_without_an_items_list_is_a_source_error(self):
+        with patch(
+            "urllib.request.urlopen",
+            lambda request, timeout=None: _FakeHTTPResponse(200, b'{"foo": 1}'),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "no items list"):
+                self.client("Coca-Cola Zero")
+
+    def test_items_are_normalised_into_the_vtex_search_envelope(self):
+        payload = {
+            "items": [
+                "not-a-dict",
+                {
+                    "productId": "p-1",
+                    "sku": "s-1",
+                    "name": "Coca-Cola Zero Sugar 330ml",
+                    "priceNumeric": 2.79,
+                    "wasPriceNumeric": 3.19,
+                    "taxDetails": {"deposit": "0.15"},
+                },
+            ]
+        }
+        with patch(
+            "urllib.request.urlopen",
+            lambda request, timeout=None: _FakeHTTPResponse(
+                200, json.dumps(payload).encode()
+            ),
+        ):
+            result = self.client("Coca-Cola Zero")
+        products = result["data"]["productSearch"]["products"]
+        self.assertEqual(len(products), 1)  # non-dict entries skipped
+        product = products[0]
+        self.assertEqual(product["productName"], "Coca-Cola Zero Sugar 330ml")
+        self.assertEqual(product["productReference"], "p-1")
+        offer = product["items"][0]["sellers"][0]["commertialOffer"]
+        self.assertEqual(offer["Price"], 2.79)
+        self.assertEqual(offer["ListPrice"], 3.19)
+        self.assertEqual(offer["taxDetails"], {"deposit": "0.15"})
+
+
+class SuperValuHydrationTests(unittest.TestCase):
+    """Product-ID hydration contract of the SuperValu client."""
+
+    def _client(self, payload):
+        client = SuperValuClient("store-123")
+        patcher = patch.object(client, "_get", lambda url, **kwargs: payload)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return client
+
+    def test_blank_product_id_is_rejected_before_any_request(self):
+        client = self._client({})
+        with self.assertRaisesRegex(ValueError, "must not be empty"):
+            client.fetch_product("  ")
+
+    def test_sku_is_promoted_to_product_id_and_price_is_normalised(self):
+        client = self._client({"sku": "S-100", "price": "\u20ac1.40"})
+        payload = client.fetch_product("S-100")
+        self.assertEqual(payload["productId"], "S-100")
+        self.assertEqual(payload["priceNumeric"], 1.4)
+
+    def test_existing_product_id_and_numeric_price_are_left_alone(self):
+        client = self._client({"productId": "P-1", "priceNumeric": 2.2, "price": "x"})
+        payload = client.fetch_product("P-1")
+        self.assertEqual(payload["productId"], "P-1")
+        self.assertEqual(payload["priceNumeric"], 2.2)
+
+    def test_malformed_price_never_raises_and_stays_unparsed(self):
+        client = self._client({"sku": "S-1", "price": "currently unavailable"})
+        payload = client.fetch_product("S-1")
+        self.assertEqual(payload["productId"], "S-1")
+        self.assertNotIn("priceNumeric", payload)
+
+
+class CollectRunRetailerDispatchTests(unittest.TestCase):
+    """collect_run routes each retailer to its dedicated collector."""
+
+    def setUp(self):
+        self.pack = BenchmarkPack(
+            catalog_id="coke-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml",
+        )
+
+    def test_lidl_and_aldi_mappings_dispatch_to_their_collectors(self):
+        lidl_record = {
+            "productId": "10062229",
+            "name": "Coca-Cola Zero Sugar 330ml Can",
+            "price": 2.49,
+            "basePriceText": "\u20ac0.15 Deposit Return",
+            "specialTaxes": [],
+        }
+        aldi_record = {
+            "productId": "000000000728654001",
+            "name": "Coca-Cola Zero Sugar 330ml Can",
+            "brand": "COCA-COLA",
+            "price": "\u20ac2.49",
+            "bottleDepositText": "\u20ac0.15",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                [self.pack],
+                {
+                    "lidl": [LidlMapping(
+                        catalog_id=self.pack.catalog_id,
+                        expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+                    )],
+                    "aldi": [AldiMapping(
+                        catalog_id=self.pack.catalog_id,
+                        expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+                    )],
+                },
+                {
+                    "lidl": lambda _: {"items": [lidl_record]},
+                    "aldi": lambda _: {"items": [aldi_record]},
+                },
+                database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT retailer, displayed_price FROM price_observations "
+                    "ORDER BY retailer"
+                ).fetchall()
+                results = connection.execute(
+                    "SELECT retailer, status FROM collection_results ORDER BY retailer"
+                ).fetchall()
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual(summary["observed_count"], 2)
+        self.assertEqual(observations, [("aldi", "2.49"), ("lidl", "2.49")])
+        self.assertEqual(results, [("aldi", "observed"), ("lidl", "observed")])
+
+    def test_unknown_retailer_is_isolated_as_a_source_error(self):
+        # A pair with an unsupported retailer must not crash the run; it is
+        # recorded as an isolated source_error for diagnostics instead.
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                [self.pack],
+                {"kruidvat": [DunnesMapping(
+                    catalog_id=self.pack.catalog_id,
+                    expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+                )]},
+                {"kruidvat": lambda _: {}},
+                database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, error FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(summary["status"], "failed")
+        self.assertEqual(summary["failed_count"], 1)
+        self.assertEqual(result[0], "source_error")
+        self.assertIn("unsupported retailer adapter", result[1])
+        # A failed pair never writes a Price Observation.
+        self.assertEqual(observations, 0)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,7 @@ from beverage_feed.collector import AldiMapping, BenchmarkPack, collect_aldi_one
 from beverage_feed.dashboard import (
     DEFAULT_HOST,
     DashboardApp,
+    _port_available,
     create_server,
     handle_request,
     main as dashboard_main,
@@ -315,6 +316,50 @@ class LauncherMainTests(unittest.TestCase):
                 ]
             )
             self.assertEqual(code, 2)
+
+
+class DashboardLauncherTests(unittest.TestCase):
+    """Guard-rail exit paths of ``python -m beverage_feed dashboard``."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+
+    def test_port_available_raises_system_exit_when_the_port_is_taken(self):
+        blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        blocker.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        blocker.bind(("127.0.0.1", 0))
+        blocker.listen(1)
+        self.addCleanup(blocker.close)
+        port = blocker.getsockname()[1]
+        with self.assertRaises(SystemExit):
+            _port_available("127.0.0.1", port)
+
+    def test_main_returns_2_when_catalog_json_is_missing(self):
+        code = dashboard_main([
+            "--repo-root", str(self.root),
+            "--no-browser",
+        ])
+        self.assertEqual(code, 2)
+
+    def test_main_returns_2_for_a_non_loopback_host(self):
+        workspace = _minimal_workspace(self.root)
+        code = dashboard_main([
+            "--repo-root", str(workspace),
+            "--host", "0.0.0.0",
+            "--no-browser",
+        ])
+        self.assertEqual(code, 2)
+
+    def test_main_returns_2_for_an_unreadable_catalog(self):
+        workspace = _minimal_workspace(self.root)
+        (workspace / "data" / "catalog.json").write_text("{not json")
+        code = dashboard_main([
+            "--repo-root", str(workspace),
+            "--no-browser",
+        ])
+        self.assertEqual(code, 2)
 
 
 if __name__ == "__main__":

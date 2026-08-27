@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 
 [project.optional-dependencies]
 dev = [
+    "coverage[toml]==7.8.0",
     "mypy==1.15.0",
     "pytest==8.3.5",
     "fastapi>=0.115,<1.0",
@@ -26,6 +27,18 @@ include = ["beverage_feed*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = ["--strict-config"]
+
+[tool.coverage.run]
+branch = true
+source = ["beverage_feed"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.",
+    "if TYPE_CHECKING:",
+]
 
 [tool.mypy]
 files = ["beverage_feed"]

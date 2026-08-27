@@ -1,7 +1,9 @@
 """BasketWatch external-source ingest coverage (mocked client, temp SQLite)."""
 
+import contextlib
 import io
 import json
+import os
 import sqlite3
 import tempfile
 import unittest
@@ -9,7 +11,11 @@ from contextlib import closing
 from pathlib import Path
 from unittest.mock import patch
 
-from beverage_feed.basketwatch import BasketWatchClient, ingest_basketwatch_snapshot
+from beverage_feed.basketwatch import (
+    BasketWatchClient,
+    ingest_basketwatch_snapshot,
+    main as basketwatch_main,
+)
 from beverage_feed.collector import BenchmarkPack, ensure_schema
 
 PACK = BenchmarkPack(
@@ -243,6 +249,44 @@ class BasketWatchIngestTests(unittest.TestCase):
                     "SELECT status, failed_count FROM collection_runs"
                 ).fetchone()
             self.assertEqual(run, ("failed", 1))
+
+
+class BasketWatchCliTests(unittest.TestCase):
+    """Exit-code and summary-line contract of ``python -m beverage_feed basketwatch``."""
+
+    def test_main_prints_the_ingest_summary_and_exits_zero(self):
+        summary = {
+            "run_id": "abc123", "fetched": 10, "ingested": 4,
+            "queued_candidates": 2, "skipped_unmapped": 3,
+            "skipped_invalid_price": 1,
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch(
+                "beverage_feed.basketwatch.ingest_basketwatch_snapshot",
+                return_value=summary,
+            ) as ingest, patch.dict(os.environ, {"BASKETWATCH_API_KEY": "k"}):
+                stdout = io.StringIO()
+                with contextlib.redirect_stdout(stdout):
+                    code = basketwatch_main([
+                        "--retailer", "tesco", "--database", str(database),
+                    ])
+            self.assertEqual(code, 0)
+        ingest.assert_called_once_with("tesco", database, "k")
+        output = stdout.getvalue()
+        self.assertIn("basketwatch ingest: run=abc123", output)
+        self.assertIn("fetched=10 ingested=4", output)
+        self.assertIn("queued_candidates=2", output)
+        self.assertIn("skipped_unmapped=3 skipped_invalid_price=1", output)
+
+    def test_main_fails_loudly_without_a_configured_api_key(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch.dict(os.environ, {"BASKETWATCH_API_KEY": ""}):
+                with self.assertRaisesRegex(EnvironmentError, "BASKETWATCH_API_KEY"):
+                    basketwatch_main([
+                        "--retailer", "tesco", "--database", str(database),
+                    ])
 
 
 if __name__ == "__main__":

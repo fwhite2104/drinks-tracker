@@ -1,6 +1,10 @@
+import contextlib
+import io
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from beverage_feed.collector import BenchmarkPack
 from beverage_feed.discovery import DiscoveryStore, write_mappings, write_rejections
@@ -12,7 +16,7 @@ from beverage_feed.discovery_adapters import (
     RequestEvent,
     normalize_listing,
 )
-from beverage_feed.discovery_run import run_discovery
+from beverage_feed.discovery_run import main as discovery_run_main, run_discovery
 
 
 def pack(catalog_id="pack-1", search_term="Coca-Cola Original 330ml Can") -> BenchmarkPack:
@@ -228,6 +232,59 @@ class DiscoveryRunTests(unittest.TestCase):
         state = self.store.connection().execute(
             "SELECT state FROM discovery_cells").fetchone()
         self.assertEqual(state, ("unmapped",))
+
+
+class DiscoveryCliMainTests(unittest.TestCase):
+    """Exit-code contract of the ``discovery`` CLI dispatcher.
+
+    An empty catalog means zero cells, so no adapter ever issues a request:
+    the run completes without network access.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.catalog = self.root / "catalog.json"
+        self.catalog.write_text("[]\n")
+        self.mapping_path = self.root / "mappings.json"
+        self.rejection_path = self.root / "rejections.json"
+        write_mappings(self.mapping_path, {"dunnes": []})
+        write_rejections(self.rejection_path, {"listings": [], "cells": []})
+        self.base = [
+            "--catalog", str(self.catalog),
+            "--database", str(self.root / "feed.sqlite"),
+            "--mapping", str(self.mapping_path),
+            "--rejections", str(self.rejection_path),
+            "--supervalu-store-id", "store-123",
+            "--request-cap", "3",
+        ]
+
+    def test_main_completes_with_zero_requests_on_an_empty_catalog(self):
+        stdout = io.StringIO()
+        env = {"TESCO_API_KEY": "test-key", "SUPERVALU_STORE_ID": "store-123"}
+        with mock.patch.dict(os.environ, env):
+            with contextlib.redirect_stdout(stdout):
+                code = discovery_run_main([*self.base])
+        self.assertEqual(code, 0)
+        output = stdout.getvalue()
+        self.assertIn("discovery complete", output)
+        self.assertIn("evaluated=0", output)
+        self.assertIn("requests=-", output)
+        output = stdout.getvalue()
+        self.assertIn("discovery complete", output)
+        self.assertIn("evaluated=0", output)
+        self.assertIn("requests=-", output)
+
+    def test_supervalu_without_a_store_id_is_a_usage_error(self):
+        with mock.patch.dict(os.environ, {"SUPERVALU_STORE_ID": "", "TESCO_API_KEY": "test-key"}):
+            with self.assertRaises(SystemExit) as ctx:
+                discovery_run_main([
+                    "--catalog", str(self.catalog),
+                    "--database", str(self.root / "feed.sqlite"),
+                    "--retailer", "supervalu",
+                ])
+        self.assertEqual(ctx.exception.code, 2)
 
 
 if __name__ == "__main__":

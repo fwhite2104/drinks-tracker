@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from beverage_feed.collector import AldiMapping, collect_aldi_one
-from beverage_feed.trace import trace
+from beverage_feed.trace import main, trace
 
 
 PACK_ARGS = dict(
@@ -116,3 +116,29 @@ def test_trace_unknown_reference_fails_cleanly(database: Path, capsys):
     output = capsys.readouterr().out
     assert exit_code == 1
     assert "may only exist in catalog_candidates" in output
+
+
+def test_main_requires_a_catalog_id_or_reference():
+    with pytest.raises(SystemExit) as excinfo:
+        main([])
+    assert excinfo.value.code == 2
+
+
+def test_main_returns_2_when_the_database_is_missing(tmp_path: Path):
+    exit_code = main([
+        "--database", str(tmp_path / "absent.sqlite"),
+        "--catalog-id", "water-5l",
+    ])
+    assert exit_code == 2
+
+
+def test_main_returns_2_when_the_database_is_not_sqlite(tmp_path: Path):
+    corrupt = tmp_path / "corrupt.sqlite"
+    corrupt.write_bytes(b"definitely not a database")
+    exit_code = main(["--database", str(corrupt), "--catalog-id", "water-5l"])
+    assert exit_code == 2
+
+
+def test_main_traces_successfully_and_exits_zero(database: Path):
+    exit_code = main(["--database", str(database), "--catalog-id", "water-5l"])
+    assert exit_code == 0

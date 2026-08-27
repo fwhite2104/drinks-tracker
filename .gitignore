@@ -27,3 +27,6 @@ supervalu_*.py
 supervalu_page.html
 supervalu_state.json
 supervalu_test*.json
+
+# graft's local graph cache — regenerable, not committed (run `graft build`).
+/graft/
