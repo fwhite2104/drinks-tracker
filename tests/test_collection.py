@@ -1,11 +1,20 @@
+import builtins
 import io
 import json
 import sqlite3
+import types
 import tempfile
 import urllib.error
 from contextlib import closing, redirect_stdout
 from decimal import Decimal
 import unittest
+
+def _curl_cffi_available() -> bool:
+    try:
+        import curl_cffi  # noqa: F401
+        return True
+    except ImportError:
+        return False
 from pathlib import Path
 from unittest.mock import patch
 
@@ -19,6 +28,7 @@ from beverage_feed.collector import (
     LidlMapping,
     SuperValuClient,
     SuperValuMapping,
+    TESCO_PRODUCT_QUERY,
     TescoClient,
     TescoMapping,
     _aldi_drs_deposit,
@@ -502,6 +512,108 @@ class CollectionCommandTests(unittest.TestCase):
                 ).fetchone()[0]
 
         self.assertIsNone(clubcard_price)
+
+    def test_tesco_clubcard_multi_buy_with_attribute_records_effective_price(self):
+        """CLUBCARD_PRICING-tagged multi-buys record the per-pack member price."""
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_tpnb="12345",
+        )
+        payload = {
+            "products": [{
+                "tpnb": "12345",
+                "id": "tesco-id",
+                "title": "Coca-Cola Zero Sugar 330ml Can",
+                "price": {"actual": "2.49"},
+                "promotions": [{
+                    "description": "Any 2 for €3.50 Clubcard Price",
+                    "attributes": ["CLUBCARD_PRICING"],
+                }],
+            }]
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_tesco_one(
+                self.pack, mapping, lambda _: payload, database
+            )
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                clubcard_price = connection.execute(
+                    "SELECT clubcard_price FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(clubcard_price, "1.75")
+
+    def test_tesco_drs_deposit_comes_from_charges_fragment(self):
+        """The structured ProductDepositReturnCharge is the primary DRS source."""
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_tpnb="12345",
+        )
+        payload = {
+            "products": [{
+                "tpnb": "12345",
+                "id": "tesco-id",
+                "title": "Coca-Cola Zero Sugar 330ml Can",
+                "price": {"actual": "2.49"},
+                "promotions": [],
+                "charges": [
+                    {"amount": "0.15", "__typename": "ProductDepositReturnCharge"},
+                    {"__typename": "SomethingElse"},
+                ],
+            }]
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_tesco_one(
+                self.pack, mapping, lambda _: payload, database
+            )
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                drs = connection.execute(
+                    "SELECT drs_deposit FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(drs, "0.15")
+
+    def test_tesco_product_query_requests_clubcard_and_drs_fields(self):
+        """The GraphQL query must ask for the fields the extractors read."""
+        self.assertIn("attributes", TESCO_PRODUCT_QUERY)
+        self.assertIn("ProductDepositReturnCharge", TESCO_PRODUCT_QUERY)
+        self.assertIn("charges", TESCO_PRODUCT_QUERY)
+
+    @unittest.skipUnless(_curl_cffi_available(), "curl-cffi not installed")
+    def test_injected_opener_forces_plain_urllib_transport(self):
+        """Tests (and any explicit opener) must bypass the impersonated path."""
+        client = TescoClient(api_key="test-key", opener=urllib.request.build_opener())
+        self.assertIsNone(client._impersonator)
+
+    def test_uses_impersonated_transport_when_available_and_no_opener(self):
+        class _FakeSession:
+            def __init__(self, **kwargs):
+                self.kwargs = kwargs
+        real_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name == "curl_cffi":
+                mod = types.ModuleType("curl_cffi")
+                req = types.ModuleType("curl_cffi.requests")
+                req.Session = _FakeSession
+                mod.requests = req
+                return mod
+            return real_import(name, *args, **kwargs)
+
+        builtins.__import__ = fake_import
+        try:
+            client = TescoClient(api_key="test-key")
+            self.assertIsInstance(client._impersonator, _FakeSession)
+            self.assertEqual(client._impersonator.kwargs.get("impersonate"), "chrome")
+        finally:
+            builtins.__import__ = real_import
 
     def test_tesco_malformed_price_is_a_source_error(self):
         mapping = TescoMapping(

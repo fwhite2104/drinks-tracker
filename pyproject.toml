@@ -20,6 +20,11 @@ api = [
     "fastapi>=0.115,<1.0",
     "uvicorn[standard]>=0.30,<1.0",
 ]
+impersonation = [
+    # Chrome TLS-impersonated transport for Akamai-protected retailer APIs
+    # (Tesco 403s plain urllib). Optional: collection falls back to urllib.
+    "curl-cffi>=0.7,<1.0",
+]
 
 [tool.setuptools.packages.find]
 include = ["beverage_feed*"]

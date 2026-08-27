@@ -1263,14 +1263,23 @@ query GetProductByTpnb($tpnb: String) {
     title
     price { actual unitPrice unitOfMeasure }
     details { packSize { value units } }
-    promotions { description }
+    promotions { description attributes }
+    charges { ... on ProductDepositReturnCharge { amount } }
   }
 }
 """
 
 
 class TescoClient:
-    """Fetch Irish Tesco search results and hydrate them through GraphQL."""
+    """Fetch Irish Tesco search results and hydrate them through GraphQL.
+
+    Tesco's GraphQL gateway sits behind Akamai TLS fingerprinting: plain
+    urllib gets 403'd even with correct headers (validated live). When no
+    explicit ``opener`` is injected and ``curl-cffi`` is installed, requests
+    go through a Chrome-impersonated session instead — the only transport
+    observed working reliably. Tests inject an opener and always take the
+    plain-urllib path.
+    """
 
     def __init__(
         self,
@@ -1290,6 +1299,13 @@ class TescoClient:
         self.opener = opener or urllib.request.build_opener()
         self.min_request_interval = min_request_interval
         self._last_request_at: float | None = None
+        self._impersonator: Any | None = None
+        if opener is None:
+            try:
+                from curl_cffi import requests as curl_requests
+            except ImportError:
+                return
+            self._impersonator = curl_requests.Session(impersonate="chrome")
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         if not search_term.strip():
@@ -1300,7 +1316,11 @@ class TescoClient:
         search_payload = self._request_json(
             urllib.request.Request(
                 search_url,
-                headers={"Accept": "application/json", "User-Agent": "drinks-tracker/0.1"},
+                headers={
+                    "Accept": "application/json",
+                    "User-Agent": "drinks-tracker/0.1",
+                    "Accept-Language": "en-IE,en;q=0.9",
+                },
             )
         )
         try:
@@ -1340,6 +1360,8 @@ class TescoClient:
                     "x-apikey": self.api_key or "",
                     "region": "IE",
                     "language": "en-IE",
+                    "origin": "https://www.tesco.ie",
+                    "referer": "https://www.tesco.ie/",
                 },
                 method="POST",
             )
@@ -1364,6 +1386,17 @@ class TescoClient:
             if delay > 0:
                 time.sleep(delay)
         try:
+            if self._impersonator is not None:
+                response = self._impersonator.request(
+                    request.get_method(),
+                    request.full_url,
+                    headers=dict(request.header_items()),
+                    data=request.data,
+                    timeout=30,
+                )
+                if response.status_code >= 400:
+                    raise RuntimeError(f"Tesco HTTP {response.status_code}")
+                return response.json()
             with self.opener.open(request, timeout=30) as response:
                 if getattr(response, "status", 200) >= 400:
                     raise RuntimeError(f"Tesco HTTP {response.status}")
@@ -1398,14 +1431,45 @@ def _find_tesco_listing(
 
 
 def _tesco_clubcard_price(item: Mapping[str, Any]) -> Decimal | None:
+    """Clubcard (loyalty) price for the exact pack, if the listing carries one.
+
+    Precedence: an explicit loyalty price field, then promotion descriptions.
+    Validated against live responses (cross-checked with the working Monster
+    tracker extraction): Tesco tags Clubcard promotions with a
+    ``CLUBCARD_PRICING`` attribute and phrases them as "€X Clubcard Price" or
+    "Any N for €X Clubcard Price". The multi-buy form records the effective
+    per-pack price X/N — what a loyalty member actually pays per pack.
+    Promotions without the attribute keep the conservative treatment:
+    unattributed "N for €X" text is ordinary multi-buy marketing, not a
+    loyalty price, and meal-deal phrasing never prices this pack.
+    """
     price = _optional_price(item, "clubcardPrice", "clubCardPrice", "loyaltyPrice")
     if price is not None:
         return price
     for promotion in item.get("promotions") or []:
-        description = str(promotion.get("description", "")) if isinstance(promotion, dict) else str(promotion)
-        if "meal deal" in description.lower():
+        if not isinstance(promotion, dict):
             continue
-        if re.search(r"(?:any\s+)?\d+\s+for\s+€", description, re.IGNORECASE):
+        description = str(promotion.get("description", ""))
+        lowered = description.lower()
+        if "meal deal" in lowered:
+            continue
+        attributes = promotion.get("attributes")
+        attributes = attributes if isinstance(attributes, list) else []
+        is_clubcard_promotion = any(
+            "CLUBCARD" in str(attribute).upper() for attribute in attributes
+        )
+        multi = re.search(
+            r"(?:any\s+)?(\d+)\s+for\s+€\s*([0-9]+(?:[.,][0-9]+)?)",
+            description,
+            re.IGNORECASE,
+        )
+        if multi and is_clubcard_promotion:
+            quantity = Decimal(multi.group(1))
+            total = _decimal_price(multi.group(2).replace(",", "."))
+            if quantity > 0 and total is not None:
+                return (total / quantity).quantize(Decimal("0.01"), ROUND_HALF_UP)
+            continue
+        if multi:
             continue
         if re.search(r"club\s*card\s*price", description, re.IGNORECASE):
             match = re.search(r"€\s*([0-9]+(?:[.,][0-9]+)?)", description)
@@ -1415,6 +1479,20 @@ def _tesco_clubcard_price(item: Mapping[str, Any]) -> Decimal | None:
 
 
 def _tesco_drs_deposit(item: Mapping[str, Any]) -> Decimal | None:
+    """Deposit Return Scheme charge for the pack, if the listing carries one.
+
+    Highest precedence is the structured ``charges`` fragment
+    (``ProductDepositReturnCharge``), validated against live responses —
+    Tesco's GraphQL serves the deposit there; the ``details.taxDetails``
+    group fallback predates it and is kept for robustness.
+    """
+    charges = item.get("charges")
+    if isinstance(charges, list):
+        for charge in charges:
+            if isinstance(charge, dict) and charge.get("amount") is not None:
+                amount = _decimal_price(charge["amount"])
+                if amount is not None:
+                    return amount
     details = item.get("details")
     if isinstance(details, dict):
         tax_details = details.get("taxDetails") or details.get("taxes") or []
