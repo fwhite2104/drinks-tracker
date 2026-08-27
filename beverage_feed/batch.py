@@ -176,7 +176,15 @@ class _DropAuthRedirectHandler(urllib.request.HTTPRedirectHandler):
     code paths — this guarantees it.
     """
 
-    def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:  # noqa: ANN001
         new = super().redirect_request(req, fp, code, msg, headers, newurl)
         if new is not None:
             new.headers.pop("Authorization", None)
