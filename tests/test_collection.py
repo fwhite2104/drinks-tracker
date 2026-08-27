@@ -2,10 +2,11 @@ import builtins
 import io
 import json
 import sqlite3
-import types
 import tempfile
+import types
 import urllib.error
 from contextlib import closing, redirect_stdout
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import unittest
 
@@ -32,9 +33,15 @@ from beverage_feed.collector import (
     TescoClient,
     TescoMapping,
     _aldi_drs_deposit,
+    _decimal_price,
+    _decimal_text,
     _dunnes_drs_deposit,
     _lidl_drs_deposit,
+    _load_mappings,
     _validate_listing,
+    as_datetime,
+    load_catalog,
+    safe_record,
     collect_aldi_one,
     collect_catalog,
     collect_lidl_one,
@@ -2280,6 +2287,359 @@ class CollectRunRetailerDispatchTests(unittest.TestCase):
         self.assertIn("unsupported retailer adapter", result[1])
         # A failed pair never writes a Price Observation.
         self.assertEqual(observations, 0)
+
+
+class MoneyParsingTests(unittest.TestCase):
+    """Money is Decimal, ROUND_HALF_UP, euro-tolerant, never negative."""
+
+    def test_accepts_euro_sign_whitespace_and_comma_decimal_marker(self):
+        for raw, expected in [("€2.49", "2.49"), (" 2.49 ", "2.49"), ("2,49", "2.49")]:
+            with self.subTest(raw=raw):
+                self.assertEqual(_decimal_price(raw), Decimal(expected))
+
+    def test_mixed_separators_parse_by_the_last_decimal_marker(self):
+        # Continental "1.234,56" and anglo "1,234.56" must both mean 1234.56.
+        self.assertEqual(_decimal_price("1.234,56"), Decimal("1234.56"))
+        self.assertEqual(_decimal_price("1,234.56"), Decimal("1234.56"))
+
+    def test_rounding_is_half_up_to_cents(self):
+        self.assertEqual(_decimal_price("2.675"), Decimal("2.68"))
+        self.assertEqual(_decimal_text(Decimal("2.675")), "2.68")
+
+    def test_missing_price_is_rejected(self):
+        with self.assertRaises(ValueError):
+            _decimal_price(None)
+
+    def test_malformed_price_is_rejected(self):
+        with self.assertRaises(ValueError):
+            _decimal_price("not-a-price")
+
+    def test_negative_price_is_rejected(self):
+        with self.assertRaises(ValueError):
+            _decimal_price("-1.00")
+
+
+class SecretRedactionTests(unittest.TestCase):
+    """Raw records are persisted only after secret scrubbing (CONTRIBUTING §6)."""
+
+    def test_sensitive_keys_are_redacted_at_any_depth(self):
+        record = {
+            "authorization": "Bearer abc",
+            "nested": [
+                {"apiKey": "k-123", "safe": "value"},
+                {"deep": {"X-Auth-Token": "t-9", "cookie": "c"}},
+            ],
+            "password": "p",
+        }
+        scrubbed = json.loads(safe_record(record) or "{}")
+
+        self.assertEqual(scrubbed["authorization"], "[redacted]")
+        self.assertEqual(scrubbed["password"], "[redacted]")
+        self.assertEqual(scrubbed["nested"][0]["apiKey"], "[redacted]")
+        self.assertEqual(scrubbed["nested"][0]["safe"], "value")
+        self.assertEqual(scrubbed["nested"][1]["deep"]["X-Auth-Token"], "[redacted]")
+        self.assertEqual(scrubbed["nested"][1]["deep"]["cookie"], "[redacted]")
+
+    def test_none_record_stays_none(self):
+        self.assertIsNone(safe_record(None))
+
+    def test_unserialisable_record_degrades_to_its_string_form(self):
+        record = {"price": Decimal("2.49")}  # Decimal is handled via default=str
+        self.assertIn("2.49", safe_record(record))
+
+
+class TimeNormalisationTests(unittest.TestCase):
+    """Timestamps rehydrate as aware UTC (CONTRIBUTING §5)."""
+
+    def test_none_rehydrates_to_the_current_utc_moment(self):
+        rehydrated = as_datetime(None)
+        self.assertEqual(rehydrated.tzinfo, timezone.utc)
+        self.assertLess(abs(rehydrated - datetime.now(timezone.utc)), timedelta(seconds=5))
+
+    def test_naive_datetime_is_interpreted_as_utc(self):
+        rehydrated = as_datetime(datetime(2026, 8, 27, 12, 0, 0))
+        self.assertEqual(rehydrated, datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc))
+
+    def test_aware_datetime_passes_through_unchanged(self):
+        moment = datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc)
+        self.assertEqual(as_datetime(moment), moment)
+
+    def test_z_suffix_and_naive_strings_rehydrate_as_utc(self):
+        for text in ["2026-08-27T12:00:00Z", "2026-08-27T12:00:00"]:
+            with self.subTest(text=text):
+                self.assertEqual(
+                    as_datetime(text),
+                    datetime(2026, 8, 27, 12, 0, 0, tzinfo=timezone.utc),
+                )
+
+
+class TescoClientContractTests(unittest.TestCase):
+    """Malformed gateway responses must degrade to source_error, not crash."""
+
+    class _Response(io.BytesIO):
+        status = 200
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.close()
+
+    @staticmethod
+    def _opener(responses):
+        class Opener:
+            def open(self, request, timeout):
+                return TescoClientContractTests._Response(responses.pop(0))
+
+        return Opener()
+
+    def _client(self, *responses):
+        return TescoClient(
+            api_key="test-key",
+            opener=self._opener([json.dumps(body).encode() for body in responses]),
+            min_request_interval=0,
+        )
+
+    def test_blank_search_term_is_rejected_before_any_request(self):
+        client = self._client({})
+        with self.assertRaises(ValueError):
+            client("   ")
+
+    def test_blank_tpnb_is_rejected_before_any_request(self):
+        client = self._client({})
+        with self.assertRaises(ValueError):
+            client.fetch_product("  ")
+
+    def test_search_payload_without_results_is_a_source_error(self):
+        client = self._client({"unexpected": {}})
+        with self.assertRaises(RuntimeError):
+            client("Coca-Cola")
+
+    def test_search_with_no_matches_skips_graphql_hydration(self):
+        client = self._client({"ie": {"ghs": {"products": {"results": []}}}})
+        payload = client("Coca-Cola")
+        self.assertEqual(payload["products"], [])
+
+    def test_graphql_error_envelope_is_a_source_error(self):
+        client = self._client(
+            {"ie": {"ghs": {"products": {"results": [{"tpnb": 12345}]}}}},
+            [{"errors": [{"message": "unknown tpnb"}]}],
+        )
+        with self.assertRaises(RuntimeError) as caught:
+            client("Coca-Cola")
+        self.assertIn("unknown tpnb", str(caught.exception))
+
+    def test_graphql_response_that_is_not_a_list_is_a_source_error(self):
+        client = self._client(
+            {"ie": {"ghs": {"products": {"results": [{"tpnb": 12345}]}}}},
+            {"data": "unexpected"},
+        )
+        with self.assertRaises(RuntimeError):
+            client("Coca-Cola")
+
+
+class TescoEvidencePrecedenceTests(unittest.TestCase):
+    """Loyalty and DRS evidence: explicit fields beat promotion text."""
+
+    def setUp(self):
+        self.pack = BenchmarkPack(
+            catalog_id="coke-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml",
+        )
+        self.mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_tpnb="12345",
+        )
+
+    def _collect(self, item):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_tesco_one(
+                self.pack, self.mapping, lambda _: {"products": [item]}, database
+            )
+            self.assertEqual(summary["status"], "observed", summary.get("error"))
+            with closing(sqlite3.connect(database)) as connection:
+                return connection.execute(
+                    "SELECT clubcard_price, drs_deposit FROM price_observations"
+                ).fetchone()
+
+    def _item(self, **extra):
+        item = {
+            "tpnb": "12345",
+            "id": "tesco-id",
+            "title": "Coca-Cola Zero Sugar 330ml Can",
+            "price": {"actual": "2.49"},
+            "promotions": [],
+        }
+        item.update(extra)
+        return item
+
+    def test_explicit_loyalty_field_beats_promotion_text(self):
+        clubcard, _ = self._collect(self._item(
+            clubcardPrice="2.19",
+            promotions=[{
+                "description": "Any 2 for €3.50 Clubcard Price",
+                "attributes": ["CLUBCARD_PRICING"],
+            }],
+        ))
+        self.assertEqual(clubcard, "2.19")
+
+    def test_zero_quantity_multi_buy_is_not_a_loyalty_price(self):
+        clubcard, _ = self._collect(self._item(
+            promotions=[{
+                "description": "Any 0 for €3.50 Clubcard Price",
+                "attributes": ["CLUBCARD_PRICING"],
+            }],
+        ))
+        self.assertIsNone(clubcard)
+
+    def test_top_level_drs_deposit_is_the_last_fallback(self):
+        _, drs = self._collect(self._item(drsDeposit="0.25"))
+        self.assertEqual(drs, "0.25")
+
+    def test_response_without_a_products_list_is_a_source_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_tesco_one(
+                self.pack, self.mapping, lambda _: {"nope": []}, database
+            )
+            observations = sqlite3.connect(database).execute(
+                "SELECT COUNT(*) FROM price_observations"
+            ).fetchone()[0]
+
+        self.assertEqual(summary["status"], "source_error")
+        self.assertEqual(observations, 0)
+
+
+class RetentionAndInputValidationTests(unittest.TestCase):
+    """Config-file and retention guards fail loudly on malformed input."""
+
+    def test_retention_periods_must_be_ordered(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+            with self.assertRaises(ValueError):
+                purge_retention(database, raw_days=200, dormant_days=100)
+
+    def test_catalog_file_must_be_a_list_of_objects(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "catalog.json"
+            path.write_text(json.dumps({"catalog_id": "x"}))
+            with self.assertRaises(ValueError):
+                load_catalog(path)
+
+            path.write_text(json.dumps(["not-an-object"]))
+            with self.assertRaises(ValueError):
+                load_catalog(path)
+
+    def test_mapping_file_rejects_unsupported_retailer_and_non_list_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mappings.json"
+            path.write_text(json.dumps({"kruidvat": []}))
+            with self.assertRaises(ValueError):
+                _load_mappings(path)
+
+            path.write_text(json.dumps({"dunnes": {"catalog_id": "x"}}))
+            with self.assertRaises(ValueError):
+                _load_mappings(path)
+
+    def test_legacy_list_mapping_file_is_treated_as_dunnes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mappings.json"
+            path.write_text(json.dumps([{
+                "catalog_id": "coke-zero-330-single",
+                "expected_product_name": "Coca-Cola Zero Sugar 330ml",
+                "status": "approved",
+            }]))
+            mappings = _load_mappings(path)
+
+        self.assertEqual(set(mappings), {"dunnes"})
+        self.assertEqual(mappings["dunnes"][0].catalog_id, "coke-zero-330-single")
+
+
+class CollectionCliGuardTests(unittest.TestCase):
+    """The collection CLI must refuse to run on misconfiguration."""
+
+    def setUp(self):
+        self.pack_row = {
+            "catalog_id": "coke-zero-330-single",
+            "name": "Coca-Cola Zero Sugar 330ml Can",
+            "brand": "Coca-Cola",
+            "variant": "Zero Sugar",
+            "pack_count": 1,
+            "unit_size_ml": 330,
+            "package_type": "can",
+            "search_term": "Coca-Cola Zero Sugar 330ml",
+            "aliases": [],
+        }
+
+    def _write_inputs(self, root, mappings):
+        catalog_path = root / "catalog.json"
+        mapping_path = root / "mappings.json"
+        catalog_path.write_text(json.dumps([self.pack_row]))
+        mapping_path.write_text(json.dumps(mappings))
+        return catalog_path, mapping_path
+
+    def test_unknown_catalog_id_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path, mapping_path = self._write_inputs(root, {"dunnes": []})
+            with self.assertRaises(ValueError) as caught:
+                main([
+                    "--catalog", str(catalog_path),
+                    "--mapping", str(mapping_path),
+                    "--database", str(root / "feed.sqlite"),
+                    "--catalog-id", "does-not-exist",
+                ])
+        self.assertIn("catalog pack not found", str(caught.exception))
+
+    def test_supervalu_without_a_store_id_fails_configuration(self):
+        mappings = {"supervalu": [{
+            "catalog_id": "coke-zero-330-single",
+            "expected_product_name": "Coca-Cola Zero Sugar Can (330 ml)",
+            "source_product_id": "SV-330",
+            "status": "approved",
+        }]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path, mapping_path = self._write_inputs(root, mappings)
+            with patch.dict("os.environ", {"SUPERVALU_STORE_ID": ""}), \
+                    self.assertRaises(SystemExit) as caught:
+                main([
+                    "--catalog", str(catalog_path),
+                    "--mapping", str(mapping_path),
+                    "--database", str(root / "feed.sqlite"),
+                ])
+        self.assertEqual(caught.exception.code, 2)
+
+    def test_unconfigured_retailer_is_skipped_and_a_lone_one_aborts(self):
+        # TESCO_API_KEY deliberately absent: the retailer is skipped with a
+        # note, and with no other retailer left the run cannot start.
+        mappings = {"tesco": [{
+            "catalog_id": "coke-zero-330-single",
+            "expected_product_name": "Coca-Cola Zero Sugar 330ml Can",
+            "source_tpnb": "12345",
+            "status": "approved",
+        }]}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            catalog_path, mapping_path = self._write_inputs(root, mappings)
+            with patch.dict("os.environ", {"TESCO_API_KEY": ""}), \
+                    self.assertRaises(ValueError) as caught:
+                main([
+                    "--catalog", str(catalog_path),
+                    "--mapping", str(mapping_path),
+                    "--database", str(root / "feed.sqlite"),
+                ])
+        self.assertIn("no collectable retailers", str(caught.exception))
 
 
 if __name__ == "__main__":

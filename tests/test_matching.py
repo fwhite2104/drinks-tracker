@@ -103,6 +103,108 @@ class CatalogMatchingTests(unittest.TestCase):
 
         self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
 
+    def test_attribute_match_with_a_mismatched_name_is_unmapped(self):
+        # Attributes point at the single can, but the source name is a
+        # different product: approval requires the name to agree too.
+        result = match_catalog(
+            [self.single],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="sku-1",
+                source_item_id="item-1",
+                name="Pepsi Max 330ml Can",
+                brand="Coca-Cola",
+                variant="Zero Sugar",
+                unit_size_ml=330,
+                pack_count=1,
+                package_type="can",
+            ),
+        )
+
+        self.assertEqual(result.status, "unmapped")
+        self.assertIn("does not match", result.reason)
+
+    def test_brand_mismatch_removes_the_catalog_candidate(self):
+        result = match_catalog(
+            [self.single],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="sku-1",
+                source_item_id="item-1",
+                name="Coca-Cola Zero Sugar 330ml Can",
+                brand="Pepsi",
+                variant="Zero Sugar",
+                unit_size_ml=330,
+                pack_count=1,
+                package_type="can",
+            ),
+        )
+
+        self.assertEqual(result.status, "unmapped")
+        self.assertIn("no catalog pack", result.reason)
+
+    def test_variant_mismatch_removes_the_catalog_candidate(self):
+        result = match_catalog(
+            [self.single],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="sku-1",
+                source_item_id="item-1",
+                name="Coca-Cola Original Taste 330ml Can",
+                brand="Coca-Cola",
+                variant="Original Taste",
+                unit_size_ml=330,
+                pack_count=1,
+                package_type="can",
+            ),
+        )
+
+        self.assertEqual(result.status, "unmapped")
+
+    def test_package_type_conflict_removes_the_catalog_candidate(self):
+        # Source infers a bottle where the catalog only knows a can.
+        result = match_catalog(
+            [self.single],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="sku-1",
+                source_item_id="item-1",
+                name="Coca-Cola Zero Sugar 330ml Bottle",
+                brand="Coca-Cola",
+                variant="Zero Sugar",
+                unit_size_ml=330,
+                pack_count=1,
+            ),
+        )
+
+        self.assertEqual(result.status, "unmapped")
+
+    def test_carton_is_a_recognised_package_type(self):
+        carton = BenchmarkPack(
+            catalog_id="coke-zero-carton",
+            name="Coca-Cola Zero Sugar 1L Carton",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=1000,
+            package_type="carton",
+            search_term="Coca-Cola Zero Sugar 1L",
+        )
+        result = match_catalog(
+            [self.single, carton],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="sku-1",
+                source_item_id="item-1",
+                name="Coca-Cola Zero Sugar 1L Carton",
+                brand="Coca-Cola",
+                variant="Zero Sugar",
+                package_type="carton",
+            ),
+        )
+
+        self.assertEqual((result.status, result.catalog_id), ("approved", "coke-zero-carton"))
+
 
 if __name__ == "__main__":
     unittest.main()
