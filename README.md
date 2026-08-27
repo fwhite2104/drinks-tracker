@@ -126,10 +126,27 @@ Local/internal use only; no authentication.
 
 ```sh
 make build   # one image: python:3.11-slim + supercronic
-make up      # build + collector (every 4h), discovery (03:00 UTC), api (:8000)
+make up      # build + batch pull (every 4h), discovery (03:00 UTC), api (:8000)
 make serve   # start only the read-only API
 make collect discover review report ingest-basketwatch dashboard ARGS="..."
 ```
+
+### Collection egress
+
+**Price collection runs on GitHub Actions** (`.github/workflows/collect.yml`,
+every 4h on rotating cloud IPs) and the VM pulls the resulting batch 40
+minutes later (`python -m beverage_feed pull-batch`, whole-run idempotent).
+This keeps the home IP away from retailer edge blocks: Tesco's Akamai
+IP-blocked this network in August 2026. Consequences:
+
+- The VM `collector` container only pulls batches — it needs `GITHUB_TOKEN`
+  (fine-grained PAT, actions:read) in `.env`.
+- Retailer credentials live in GitHub Actions secrets (`TESCO_API_KEY`,
+  `SUPERVALU_STORE_ID`). A missing secret fails the run loudly.
+- Discovery still runs on the VM (03:00 UTC); revisit if its endpoints ever
+  see the same IP-level block.
+- Batch flow: CI run → `collection-batch` artifact → VM `pull-batch` →
+  `data/feed.sqlite`. Re-ingesting a batch never duplicates rows.
 
 `make up` rebuilds the images first. That is deliberate: containers run code
 copied at build time, so restarting without rebuilding silently executes stale

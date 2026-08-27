@@ -1,8 +1,6 @@
-# Price collection on the VM: only retailers that work from this egress.
-# Tesco is Akamai-blocked at the IP level here — it collects on GitHub
-# Actions instead (.github/workflows/collect-tesco.yml); this crontab pulls
-# that batch 40 minutes later (whole-run idempotent; needs GITHUB_TOKEN in
-# the container env, actions:read PAT).
-0 */4 * * * python -m beverage_feed --retailer dunnes
-10 */4 * * * python -m beverage_feed --retailer supervalu
+# Collection runs on GitHub Actions (.github/workflows/collect.yml) on
+# rotating cloud egress — the home IP is Akamai-blocked for Tesco and CI
+# isolates every retailer from home-IP reputation damage. This crontab only
+# pulls the CI batch (whole-run idempotent; needs GITHUB_TOKEN in the
+# container env, actions:read PAT) 40 minutes after the CI cron.
 40 */4 * * * python -m beverage_feed pull-batch

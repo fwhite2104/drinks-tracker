@@ -35,8 +35,8 @@ from .collector import ensure_schema, timestamp
 
 BATCH_VERSION = 1
 DEFAULT_REPOSITORY = "fwhite2104/drinks-tracker"
-DEFAULT_WORKFLOW = "collect-tesco.yml"
-DEFAULT_ARTIFACT = "tesco-batch"
+DEFAULT_WORKFLOW = "collect.yml"
+DEFAULT_ARTIFACT = "collection-batch"
 
 _TABLES = ("collection_runs", "collection_results", "price_observations")
 

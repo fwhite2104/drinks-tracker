@@ -1,16 +1,17 @@
-# Tesco collection from GitHub Actions egress.
+# Price collection from GitHub Actions egress.
 #
-# Akamai IP-blocked the home network across all of tesco.ie (2026-08-27), so
-# Tesco collects here on rotating cloud IPs instead of the VM cron. The run's
-# rows ship as a JSON batch artifact that the VM pulls and ingests
-# (`python -m beverage_feed pull-batch`). A source_error batch is still
-# truthful data and is uploaded too. See
-# .scratch/full-feed-coverage/issues/11-github-actions-collection-egress.md
-name: collect-tesco
+# All Tier-1 retailers collect here on rotating cloud IPs: Tesco is Akamai
+# IP-blocked from the home network (2026-08-27), and CI egress isolates every
+# retailer from home-IP reputation damage. The run's rows ship as a JSON
+# batch artifact that the VM pulls and ingests (`python -m beverage_feed
+# pull-batch`, whole-run idempotent). A source_error batch is still truthful
+# data and is uploaded too.
+# See .scratch/full-feed-coverage/issues/11-github-actions-collection-egress.md
+name: collect
 
 on:
   schedule:
-    - cron: '15 */4 * * *' # offset from the VM's own 4-hourly runs
+    - cron: '15 */4 * * *' # offset from the VM's pull cron
   workflow_dispatch: {} # manual trigger for the first run / retries
 
 permissions:
@@ -26,25 +27,24 @@ jobs:
           python-version: '3.11'
       - name: Install collection dependencies
         run: python -m pip install -e '.[impersonation]'
-      - name: Collect Tesco into a disposable database
+      - name: Collect all configured retailers into a disposable database
         env:
           TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
+          SUPERVALU_STORE_ID: ${{ secrets.SUPERVALU_STORE_ID }}
         run: |
-          python -m beverage_feed --retailer tesco --database data/ci-feed.sqlite
+          python -m beverage_feed --database data/ci-feed.sqlite
       - name: Export the run batch
-        id: batch
         run: |
           RUN_ID=$(sqlite3 data/ci-feed.sqlite \
             "SELECT run_id FROM collection_runs ORDER BY started_at DESC, rowid DESC LIMIT 1")
           python -m beverage_feed export-batch \
             --run-id "$RUN_ID" --database data/ci-feed.sqlite \
-            --out tesco-batch.json
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+            --out collection-batch.json
       - name: Upload the batch (also on failure — source_error is truthful)
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
-          name: tesco-batch
-          path: tesco-batch.json
+          name: collection-batch
+          path: collection-batch.json
           retention-days: 7
           if-no-files-found: error
