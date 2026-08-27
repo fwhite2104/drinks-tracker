@@ -12,19 +12,19 @@ COPY pyproject.toml requirements-api.txt ./
 COPY beverage_feed ./beverage_feed
 COPY crontabs ./crontabs
 COPY data ./data
+COPY docker-entrypoint.sh ./
 
 # Editable install of the local package plus the read-only API dependencies.
 RUN pip install --no-cache-dir -e . \
-    && pip install --no-cache-dir -r requirements-api.txt
+    && pip install --no-cache-dir -r requirements-api.txt \
+    && chmod +x /app/docker-entrypoint.sh
 
 ENV DRINKS_DATABASE=/data/feed.sqlite \
     PYTHONUNBUFFERED=1
 
 VOLUME /data
 
-# supercronic crashes with "Failed to fork exec" when it runs as the
-# container's PID 1; keeping sh as PID 1 (no exec) sidesteps it. Signals:
-# docker stop falls back to SIGKILL after the grace period, which is fine
-# for scheduled collection.
-ENTRYPOINT ["/bin/sh", "-c"]
-CMD ["supercronic /app/crontabs/collector.cron"]
+# See docker-entrypoint.sh for the PID 1 / supercronic and one-off command
+# handling.
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+CMD ["supercronic", "/app/crontabs/collector.cron"]
