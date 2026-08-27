@@ -145,6 +145,14 @@ def handle_request(
             }
         )
 
+    if path == "/api/raw":
+        return _json_bytes(
+            {
+                "results": read.raw_results(snapshot),
+                "candidates": read.raw_candidates(snapshot),
+            }
+        )
+
     if path == "/api/feed":
         catalog_values = query.get("catalog_id") or []
         catalog_id = catalog_values[0] if catalog_values else None
@@ -284,6 +292,7 @@ def _render_shell(snapshot: read.WorkspaceSnapshot) -> str:
       <button type="button" data-view="catalog"><span>▦</span>Benchmark Catalog</button>
       <button type="button" data-view="discovery"><span>⌁</span>Discovery &amp; mapping</button>
       <button type="button" data-view="collection"><span>◷</span>Collection health</button>
+      <button type="button" data-view="raw"><span>≡</span>Raw listings</button>
     </nav>
     <div class="side-label">Preview</div>
     <nav class="side-nav" id="nav-preview">
@@ -431,6 +440,7 @@ const titles = {
   catalog: 'Benchmark Catalog',
   discovery: 'Discovery & mapping',
   collection: 'Collection health',
+  raw: 'Raw listings',
   feed: 'Consumer feed',
   pack: 'Pack detail',
 };
@@ -633,6 +643,45 @@ async function renderCollection() {
     </p>`;
 }
 
+function rawResultRows(rows) {
+  if (!rows.length) return `<tr><td colspan="6" class="muted">No collection results yet</td></tr>`;
+  return rows.map(r => `
+    <tr><td class="mono muted">${esc(r.recorded_at || '')}</td>
+    <td>${esc(r.retailer)}</td>
+    <td><strong>${esc(r.pack_name || r.catalog_id)}</strong><div class="mono muted">${esc(r.catalog_id)}</div></td>
+    <td><span class="pill ${r.status === 'observed' ? 'good' : r.status === 'unmapped' ? '' : 'warn'}">${esc(r.status)}</span></td>
+    <td class="muted">${esc(r.error || '')}</td>
+    <td class="mono muted">${esc(r.source_product_reference || r.source_item_id || '')}</td></tr>`).join('');
+}
+
+function rawCandidateRows(rows) {
+  if (!rows.length) return `<tr><td colspan="5" class="muted">No candidates captured yet</td></tr>`;
+  return rows.map(r => `
+    <tr><td class="mono muted">${esc(r.first_seen_at || '')}</td>
+    <td>${esc(r.retailer)}</td>
+    <td><strong>${esc(r.source_product_name || '')}</strong><div class="mono muted">${esc(r.candidate_id)}</div></td>
+    <td>${money(r.displayed_price)}</td>
+    <td><span class="pill">${esc(r.status || '')}</span></td></tr>`).join('');
+}
+
+async function renderRaw() {
+  const data = await api('/api/raw');
+  viewEl.innerHTML = `
+    <div class="eyebrow">No-frills pipeline view</div>
+    <h2 style="margin:6px 0 16px;font:600 22px 'Space Grotesk',sans-serif">Everything ingestion has seen</h2>
+    <p class="muted" style="margin:0 0 14px;font-size:12px">Every collection decision (including unmapped / not_found / source_error with the recorded reason) and every raw scraped candidate. Curated views only show observed prices — a product missing from them will show here with the stage that dropped it.</p>
+    <section class="card" style="margin-bottom:16px">
+      <div class="card-head"><div><h2>Collection results</h2><div class="muted" style="margin-top:5px;font-size:12px">Newest decisions first</div></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>When</th><th>Retailer</th><th>Pack</th><th>Decision</th><th>Reason</th><th>Source ref</th></tr></thead>
+      <tbody>${rawResultRows(data.results)}</tbody></table></div>
+    </section>
+    <section class="card">
+      <div class="card-head"><div><h2>Catalog candidates</h2><div class="muted" style="margin-top:5px;font-size:12px">Scraped listings not yet mapped to a pack</div></div></div>
+      <div class="table-wrap"><table class="table"><thead><tr><th>First seen</th><th>Retailer</th><th>Listing</th><th>Price</th><th>Status</th></tr></thead>
+      <tbody>${rawCandidateRows(data.candidates)}</tbody></table></div>
+    </section>`;
+}
+
 function slotHtml(cell, pack) {
   const name = `<div class="rname">${esc(cell.display_name)}</div>`;
   if (cell.state === 'observed') {
@@ -734,6 +783,7 @@ async function render() {
     else if (view === 'catalog') await renderCatalog();
     else if (view === 'discovery') await renderDiscovery();
     else if (view === 'collection') await renderCollection();
+    else if (view === 'raw') await renderRaw();
     else if (view === 'feed') await renderFeed(focus || catalog_id);
     else if (view === 'pack') await renderPack(catalog_id);
     else await renderOverview();

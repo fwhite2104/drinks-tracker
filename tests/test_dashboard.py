@@ -162,10 +162,47 @@ class HandleRequestTests(unittest.TestCase):
             "/api/catalog",
             "/api/retailers",
             "/api/workspace",
+            "/api/raw",
         ):
             status, body, _ = handle_request(self.app, "GET", path, {})
             self.assertEqual(status, 200, path)
             json.loads(body.decode("utf-8"))
+
+    def test_raw_endpoint_truthful_empty_state(self) -> None:
+        status, body, _ = handle_request(self.app, "GET", "/api/raw", {})
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["results"], [])
+        self.assertEqual(payload["candidates"], [])
+
+    def test_raw_endpoint_lists_unmapped_decisions_and_candidates(self) -> None:
+        from beverage_feed.collector import AldiMapping, collect_aldi_one
+
+        collect_aldi_one(
+            PACK,
+            AldiMapping(
+                catalog_id=PACK.catalog_id, expected_product_name="Still Water"
+            ),
+            lambda _: {
+                "items": [
+                    {
+                        "productId": "336021",
+                        "name": "Still Water",
+                        "brand": "COMERAGH",
+                        "price": "\u20ac1.45",
+                    }
+                ]
+            },
+            self.root / "data" / "feed.sqlite",
+        )
+        app = DashboardApp(self.root)
+        status, body, _ = handle_request(app, "GET", "/api/raw", {})
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(status, 200)
+        results = payload["results"]
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0]["status"], "observed")
+        self.assertEqual(results[0]["pack_name"], PACK.name)
 
 
 class LiveServerTests(unittest.TestCase):

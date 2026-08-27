@@ -1076,6 +1076,66 @@ def catalog_table(snapshot: WorkspaceSnapshot) -> list[dict[str, Any]]:
     return rows
 
 
+def raw_results(
+    snapshot: WorkspaceSnapshot,
+    *,
+    limit: int = 300,
+) -> list[dict[str, Any]]:
+    """Raw collection results: every retailer-pack decision, newest first.
+
+    This is the "why is my product missing?" view: unmapped, not_found and
+    source_error cells are all shown with the recorded reason, unlike the
+    curated feed which only surfaces observed prices.
+    """
+    if not snapshot.database.openable:
+        return []
+    with closing(_open_readonly(snapshot.database.path)) as connection:
+        return [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT cr.recorded_at, cr.retailer, cr.catalog_id,
+                       cp.name AS pack_name, cr.status, cr.error,
+                       cr.source_product_reference, cr.source_item_id
+                FROM collection_results AS cr
+                LEFT JOIN catalog_packs AS cp ON cp.catalog_id = cr.catalog_id
+                ORDER BY cr.recorded_at DESC, cr.rowid DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        ]
+
+
+def raw_candidates(
+    snapshot: WorkspaceSnapshot,
+    *,
+    limit: int = 300,
+) -> list[dict[str, Any]]:
+    """Raw Catalog Candidates: scraped listings not tied to a catalog pack.
+
+    Products "found in scraping" but absent from every curated view live
+    here until an operator approves a mapping.
+    """
+    if not snapshot.database.openable:
+        return []
+    with closing(_open_readonly(snapshot.database.path)) as connection:
+        return [
+            dict(row)
+            for row in connection.execute(
+                """
+                SELECT first_seen_at, retailer, candidate_id,
+                       source_product_name, displayed_price, status,
+                       source_product_reference, source_item_id
+                FROM catalog_candidates
+                ORDER BY first_seen_at DESC, rowid DESC
+                LIMIT ?
+                """,
+                (limit,),
+            )
+        ]
+
+
 def iter_readonly_connections(
     snapshot: WorkspaceSnapshot,
 ) -> Iterator[sqlite3.Connection]:
