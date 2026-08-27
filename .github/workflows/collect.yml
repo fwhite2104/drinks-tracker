@@ -28,12 +28,17 @@ jobs:
       - name: Install collection dependencies
         run: python -m pip install -e '.[impersonation]'
       - name: Collect all configured retailers into a disposable database
+        id: collect
+        continue-on-error: true
         env:
           TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
           SUPERVALU_STORE_ID: ${{ secrets.SUPERVALU_STORE_ID }}
         run: |
           python -m beverage_feed --database data/ci-feed.sqlite
+      # A partial run (some retailer source_error) exits 1 — the batch is
+      # still truthful data and must ship. Export runs even then.
       - name: Export the run batch
+        if: ${{ !cancelled() && steps.collect.outcome != 'skipped' }}
         run: |
           RUN_ID=$(sqlite3 data/ci-feed.sqlite \
             "SELECT run_id FROM collection_runs ORDER BY started_at DESC, rowid DESC LIMIT 1")
