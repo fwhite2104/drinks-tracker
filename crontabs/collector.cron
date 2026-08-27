@@ -1,2 +1,8 @@
-# Price collection across all configured retailers, every four hours.
-0 */4 * * * python -m beverage_feed
+# Price collection on the VM: only retailers that work from this egress.
+# Tesco is Akamai-blocked at the IP level here — it collects on GitHub
+# Actions instead (.github/workflows/collect-tesco.yml); this crontab pulls
+# that batch 40 minutes later (whole-run idempotent; needs GITHUB_TOKEN in
+# the container env, actions:read PAT).
+0 */4 * * * python -m beverage_feed --retailer dunnes
+10 */4 * * * python -m beverage_feed --retailer supervalu
+40 */4 * * * python -m beverage_feed pull-batch

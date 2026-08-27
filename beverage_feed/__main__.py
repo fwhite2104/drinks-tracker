@@ -48,6 +48,18 @@ if argv and argv[0] == "trace":
     from .trace import main as trace_main
 
     raise SystemExit(trace_main(argv[1:]))
+if argv and argv[0] == "export-batch":
+    from .batch import export_main as export_batch_main
+
+    raise SystemExit(export_batch_main(argv[1:]))
+if argv and argv[0] == "ingest-batch":
+    from .batch import ingest_main as ingest_batch_main
+
+    raise SystemExit(ingest_batch_main(argv[1:]))
+if argv and argv[0] == "pull-batch":
+    from .batch import pull_main as pull_batch_main
+
+    raise SystemExit(pull_batch_main(argv[1:]))
 if argv and argv[0] == "dashboard":
     from .dashboard import main as dashboard_main
 
