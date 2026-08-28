@@ -1,4 +1,4 @@
-.PHONY: build up down collect discover review report serve test coverage ingest-basketwatch dashboard deploy-check
+.PHONY: build up down collect canary discover review report serve test coverage ingest-basketwatch dashboard deploy-check
 
 build:
 	docker compose build
@@ -11,6 +11,16 @@ down:
 
 collect:
 	docker compose run --rm collector python -m beverage_feed $(ARGS)
+
+# Manual live retailer canary (audit-10) — probes one known mapped listing
+# per retailer, never scheduled, never run by tests or CI checks:
+#   make canary
+#   make canary ARGS="--retailer tesco"
+# A failing canary (endpoint drift / product absence) means: do not trust the
+# next feed run until it is fixed. Enables the release gate when collection
+# runs with --release-gate / DRINKS_RELEASE_GATE=1.
+canary:
+	.venv/bin/python -m beverage_feed canary $(ARGS)
 
 discover:
 	docker compose run --rm discovery python -m beverage_feed discovery $(ARGS)

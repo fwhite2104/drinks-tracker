@@ -3702,7 +3702,22 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=Path(os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")),
     )
+    parser.add_argument(
+        "--release-gate", action="store_true",
+        help="refuse retailers whose live canary is failing (audit-10 release gate;"
+             " also DRINKS_RELEASE_GATE=1)",
+    )
+    parser.add_argument(
+        "--gate-state", type=Path, default=None,
+        help="release-gate state file (default data/canary-gate.json or"
+             " DRINKS_CANARY_STATE)",
+    )
     args = parser.parse_args(argv)
+
+    if not args.release_gate and os.environ.get("DRINKS_RELEASE_GATE", "").strip().lower() in {
+        "1", "true", "yes",
+    }:
+        args.release_gate = True
 
     # Per-cell decision logs go to stderr; the operator-facing run summary is
     # printed at the end of main(). Override with DRINKS_LOG_LEVEL if needed.
@@ -3723,6 +3738,25 @@ def main(argv: list[str] | None = None) -> int:
         raise ValueError("no configured retailer mappings found")
     if "supervalu" in configured_retailers and not args.supervalu_store_id:
         parser.error("--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu")
+
+    if args.release_gate:
+        # Release gate (audit-10): collection refuses retailers whose live
+        # canary keeps failing. Opt-in so scheduled CI collection (disposable
+        # database, no canary state) is never surprised by it.
+        from . import canary as canary_module
+
+        gate_state = args.gate_state or canary_module.DEFAULT_GATE_STATE
+        blocked = canary_module.release_gate(gate_state)
+        for gated_retailer in list(configured_retailers):
+            reason = blocked.get(gated_retailer)
+            if reason:
+                print(f"release gate blocks {gated_retailer}: {reason}", file=sys.stderr)
+                configured_retailers.remove(gated_retailer)
+        if not configured_retailers:
+            parser.error(
+                "release gate blocked every selected retailer;"
+                " run `python -m beverage_feed canary` to re-check"
+            )
 
     adapters: dict[str, Callable[[str], Mapping[str, Any]]] = {}
     for retailer in configured_retailers:

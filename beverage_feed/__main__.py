@@ -64,6 +64,11 @@ if argv and argv[0] == "dashboard":
     from .dashboard import main as dashboard_main
 
     raise SystemExit(dashboard_main(argv[1:]))
+if argv and argv[0] == "canary":
+    # Manual live retailer canary (audit-10) — never scheduled, never CI.
+    from .canary import main as canary_main
+
+    raise SystemExit(canary_main(argv[1:]))
 
 from .collector import main
 

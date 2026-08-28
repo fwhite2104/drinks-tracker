@@ -1,0 +1,51 @@
+# Live retailer canary (audit-10) — MANUAL ONLY.
+#
+# workflow_dispatch is the only trigger: this job is never scheduled, never
+# runs on push/PR, and is not part of CI checks. It probes one known mapped
+# listing per retailer (Dunnes, SuperValu, Tesco) through the real routes and
+# reports endpoint drift separately from product absence. Run it before
+# trusting a scheduled or manual feed run, and to refresh the release gate:
+# with DRINKS_RELEASE_GATE=1 enabled on any local/scheduled collection, three
+# consecutive canary failures block that retailer until a canary passes.
+# See README.md §"Live canary & release gate" and
+# .scratch/beverage-feed-audit-remediation/issues/10-live-retailer-canary-and-release-gate.md
+name: canary
+
+on:
+  workflow_dispatch:
+    inputs:
+      retailer:
+        description: 'Restrict to one retailer (dunnes | supervalu | tesco); empty probes all three'
+        required: false
+        default: ''
+      catalog_id:
+        description: 'Probe exactly this catalog pack (optional)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install collection dependencies
+        run: python -m pip install -e '.[impersonation]'
+      - name: Run the live canary
+        env:
+          TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
+          SUPERVALU_STORE_ID: ${{ secrets.SUPERVALU_STORE_ID }}
+        run: |
+          ARGS=""
+          if [ -n "${{ inputs.retailer }}" ]; then
+            ARGS="$ARGS --retailer ${{ inputs.retailer }}"
+          fi
+          if [ -n "${{ inputs.catalog_id }}" ]; then
+            ARGS="$ARGS --catalog-id ${{ inputs.catalog_id }}"
+          fi
+          python -m beverage_feed canary $ARGS

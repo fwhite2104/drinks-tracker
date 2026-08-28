@@ -22,6 +22,21 @@ from .discovery_adapters import (
     TescoDiscoveryAdapter,
     normalize_listing,
 )
+from .canary import (
+    CANARY_RETAILERS,
+    GATE_FAILURE_THRESHOLD,
+    GATE_MAX_AGE_HOURS,
+    STATUS_ABSENT,
+    STATUS_DRIFT,
+    STATUS_INVALID,
+    STATUS_PASS,
+    CanaryCheck,
+    CanaryOutcome,
+    load_gate_state,
+    record_outcomes,
+    release_gate,
+    run_canary,
+)
 from .collector import (
     SCHEMA_VERSION,
     AldiClient,
@@ -51,6 +66,15 @@ from .collector import (
 
 __all__ = [
     "SCHEMA_VERSION",
+    "CANARY_RETAILERS",
+    "GATE_FAILURE_THRESHOLD",
+    "GATE_MAX_AGE_HOURS",
+    "STATUS_ABSENT",
+    "STATUS_DRIFT",
+    "STATUS_INVALID",
+    "STATUS_PASS",
+    "CanaryCheck",
+    "CanaryOutcome",
     "AldiDiscoveryAdapter",
     "AldiClient",
     "AldiMapping",
@@ -70,6 +94,10 @@ __all__ = [
     "collect_supervalu_one",
     "collect_tesco_one",
     "collect_run",
+    "run_canary",
+    "record_outcomes",
+    "release_gate",
+    "load_gate_state",
     "check_integrity",
     "current_feed",
     "last_seen",
