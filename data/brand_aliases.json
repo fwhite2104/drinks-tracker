@@ -1,0 +1,21 @@
+{
+  "diet coke": ["Coca-Cola", "Diet"],
+  "coke diet": ["Coca-Cola", "Diet"],
+  "coke zero": ["Coca-Cola", "Zero Sugar"],
+  "coke original": ["Coca-Cola", "Original Taste"],
+  "coke original taste": ["Coca-Cola", "Original Taste"],
+  "coca cola zero": ["Coca-Cola", "Zero Sugar"],
+  "coke": ["Coca-Cola", null],
+  "coca cola": ["Coca-Cola", null],
+  "7up free": ["7UP", "Free"],
+  "7up": ["7UP", null],
+  "fanta zero": ["Fanta", "Orange Zero"],
+  "fanta": ["Fanta", null],
+  "sprite zero": ["Sprite", "Zero Sugar"],
+  "sprite": ["Sprite", null],
+  "lucozade sport": ["Lucozade Sport", null],
+  "lucozade": ["Lucozade", null],
+  "rock original": ["Rockstar", "Original"],
+  "rock": ["Rockstar", null],
+  "pepsi max": ["Pepsi", "Max"]
+}

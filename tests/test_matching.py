@@ -1,11 +1,13 @@
 import unittest
+from pathlib import Path
 
 from beverage_feed.collector import BenchmarkPack
 from beverage_feed.matching import (
-    BRAND_ALIAS_DICTIONARY,
     SourceListing,
+    attribute_candidates,
     brand_matches_alias,
     is_relevant_candidate,
+    load_brand_aliases,
     match_catalog,
     resolve_brand_alias,
     search_formulations,
@@ -292,6 +294,24 @@ class BrandAliasTests(unittest.TestCase):
 
         self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
 
+    def test_cross_variant_pack_alias_does_not_match_the_brand(self):
+        # A mis-curated cross-variant pack alias ("Diet Coke" on the Zero
+        # Sugar pack) can never bridge the brand check: translating through
+        # an alias must agree with the pack's canonical brand and variant.
+        zero_pack = BenchmarkPack(
+            catalog_id="coca-zero-2000-bad-alias",
+            name="Coca-Cola Zero Sugar 2L Bottle",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Coca-Cola Zero Sugar",
+            aliases=("Diet Coke",),  # curated error: a Diet alias on a Zero pack
+        )
+
+        self.assertFalse(brand_matches_alias(zero_pack, "Diet Coke"))
+
 
 class CuratedBrandAliasDictionaryTests(unittest.TestCase):
     """The curated Brand Alias dictionary translates consumer phrasings into
@@ -327,8 +347,23 @@ class CuratedBrandAliasDictionaryTests(unittest.TestCase):
         for junk in ("POWERCUT Zip Hoodie", "LED Desk Lamp 5W", "Cola Sweets Bag", "", None):
             self.assertIsNone(resolve_brand_alias(junk))
 
+    def test_dictionary_loads_from_the_data_file(self):
+        # CONTRIBUTING §10: curated inputs live in data/ files; the alias
+        # dictionary is loaded from data/brand_aliases.json like the catalog.
+        table = load_brand_aliases(Path("data") / "brand_aliases.json")
+
+        self.assertEqual(table.get("diet coke"), ("Coca-Cola", "Diet"))
+        self.assertEqual(table.get("coke zero"), ("Coca-Cola", "Zero Sugar"))
+        self.assertEqual(table.get("coke"), ("Coca-Cola", None))
+
+    def test_missing_dictionary_file_falls_back_to_empty(self):
+        # Consistent with mappings.json handling: a missing file degrades to
+        # an empty table instead of raising.
+        self.assertEqual(load_brand_aliases(Path("no") / "such" / "aliases.json"), {})
+
     def test_dictionary_covers_the_catalog_top_brands(self):
-        covered = {brand for brand, _ in BRAND_ALIAS_DICTIONARY.values()}
+        table = load_brand_aliases(Path("data") / "brand_aliases.json")
+        covered = {brand for brand, _ in table.values()}
         for brand in ("Coca-Cola", "7UP", "Fanta", "Sprite", "Lucozade", "Rockstar"):
             self.assertIn(brand, covered)
 
@@ -397,6 +432,33 @@ class CuratedDictionaryBrandAliasTests(unittest.TestCase):
 
     def test_dictionary_alias_never_weakens_the_variant_bar(self):
         self.assertFalse(brand_matches_alias(self.diet_can, "Coke Zero"))
+
+    def test_plain_brand_listing_without_variant_never_matches_by_size_alone(self):
+        # A plain "Coca-Cola" listing carrying no variant evidence must not
+        # match a Zero Sugar pack just because size and count agree; a
+        # missing variant can never silently widen the match.
+        zero_can = BenchmarkPack(
+            catalog_id="coca-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+        )
+        listing = SourceListing(
+            retailer="dunnes",
+            source_product_reference="sku-plain",
+            source_item_id="item-plain",
+            name="Coca-Cola 330ml Can",
+            brand="Coca-Cola",
+            unit_size_ml=330,
+            pack_count=1,
+            package_type="can",
+        )
+
+        self.assertEqual(attribute_candidates([zero_can], listing), [])
 
 
 class JunkGateTests(unittest.TestCase):

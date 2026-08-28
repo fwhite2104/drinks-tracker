@@ -3,6 +3,7 @@ import sqlite3
 import tempfile
 import unittest
 from contextlib import closing
+from dataclasses import replace
 from pathlib import Path
 
 from beverage_feed.collector import BenchmarkPack
@@ -111,6 +112,40 @@ class ExactMatchBrandAliasTests(unittest.TestCase):
             "itemId": "100298099",
             "productName": "Coke Zero 330ml Can",
             "price": "1.35",
+        })
+
+        self.assertFalse(exact_match(pack, candidate))
+
+    def test_cross_variant_pack_alias_is_never_an_exact_match(self):
+        # A mis-curated pack alias ("Diet Coke" on the Zero Sugar pack) can
+        # never bridge the brand check: translating through an alias must
+        # agree with the pack's canonical identity (CONTEXT.md: Brand Alias
+        # never weakens the exact-pack bar).
+        pack = BenchmarkPack(
+            catalog_id="coca-zero-330-bad-alias",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+            aliases=("Diet Coke",),  # curated error: a Diet alias on a Zero pack
+        )
+        candidate = listing({
+            "productReference": "100298099",
+            "itemId": "100298099",
+            "productName": "Diet Coke 330ml Can",
+            "brand": "Diet Coke",
+            "variant": "Zero Sugar",
+            "price": "1.35",
+        })
+        # Surface the raw consumer brand (untranslated structured evidence)
+        # so the pack alias is the only possible brand bridge.
+        candidate = replace(candidate, attributes={
+            **candidate.attributes,
+            "brand": "Diet Coke",
+            "variant": "Zero Sugar",
         })
 
         self.assertFalse(exact_match(pack, candidate))

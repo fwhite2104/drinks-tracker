@@ -6,8 +6,10 @@ and the universal junk relevance gate used by the discovery pipeline.
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Iterable, Protocol
 
 from .collector import BenchmarkPack
@@ -90,35 +92,63 @@ def same_text(left: str | None, right: str) -> bool:
 
 # Curated Brand Alias dictionary (CONTEXT.md: Brand Alias). Maps a retailer's
 # consumer brand phrasing to the catalog's canonical brand and variant (the
-# variant is None when the phrasing carries none). Starts with the catalog's
-# top brands; review sprints extend it by editing this table. Auto-mined
-# aliases are suggestions only and never enter the dictionary uncurated, so
-# nothing is ever auto-applied at runtime.
-BRAND_ALIAS_DICTIONARY: dict[str, tuple[str, str | None]] = {
-    # Coke family
-    "diet coke": ("Coca-Cola", "Diet"),
-    "coke diet": ("Coca-Cola", "Diet"),
-    "coke zero": ("Coca-Cola", "Zero Sugar"),
-    "coke original": ("Coca-Cola", "Original Taste"),
-    "coke original taste": ("Coca-Cola", "Original Taste"),
-    "coca cola zero": ("Coca-Cola", "Zero Sugar"),
-    "coke": ("Coca-Cola", None),
-    "coca cola": ("Coca-Cola", None),
-    # Other top brands
-    "7up free": ("7UP", "Free"),
-    "7up": ("7UP", None),
-    "fanta zero": ("Fanta", "Orange Zero"),
-    "fanta": ("Fanta", None),
-    "sprite zero": ("Sprite", "Zero Sugar"),
-    "sprite": ("Sprite", None),
-    "lucozade sport": ("Lucozade Sport", None),
-    "lucozade": ("Lucozade", None),
-    "rock original": ("Rockstar", "Original"),
-    "rock": ("Rockstar", None),
-    "pepsi max": ("Pepsi", "Max"),
-}
+# variant is null when the phrasing carries none). Per CONTRIBUTING.md §10 the
+# curated table lives in a data file (data/brand_aliases.json), loaded at call
+# time with the same conventions as data/catalog.json. Review sprints extend
+# it by editing that file. Auto-mined aliases are suggestions only and never
+# enter the dictionary uncurated, so nothing is ever auto-applied at runtime.
+BRAND_ALIAS_PATH = Path("data") / "brand_aliases.json"
 
-_ALIAS_PHRASES = tuple(sorted(BRAND_ALIAS_DICTIONARY, key=len, reverse=True))
+# Cache of the loaded dictionary keyed by resolved path, invalidated on file
+# change (mtime_ns + size) so an edited data file is picked up without a
+# process restart and a missing file degrades to an empty table (consistent
+# with mappings.json handling).
+_ALIAS_CACHE: dict[str, tuple[int, int, dict[str, tuple[str, str | None]]]] = {}
+
+
+def load_brand_aliases(path: Path = BRAND_ALIAS_PATH) -> dict[str, tuple[str, str | None]]:
+    """Load the curated Brand Alias dictionary from *path*.
+
+    Follows the ``load_catalog`` conventions: JSON read from disk, ``ValueError``
+    on a malformed shape, and every entry must be a ``[brand, variant]`` pair
+    with a null variant when the phrase carries none. A missing file falls back
+    to an empty table (matching how a missing mappings file degrades to no
+    mappings) rather than raising, so an absent data file narrows matching to
+    the pack's own aliases instead of breaking the run.
+    """
+    try:
+        raw = json.loads(path.read_text())
+    except FileNotFoundError:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("brand alias file must contain an object")
+    table: dict[str, tuple[str, str | None]] = {}
+    for phrase, identity in raw.items():
+        if (
+            not isinstance(phrase, str)
+            or not isinstance(identity, list)
+            or len(identity) != 2
+            or not isinstance(identity[0], str)
+            or not (identity[1] is None or isinstance(identity[1], str))
+        ):
+            raise ValueError(f"brand alias entry must be [brand, variant|null]: {phrase!r}")
+        table[phrase.lower()] = (identity[0], identity[1] or None)
+    return table
+
+
+def _alias_table(path: Path = BRAND_ALIAS_PATH) -> dict[str, tuple[str, str | None]]:
+    """Cached :func:`load_brand_aliases`, reloaded when the file changes."""
+    try:
+        stat = path.stat()
+    except OSError:
+        return {}
+    key = str(path)
+    cached = _ALIAS_CACHE.get(key)
+    if cached and cached[0] == stat.st_mtime_ns and cached[1] == stat.st_size:
+        return cached[2]
+    table = load_brand_aliases(path)
+    _ALIAS_CACHE[key] = (stat.st_mtime_ns, stat.st_size, table)
+    return table
 
 
 @dataclass(frozen=True)
@@ -140,9 +170,10 @@ def resolve_brand_alias(text: str | None) -> BrandAliasTranslation | None:
     if not text:
         return None
     normalized = " ".join(re.findall(r"[a-z0-9]+", text.lower().replace("-", " ")))
-    for phrase in _ALIAS_PHRASES:
+    table = _alias_table()
+    for phrase in sorted(table, key=len, reverse=True):
         if re.search(rf"\b{re.escape(phrase)}\b", normalized):
-            brand, variant = BRAND_ALIAS_DICTIONARY[phrase]
+            brand, variant = table[phrase]
             return BrandAliasTranslation(phrase, brand, variant)
     return None
 
@@ -161,10 +192,23 @@ def brand_matches_alias(pack: BenchmarkPack, brand: str | None) -> bool:
     if not brand:
         return False
     brand_tokens = _core_tokens(brand)
-    if brand_tokens and any(
-        _core_tokens(alias) == brand_tokens for alias in pack.aliases
-    ):
-        return True
+    if brand_tokens:
+        for alias in pack.aliases:
+            if _core_tokens(alias) != brand_tokens:
+                continue
+            translation = resolve_brand_alias(alias)
+            if translation is None:
+                # Pack-curated alias with no dictionary reading: the alias is
+                # itself the curated identity evidence.
+                return True
+            # The alias's own translation must agree with the pack's canonical
+            # identity: a wrong or cross-variant curated alias can never
+            # approve (CONTEXT.md: Brand Alias never weakens the bar).
+            if not same_text(pack.brand, translation.brand):
+                continue
+            if translation.variant is not None and not same_text(pack.variant, translation.variant):
+                continue
+            return True
     translation = resolve_brand_alias(brand)
     if translation is None or not same_text(pack.brand, translation.brand):
         return False
@@ -201,6 +245,13 @@ def attribute_candidates(
     inferred_size = listing.unit_size_ml or _unit_size_ml(listing.name)
     inferred_count = listing.pack_count or _pack_count(listing.name)
     inferred_package = listing.package_type or _package_type(listing.name)
+    translation = resolve_brand_alias(listing.brand) if listing.brand else None
+    # Variant evidence: the listing's own variant, else the variant implied by
+    # its curated brand alias. A stated brand with no variant can never
+    # silently widen the match by size alone: the alias-implied variant must
+    # pin the pack's variant, and a pack that declares a variant requires
+    # agreeing evidence.
+    variant_evidence = listing.variant or (translation.variant if translation else None)
     candidates = []
     for pack in catalog:
         if listing.brand and not (
@@ -208,7 +259,10 @@ def attribute_candidates(
             or brand_matches_alias(pack, listing.brand)
         ):
             continue
-        if listing.variant and not same_text(listing.variant, pack.variant):
+        if listing.variant is not None:
+            if not same_text(listing.variant, pack.variant):
+                continue
+        elif listing.brand and pack.variant and not same_text(variant_evidence, pack.variant):
             continue
         if inferred_size != pack.unit_size_ml or inferred_count != pack.pack_count:
             continue
