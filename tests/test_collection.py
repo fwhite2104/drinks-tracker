@@ -37,6 +37,7 @@ from beverage_feed.collector import (
     _decimal_text,
     _dunnes_drs_deposit,
     _lidl_drs_deposit,
+    _RunLock,
     _load_mappings,
     _validate_listing,
     as_datetime,
@@ -903,6 +904,8 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(seen["observed_at"], history[0]["observed_at"])
 
     def test_current_feed_keeps_one_row_when_run_has_multiple_observations(self):
+        # Ticket 07 enforces one observation per run/retailer/pack/scope, so a
+        # duplicate insert for the same cell is rejected outright.
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             with closing(sqlite3.connect(database)) as connection:
@@ -930,17 +933,26 @@ class CollectionCommandTests(unittest.TestCase):
                     """,
                     ("run-1", self.pack.catalog_id, "2026-01-01T00:00:00Z"),
                 )
-                for price, observed_at in (("1.00", "2026-01-01T00:00:00Z"),
-                                           ("1.10", "2026-01-01T00:00:01Z")):
+                connection.execute(
+                    """
+                    INSERT INTO price_observations (
+                        run_id, catalog_id, retailer, source_product_reference,
+                        source_item_id, source_product_name, displayed_price,
+                        currency, pack_count, unit_size_ml, package_type, observed_at
+                    ) VALUES ('run-1', ?, 'tesco', 'tpnb', 'tpnb', ?, '1.10', 'EUR', 1, 330, 'can', 't')
+                    """,
+                    (self.pack.catalog_id, self.pack.name),
+                )
+                with self.assertRaises(sqlite3.IntegrityError):
                     connection.execute(
                         """
                         INSERT INTO price_observations (
                             run_id, catalog_id, retailer, source_product_reference,
                             source_item_id, source_product_name, displayed_price,
                             currency, pack_count, unit_size_ml, package_type, observed_at
-                        ) VALUES (?, ?, 'tesco', 'tpnb', 'tpnb', ?, ?, 'EUR', 1, 330, 'can', ?)
+                        ) VALUES ('run-1', ?, 'tesco', 'tpnb', 'tpnb', ?, '1.00', 'EUR', 1, 330, 'can', 's')
                         """,
-                        ("run-1", self.pack.catalog_id, self.pack.name, price, observed_at),
+                        (self.pack.catalog_id, self.pack.name),
                     )
                 connection.commit()
             feed = current_feed(database)
@@ -2645,6 +2657,228 @@ class CollectRunRetailerDispatchTests(unittest.TestCase):
         self.assertIn("unsupported retailer adapter", result[1])
         # A failed pair never writes a Price Observation.
         self.assertEqual(observations, 0)
+
+
+class CollectionRunRecoveryTests(unittest.TestCase):
+    """Runs are recoverable, locked, and idempotent (audit ticket 07).
+
+    An interrupted run gets an explicit terminal status, concurrent local
+    collectors are excluded by a run lock, and a retailer-pack cell yields at
+    most one observation per run/source scope — with previous observations
+    preserved after failed runs.
+    """
+
+    def setUp(self):
+        self.pack = BenchmarkPack(
+            catalog_id="coke-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml",
+        )
+        self.mapping = DunnesMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml",
+            source_product_reference="COKE-ZERO-330",
+            source_item_id="COKE-ZERO-330-EA",
+        )
+        self.payload = {
+            "data": {
+                "productSearch": {
+                    "products": [
+                        {
+                            "productName": "Coca-Cola Zero Sugar 330ml",
+                            "productReference": "COKE-ZERO-330",
+                            "items": [
+                                {
+                                    "itemId": "COKE-ZERO-330-EA",
+                                    "sellers": [
+                                        {
+                                            "commertialOffer": {
+                                                "Price": "2.49",
+                                                "ListPrice": "2.99",
+                                            }
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        }
+
+    def _run_rows(self, database):
+        with closing(sqlite3.connect(database)) as connection:
+            return connection.execute(
+                "SELECT run_id, status, finished_at FROM collection_runs ORDER BY rowid"
+            ).fetchall()
+
+    def _collect(self, database, fetcher):
+        return collect_run(
+            [self.pack],
+            {"dunnes": [self.mapping]},
+            {"dunnes": fetcher},
+            database,
+        )
+
+    def test_stale_running_run_from_a_crashed_process_is_finalized_as_interrupted(self):
+        # A collector that died mid-run leaves a 'running' row behind; the next
+        # run must finalize it with an explicit terminal status.
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                connection.execute(
+                    "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    (
+                        "crashed-run", "2026-01-01T00:00:00Z", "2026-01-01T00:00:00Z",
+                        "running", 0, 0, '{"status": "running"}',
+                    ),
+                )
+                connection.commit()
+            summary = self._collect(database, lambda _: self.payload)
+            rows = self._run_rows(database)
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual([row[1] for row in rows], ["interrupted", "completed"])
+        self.assertTrue(all(row[2] for row in rows))
+
+    def test_keyboard_interrupt_finalizes_the_run_as_interrupted_not_running(self):
+        def interrupted(_):
+            raise KeyboardInterrupt()
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with self.assertRaises(KeyboardInterrupt):
+                self._collect(database, interrupted)
+            rows = self._run_rows(database)
+
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][1], "interrupted")
+        self.assertTrue(rows[0][2])
+
+    def test_sqlite_failure_finalizes_the_run_and_releases_the_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch(
+                "beverage_feed.collector._log_decision",
+                side_effect=sqlite3.OperationalError("database is locked"),
+            ):
+                with self.assertRaises(sqlite3.OperationalError):
+                    self._collect(database, lambda _: self.payload)
+            rows = self._run_rows(database)
+            # The lock is released after the failure, so a retry succeeds.
+            retry = self._collect(database, lambda _: self.payload)
+
+        self.assertEqual(rows[0][1], "failed")
+        self.assertTrue(rows[0][2])
+        self.assertEqual(retry["status"], "completed")
+
+    def test_concurrent_collector_is_blocked_and_duplicate_sequential_run_is_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with _RunLock(database):
+                with self.assertRaises(RuntimeError) as raised:
+                    self._collect(database, lambda _: self.payload)
+            self.assertIn("lock", str(raised.exception))
+            # A second invocation after the lock is released is not an error.
+            summary = self._collect(database, lambda _: self.payload)
+            second = self._collect(database, lambda _: self.payload)
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual(second["status"], "completed")
+
+    def test_repeated_processing_of_the_same_cell_is_idempotent(self):
+        # Processing the same retailer-pack cell twice within one run leaves
+        # exactly one observation and one collection result.
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                connection.execute(
+                    "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    ("run-fixed", "t", "t", "running", 0, 0, "{}"),
+                )
+                connection.commit()
+            collect_one(
+                self.pack, self.mapping, lambda _: self.payload, database,
+                _run_id="run-fixed",
+            )
+            collect_one(
+                self.pack, self.mapping, lambda _: self.payload, database,
+                _run_id="run-fixed",
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+                results = connection.execute(
+                    "SELECT COUNT(*) FROM collection_results"
+                ).fetchone()[0]
+
+        self.assertEqual(observations, 1)
+        self.assertEqual(results, 1)
+
+    def test_observation_uniqueness_is_enforced_per_run_cell_and_scope(self):
+        # One observation per run, retailer, Catalog Pack, and source scope;
+        # a different source scope is a distinct observation.
+        insert = """
+            INSERT INTO price_observations (
+                run_id, catalog_id, retailer, source_product_reference,
+                source_item_id, source_product_name, displayed_price, source_scope,
+                currency, pack_count, unit_size_ml, package_type, observed_at
+            ) VALUES ('run-1', ?, 'dunnes', 'ref', 'item', 'Coke', '2.49', ?,
+                      'EUR', 1, 330, 'can', 't')
+            """
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                connection.execute(
+                    "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
+                    ("run-1", "t", "t", "completed", 1, 0, "{}"),
+                )
+                connection.execute(insert, (self.pack.catalog_id, None))
+                connection.commit()
+            with closing(sqlite3.connect(database)) as connection:
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute(insert, (self.pack.catalog_id, None))
+                connection.execute(insert, (self.pack.catalog_id, "store-042"))
+                connection.commit()
+                counts = connection.execute(
+                    "SELECT COALESCE(source_scope, ''), COUNT(*) "
+                    "FROM price_observations GROUP BY 1"
+                ).fetchall()
+
+        self.assertEqual(sorted(counts), [("", 1), ("store-042", 1)])
+
+    def test_failed_run_preserves_previous_observations_and_current_feed(self):
+        def broken(_):
+            raise RuntimeError("retailer outage")
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            first = self._collect(database, lambda _: self.payload)
+            second = self._collect(database, broken)
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+            feed = current_feed(database)
+            history = price_history(database)
+
+        self.assertEqual(first["status"], "completed")
+        self.assertEqual(second["status"], "failed")
+        # The failed run never deletes or overwrites the earlier observation.
+        self.assertEqual(observations, 1)
+        # The pair's latest result is a source_error, so the stale price is not
+        # presented as current; history and last-seen keep it for reference.
+        self.assertEqual(feed, [])
+        self.assertEqual(len(history), 1)
 
 
 class MoneyParsingTests(unittest.TestCase):

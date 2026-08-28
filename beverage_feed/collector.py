@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import fcntl
 import http.cookiejar
 from contextlib import closing
 import json
@@ -423,6 +424,46 @@ def _validate_listing(name: str, pack: BenchmarkPack) -> str | None:
     return f"name mismatch: expected {core} not in {name_tokens}"
 
 
+def _ensure_observation_cell_index(connection: sqlite3.Connection) -> None:
+    """Enforce one observation per run, retailer, pack, and source scope.
+
+    Skipped for legacy or foreign ``price_observations`` layouts that lack the
+    collector's columns (e.g. discovery-only databases). For a pre-ticket-07
+    table holding duplicate cell observations, the earliest row per cell wins
+    so ``uq_price_observations_cell`` can be created without failing.
+    """
+    required = {"observation_id", "run_id", "retailer", "catalog_id", "source_scope"}
+    columns = {row[1] for row in connection.execute(
+        "PRAGMA table_info(price_observations)"
+    ).fetchall()}
+    if not required <= columns:
+        return
+    if connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'index' "
+        "AND name = 'uq_price_observations_cell'"
+    ).fetchone() is not None:
+        return
+    connection.execute(
+        """
+        DELETE FROM price_observations
+        WHERE observation_id > (
+            SELECT MIN(p2.observation_id) FROM price_observations AS p2
+            WHERE p2.run_id = price_observations.run_id
+              AND p2.retailer = price_observations.retailer
+              AND p2.catalog_id = price_observations.catalog_id
+              AND COALESCE(p2.source_scope, '')
+                  = COALESCE(price_observations.source_scope, '')
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_price_observations_cell
+        ON price_observations (run_id, retailer, catalog_id, COALESCE(source_scope, ''))
+        """
+    )
+
+
 def ensure_schema(connection: sqlite3.Connection) -> None:
     connection.executescript(SCHEMA)
     connection.execute("PRAGMA foreign_keys = ON")
@@ -451,6 +492,8 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
             pragma_cursor.close()
         if column not in columns:
             connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+    # Ticket 07: one Price Observation per run/retailer/pack/source scope.
+    _ensure_observation_cell_index(connection)
 
 
 _SENSITIVE_KEY = re.compile(r"(?:authorization|cookie|password|secret|token|api.?key)", re.I)
@@ -880,6 +923,11 @@ def collect_one(
                 source_product_reference, source_item_id, source_scope,
                 complete, recorded_at
             ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, NULL, ?, ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id,
+                complete=excluded.complete, recorded_at=excluded.recorded_at
             """,
             (
                 run_id,
@@ -917,6 +965,7 @@ def collect_one(
                     currency, pack_count, unit_size_ml, package_type,
                     component_unit_price, price_per_litre, observed_at
                 ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (
                     run_id,
@@ -934,6 +983,8 @@ def collect_one(
                     observed_at,
                 ),
             )
+            # Idempotent per (run, retailer, pack, scope): a repeated cell
+            # never duplicates the observation (ticket 07).
             if drs_deposit is None:
                 # Validated source limitation: no live VTEX offer carries
                 # deposit evidence (see _dunnes_drs_deposit).
@@ -1284,6 +1335,12 @@ def collect_supervalu_one(
                  source_product_reference, source_item_id, source_scope,
                  complete, recorded_at)
             VALUES (?, ?, 'supervalu', ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id,
+                source_scope=excluded.source_scope,
+                complete=excluded.complete, recorded_at=excluded.recorded_at
             """,
             (
                 run_id, pack.catalog_id, status, error,
@@ -1304,6 +1361,7 @@ def collect_supervalu_one(
                     drs_deposit, source_scope, currency, pack_count, unit_size_ml,
                     package_type, component_unit_price, price_per_litre, observed_at
                 ) VALUES (?, ?, 'supervalu', ?, ?, ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (
                     run_id, pack.catalog_id, source_product_id,
@@ -1706,6 +1764,11 @@ def collect_tesco_one(
                  source_product_reference, source_item_id, source_scope,
                  complete, recorded_at)
             VALUES (?, ?, 'tesco', ?, ?, ?, ?, NULL, ?, ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id,
+                complete=excluded.complete, recorded_at=excluded.recorded_at
             """,
             (run_id, pack.catalog_id, status, error,
              source_product_reference or None, source_item_id or None,
@@ -1721,6 +1784,7 @@ def collect_tesco_one(
                     drs_deposit, source_scope, currency, pack_count, unit_size_ml,
                     package_type, component_unit_price, price_per_litre, observed_at
                 ) VALUES (?, ?, 'tesco', ?, ?, ?, ?, ?, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (run_id, pack.catalog_id, source_product_reference, source_item_id,
                  item.get("title", ""), _decimal_text(displayed_price),
@@ -2159,6 +2223,10 @@ def collect_lidl_one(
                  source_product_reference, source_item_id, source_scope,
                  complete, recorded_at)
             VALUES (?, ?, 'lidl', ?, ?, ?, NULL, NULL, ?, ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_product_reference=excluded.source_product_reference,
+                complete=excluded.complete, recorded_at=excluded.recorded_at
             """,
             (run_id, pack.catalog_id, status, error,
              source_product_id or None, complete, timestamp()),
@@ -2173,6 +2241,7 @@ def collect_lidl_one(
                     drs_deposit, source_scope, currency, pack_count, unit_size_ml,
                     package_type, component_unit_price, price_per_litre, observed_at
                 ) VALUES (?, ?, 'lidl', ?, ?, ?, ?, NULL, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (run_id, pack.catalog_id, source_product_id, source_product_id,
                  item.get("name", ""), _decimal_text(displayed_price),
@@ -2502,6 +2571,10 @@ def collect_aldi_one(
                  source_product_reference, source_item_id, source_scope,
                  complete, recorded_at)
             VALUES (?, ?, 'aldi', ?, ?, ?, NULL, NULL, ?, ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_product_reference=excluded.source_product_reference,
+                complete=excluded.complete, recorded_at=excluded.recorded_at
             """,
             (run_id, pack.catalog_id, status, error,
              source_product_id or None, complete, timestamp()),
@@ -2516,6 +2589,7 @@ def collect_aldi_one(
                     drs_deposit, source_scope, currency, pack_count, unit_size_ml,
                     package_type, component_unit_price, price_per_litre, observed_at
                 ) VALUES (?, ?, 'aldi', ?, ?, ?, ?, NULL, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
                 """,
                 (run_id, pack.catalog_id, source_product_id, source_product_id,
                  item.get("name", ""), _decimal_text(displayed_price),
@@ -2562,6 +2636,9 @@ def _record_collection_result(
                  source_product_reference, source_item_id, source_scope,
                  complete, recorded_at)
             VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, 'unknown', ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_scope=excluded.source_scope, recorded_at=excluded.recorded_at
             """,
             (run_id, pack.catalog_id, retailer, status, error, source_scope, timestamp()),
         )
@@ -2614,6 +2691,94 @@ def _mapping_rows(value: Any) -> list[Any]:
     return list(value)
 
 
+class _RunLock:
+    """Advisory exclusive lock keeping local collectors single-file.
+
+    The lock lives next to the database (``<database>.lock``) and is held via
+    ``flock`` for the lifetime of a collection run, so a crashed process
+    releases it automatically when the OS closes its descriptors. A second
+    collector started while the lock is held fails fast instead of interleaving
+    writes into the same feed.
+    """
+
+    def __init__(self, database: str | Path) -> None:
+        self.path = Path(f"{database}.lock")
+        self._fd: int | None = None
+
+    def __enter__(self) -> _RunLock:
+        fd = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o644)
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError as exc:
+            os.close(fd)
+            raise RuntimeError(
+                f"another collection run holds the lock at {self.path}; "
+                "refusing to start a concurrent local collector"
+            ) from exc
+        self._fd = fd
+        return self
+
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        if self._fd is not None:
+            fcntl.flock(self._fd, fcntl.LOCK_UN)
+            os.close(self._fd)
+            self._fd = None
+
+
+def _finalize_interrupted_runs(connection: sqlite3.Connection) -> None:
+    """Give runs left 'running' by a crashed collector a terminal status.
+
+    Called when a new run starts: any prior run still marked 'running' can
+    only come from a process that died mid-run, so it is finalized as
+    'interrupted' with its finished_at and summary completed.
+    """
+    stale = connection.execute(
+        "SELECT run_id, summary FROM collection_runs WHERE status = 'running'"
+    ).fetchall()
+    if not stale:
+        return
+    finalized_at = timestamp()
+    for run_id, summary_text in stale:
+        try:
+            payload = json.loads(summary_text) if summary_text else {}
+            if not isinstance(payload, dict):
+                payload = {}
+        except ValueError:
+            payload = {}
+        payload["status"] = "interrupted"
+        payload["finished_at"] = finalized_at
+        connection.execute(
+            """
+            UPDATE collection_runs
+            SET status = 'interrupted', finished_at = ?, summary = ?
+            WHERE run_id = ? AND status = 'running'
+            """,
+            (finalized_at, json.dumps(payload), run_id),
+        )
+
+
+def _fail_run(database: str | Path, run_id: str, status: str, error: str) -> None:
+    """Finalize a run row that never reached its normal completion path.
+
+    Best-effort: a failure here (e.g. the database itself is broken) must not
+    mask the original exception that escaped the run.
+    """
+    try:
+        with closing(sqlite3.connect(database)) as connection:
+            ensure_schema(connection)
+            connection.execute(
+                """
+                UPDATE collection_runs
+                SET finished_at = ?, status = ?, summary = ?
+                WHERE run_id = ? AND status = 'running'
+                """,
+                (timestamp(), status, json.dumps({"status": status, "error": error}), run_id),
+            )
+            connection.commit()
+    except sqlite3.Error:
+        logger.warning("could not finalize run %s as %s", run_id, status)
+
+
 def collect_run(
     catalog: list[BenchmarkPack],
     mappings: Mapping[str, Any],
@@ -2630,21 +2795,14 @@ def collect_run(
     if max_retries < 0 or retry_backoff < 0:
         raise ValueError("retry settings must not be negative")
 
-    selected_catalog = [
-        pack for pack in catalog
-        if catalog_id is None or pack.catalog_id == catalog_id
-    ]
-    selected_retailers = [
-        name for name in adapters
-        if retailer is None or name == retailer
-    ]
     started_at = timestamp()
     started = time.monotonic()
     run_id = uuid.uuid4().hex
     database_path = Path(database)
     database_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(database_path)) as connection:
+    with _RunLock(database_path), closing(sqlite3.connect(database_path)) as connection:
         ensure_schema(connection)
+        _finalize_interrupted_runs(connection)
         connection.execute(
             """
             INSERT INTO collection_runs
@@ -2654,6 +2812,60 @@ def collect_run(
             (run_id, started_at, started_at, json.dumps({"status": "running"})),
         )
         connection.commit()
+
+    try:
+        summary = _run_matrix(
+            catalog=catalog,
+            mappings=mappings,
+            adapters=adapters,
+            database_path=database_path,
+            run_id=run_id,
+            started_at=started_at,
+            started=started,
+            retailer=retailer,
+            catalog_id=catalog_id,
+            store_ids=store_ids,
+            max_retries=max_retries,
+            retry_backoff=retry_backoff,
+        )
+    except BaseException as exc:
+        # A run that dies unexpectedly (process interruption, database error)
+        # must never stay 'running'; finalize it and re-raise.
+        _fail_run(
+            database_path,
+            run_id,
+            "interrupted" if isinstance(exc, KeyboardInterrupt) else "failed",
+            str(exc) or exc.__class__.__name__,
+        )
+        raise
+    return summary
+
+
+def _run_matrix(
+    *,
+    catalog: list[BenchmarkPack],
+    mappings: Mapping[str, Any],
+    adapters: Mapping[str, Callable[[str], Mapping[str, Any]]],
+    database_path: Path,
+    run_id: str,
+    started_at: str,
+    started: float,
+    retailer: str | None,
+    catalog_id: str | None,
+    store_ids: Mapping[str, str] | None,
+    max_retries: int,
+    retry_backoff: float,
+) -> dict[str, Any]:
+    """Collect the retailer-pack matrix for one prepared run row."""
+    selected_catalog = [
+        pack for pack in catalog
+        if catalog_id is None or pack.catalog_id == catalog_id
+    ]
+    selected_retailers = [
+        name for name in adapters
+        if retailer is None or name == retailer
+    ]
+    store_ids = store_ids or {}
 
     summary: dict[str, Any] = {
         "run_id": run_id,
@@ -2672,7 +2884,6 @@ def collect_run(
         "unmapped_retailers": set(),
         "unmapped_catalog_ids": set(),
     }
-    store_ids = store_ids or {}
 
     for retailer_name in selected_retailers:
         rows = {
