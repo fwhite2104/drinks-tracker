@@ -2988,7 +2988,12 @@ def main(argv: list[str] | None = None) -> int:
             elif retailer == "tesco":
                 adapters[retailer] = TescoClient()
             elif retailer == "lidl":
-                adapters[retailer] = LidlClient()
+                # Collection runs use the focused Lidl IE client from
+                # lidl.py (ticket 09); same fetcher contract as the inline
+                # stub above, plus the detail endpoint and title pack parsing.
+                from .lidl import LidlClient as WorkingLidlClient
+
+                adapters[retailer] = WorkingLidlClient()
             elif retailer == "aldi":
                 # Collection runs use the focused Aldi Glue client from
                 # aldi.py (ticket 10); same fetcher contract as the inline
