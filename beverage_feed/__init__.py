@@ -23,6 +23,7 @@ from .discovery_adapters import (
     normalize_listing,
 )
 from .collector import (
+    SCHEMA_VERSION,
     AldiClient,
     AldiMapping,
     BenchmarkPack,
@@ -41,6 +42,7 @@ from .collector import (
     collect_supervalu_one,
     collect_tesco_one,
     collect_run,
+    check_integrity,
     current_feed,
     last_seen,
     price_history,
@@ -48,6 +50,7 @@ from .collector import (
 )
 
 __all__ = [
+    "SCHEMA_VERSION",
     "AldiDiscoveryAdapter",
     "AldiClient",
     "AldiMapping",
@@ -67,6 +70,7 @@ __all__ = [
     "collect_supervalu_one",
     "collect_tesco_one",
     "collect_run",
+    "check_integrity",
     "current_feed",
     "last_seen",
     "price_history",

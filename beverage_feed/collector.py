@@ -488,9 +488,34 @@ def _ensure_observation_cell_index(connection: sqlite3.Connection) -> None:
     )
 
 
-def ensure_schema(connection: sqlite3.Connection) -> None:
+def _add_columns(
+    connection: sqlite3.Connection, table: str, columns: Mapping[str, str]
+) -> None:
+    """Add any missing columns to ``table`` (idempotent, never destructive)."""
+    pragma_cursor = connection.execute(f"PRAGMA table_info({table})")
+    try:
+        existing = {row[1] for row in pragma_cursor.fetchall()}
+    finally:
+        pragma_cursor.close()
+    for name, definition in columns.items():
+        if name not in existing:
+            connection.execute(f"ALTER TABLE {table} ADD COLUMN {name} {definition}")
+
+
+def _migrate_baseline(connection: sqlite3.Connection) -> None:
+    """Migration v0 -> v1: core tables, legacy columns, seeds, cell index."""
     connection.executescript(SCHEMA)
-    connection.execute("PRAGMA foreign_keys = ON")
+    # Keep a database created by the first Dunnes-only milestone usable.
+    _add_columns(
+        connection,
+        "collection_results",
+        {"source_scope": "TEXT", "complete": "TEXT"},
+    )
+    _add_columns(
+        connection,
+        "price_observations",
+        {"clubcard_price": "TEXT", "drs_deposit": "TEXT", "source_scope": "TEXT"},
+    )
     # Seed the central retailer lookup table; INSERT OR IGNORE keeps this
     # idempotent and never disturbs operator edits to existing rows.
     connection.executemany(
@@ -501,23 +526,179 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
         """,
         _RETAILER_SEED,
     )
-    # Keep a database created by the first Dunnes-only milestone usable.
-    for table, column, definition in (
-        ("collection_results", "source_scope", "TEXT"),
-        ("collection_results", "complete", "TEXT"),
-        ("price_observations", "clubcard_price", "TEXT"),
-        ("price_observations", "drs_deposit", "TEXT"),
-        ("price_observations", "source_scope", "TEXT"),
-    ):
-        pragma_cursor = connection.execute(f"PRAGMA table_info({table})")
-        try:
-            columns = {row[1] for row in pragma_cursor.fetchall()}
-        finally:
-            pragma_cursor.close()
-        if column not in columns:
-            connection.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
     # Ticket 07: one Price Observation per run/retailer/pack/source scope.
     _ensure_observation_cell_index(connection)
+
+
+def _table_exists(connection: sqlite3.Connection, name: str) -> bool:
+    """Whether a table (or view) of ``name`` exists in this database."""
+    return connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE name = ?", (name,)
+    ).fetchone() is not None
+
+
+def _columns_of(connection: sqlite3.Connection, table: str) -> set[str]:
+    """Column names of ``table`` (empty set when the table is absent)."""
+    if not _table_exists(connection, table):
+        return set()
+    return {
+        row[1] for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+    }
+
+
+def _has_observation_columns(connection: sqlite3.Connection) -> bool:
+    """Whether price_observations carries the collector's cell columns.
+
+    Discovery-only databases hold legacy or foreign observation layouts;
+    observation-aware SQL must be skipped for those.
+    """
+    return {"catalog_id", "retailer", "observed_at"} <= _columns_of(
+        connection, "price_observations"
+    )
+
+
+# Indexes over discovery evidence tables.  Discovery tables may be absent in
+# collector-only databases, so each is created only when its table exists;
+# a later ensure_schema() call (e.g. the next collection run) adds them.
+_DISCOVERY_EVIDENCE_INDEXES: tuple[tuple[str, str, str], ...] = (
+    (
+        "discovery_candidate_evidence",
+        "ix_discovery_candidate_evidence_cell",
+        "discovery_candidate_evidence (retailer, catalog_id, candidate_id, recorded_at)",
+    ),
+    (
+        "discovery_search_history",
+        "ix_discovery_search_history_cell",
+        "discovery_search_history (retailer, catalog_id, searched_at)",
+    ),
+    (
+        "discovery_cells",
+        "ix_discovery_cells_state",
+        "discovery_cells (state)",
+    ),
+)
+
+
+def _ensure_discovery_evidence_indexes(connection: sqlite3.Connection) -> None:
+    """Index discovery evidence tables when they exist in this database."""
+    for table, index_name, columns in _DISCOVERY_EVIDENCE_INDEXES:
+        if _table_exists(connection, table):
+            connection.execute(f"CREATE INDEX IF NOT EXISTS {index_name} ON {columns}")
+
+
+# Query-supporting indexes for retention and Current Feed at scale:
+# latest-result selection, Price Observation history/purge lookups, mapping
+# staleness scans, and diagnostics retention.  Each is created only when its
+# table exists with the columns the index needs (legacy or foreign layouts,
+# e.g. discovery-only databases, are left alone).
+_QUERY_INDEXES: tuple[tuple[str, frozenset[str], str], ...] = (
+    (
+        "collection_results",
+        frozenset({"retailer", "catalog_id", "recorded_at"}),
+        "CREATE INDEX IF NOT EXISTS ix_collection_results_cell "
+        "ON collection_results (retailer, catalog_id, recorded_at DESC)",
+    ),
+    (
+        "collection_results",
+        frozenset({"run_id"}),
+        "CREATE INDEX IF NOT EXISTS ix_collection_results_run "
+        "ON collection_results (run_id)",
+    ),
+    (
+        "price_observations",
+        frozenset({"retailer", "catalog_id", "observed_at", "observation_id"}),
+        "CREATE INDEX IF NOT EXISTS ix_price_observations_history "
+        "ON price_observations (retailer, catalog_id, observed_at DESC, observation_id DESC)",
+    ),
+    (
+        "price_observations",
+        frozenset({"run_id"}),
+        "CREATE INDEX IF NOT EXISTS ix_price_observations_run "
+        "ON price_observations (run_id)",
+    ),
+    (
+        "catalog_mappings",
+        frozenset({"status", "last_observed_at"}),
+        "CREATE INDEX IF NOT EXISTS ix_catalog_mappings_status "
+        "ON catalog_mappings (status, last_observed_at)",
+    ),
+    (
+        "collection_diagnostics",
+        frozenset({"run_id"}),
+        "CREATE INDEX IF NOT EXISTS ix_collection_diagnostics_run "
+        "ON collection_diagnostics (run_id)",
+    ),
+    (
+        "collection_diagnostics",
+        frozenset({"created_at"}),
+        "CREATE INDEX IF NOT EXISTS ix_collection_diagnostics_created "
+        "ON collection_diagnostics (created_at)",
+    ),
+)
+
+
+def _migrate_query_indexes_and_mapping_timestamps(
+    connection: sqlite3.Connection,
+) -> None:
+    """Migration v1 -> v2: mapping approval/last-observed timestamps, indexes.
+
+    Existing mappings keep their review decision date as ``approved_at``;
+    rows without one anchor from the migration moment.  ``last_observed_at``
+    is backfilled from the newest Price Observation per retailer-pack cell.
+    """
+    _add_columns(
+        connection,
+        "catalog_mappings",
+        {"approved_at": "TEXT", "last_observed_at": "TEXT"},
+    )
+    connection.execute(
+        "UPDATE catalog_mappings SET approved_at = ? WHERE approved_at IS NULL",
+        (timestamp(),),
+    )
+    if _has_observation_columns(connection):
+        connection.execute(
+            """
+            UPDATE catalog_mappings AS cm
+            SET last_observed_at = (
+                SELECT MAX(po.observed_at) FROM price_observations AS po
+                WHERE po.catalog_id = cm.catalog_id AND po.retailer = cm.retailer
+            )
+            WHERE cm.last_observed_at IS NULL
+              AND EXISTS (
+                  SELECT 1 FROM price_observations AS po
+                  WHERE po.catalog_id = cm.catalog_id AND po.retailer = cm.retailer
+              )
+            """
+        )
+    for table, required, statement in _QUERY_INDEXES:
+        if required <= _columns_of(connection, table):
+            connection.execute(statement)
+    _ensure_discovery_evidence_indexes(connection)
+
+
+_MIGRATIONS: tuple[Callable[[sqlite3.Connection], None], ...] = (
+    _migrate_baseline,
+    _migrate_query_indexes_and_mapping_timestamps,
+)
+
+#: Current schema version stamped into ``PRAGMA user_version``.
+SCHEMA_VERSION = len(_MIGRATIONS)
+
+
+def ensure_schema(connection: sqlite3.Connection) -> None:
+    """Create or migrate the collector schema forward, versioned.
+
+    Migrations are selected by ``PRAGMA user_version`` and are idempotent, so
+    pre-versioning databases (``user_version`` 0 with tables already present)
+    upgrade in place without data loss.
+    """
+    version = connection.execute("PRAGMA user_version").fetchone()[0]
+    if version < SCHEMA_VERSION:
+        for migration in _MIGRATIONS[version:]:
+            migration(connection)
+        connection.execute(f"PRAGMA user_version = {SCHEMA_VERSION}")
+        connection.commit()
+    connection.execute("PRAGMA foreign_keys = ON")
 
 
 _SENSITIVE_KEY = re.compile(r"(?:authorization|cookie|password|secret|token|api.?key)", re.I)
@@ -727,23 +908,27 @@ def current_feed(
             FROM collection_results AS cr
             {where}
         ),
-        latest_observations AS (
+        winning_results AS (
+            SELECT lr.run_id, lr.catalog_id, lr.retailer
+            FROM latest_results AS lr
+            WHERE lr.position = 1 AND lr.status = 'observed'
+        ),
+        ranked_observations AS (
             SELECT po.*,
                    ROW_NUMBER() OVER (
                        PARTITION BY po.run_id, po.retailer, po.catalog_id
                        ORDER BY po.observed_at DESC, po.observation_id DESC
                    ) AS obs_position
             FROM price_observations AS po
+            JOIN winning_results AS wr
+              ON wr.run_id = po.run_id
+             AND wr.catalog_id = po.catalog_id
+             AND wr.retailer = po.retailer
         )
         SELECT {_OBSERVATION_COLUMNS}
-        FROM latest_results AS lr
-        JOIN latest_observations AS po
-          ON po.run_id = lr.run_id
-         AND po.catalog_id = lr.catalog_id
-         AND po.retailer = lr.retailer
-         AND po.obs_position = 1
+        FROM ranked_observations AS po
         LEFT JOIN catalog_packs AS cp ON cp.catalog_id = po.catalog_id
-        WHERE lr.position = 1 AND lr.status = 'observed'
+        WHERE po.obs_position = 1
           AND NOT EXISTS (
               SELECT 1 FROM catalog_mappings AS cm
               WHERE cm.catalog_id = po.catalog_id
@@ -918,13 +1103,17 @@ def collect_one(
             """
             INSERT INTO catalog_mappings
                 (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status)
-            VALUES (?, 'dunnes', ?, ?, ?, ?)
+                 source_product_reference, source_item_id, status, approved_at)
+            VALUES (?, 'dunnes', ?, ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
                 source_item_id=excluded.source_item_id,
-                status=excluded.status
+                status=excluded.status,
+                approved_at=CASE
+                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
+                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
+                END
             """,
             (
                 mapping.catalog_id,
@@ -932,6 +1121,7 @@ def collect_one(
                 mapping.source_product_reference,
                 mapping.source_item_id,
                 mapping.status,
+                timestamp(),
             ),
         )
         if own_run:
@@ -1014,6 +1204,7 @@ def collect_one(
                     observed_at,
                 ),
             )
+            _touch_mapping_last_observed(connection, pack.catalog_id, "dunnes", observed_at)
             # Idempotent per (run, retailer, pack, scope): a repeated cell
             # never duplicates the observation (ticket 07).
             if drs_deposit is None:
@@ -1354,12 +1545,16 @@ def collect_supervalu_one(
             """
             INSERT INTO catalog_mappings
                 (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status)
-            VALUES (?, 'supervalu', ?, ?, ?, ?)
+                 source_product_reference, source_item_id, status, approved_at)
+            VALUES (?, 'supervalu', ?, ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status
+                source_item_id=excluded.source_item_id, status=excluded.status,
+                approved_at=CASE
+                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
+                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
+                END
             """,
             (
                 mapping.catalog_id,
@@ -1367,6 +1562,7 @@ def collect_supervalu_one(
                 source_product_id or mapping.source_product_id,
                 source_item_id or None,
                 mapping.status,
+                timestamp(),
             ),
         )
         if own_run:
@@ -1427,6 +1623,7 @@ def collect_supervalu_one(
                     component_unit_price, price_per_litre, observed_at,
                 ),
             )
+            _touch_mapping_last_observed(connection, pack.catalog_id, "supervalu", observed_at)
         connection.commit()
     return summary | ({"error": error} if error else {})
 
@@ -1807,16 +2004,20 @@ def collect_tesco_one(
             """
             INSERT INTO catalog_mappings
                 (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status)
-            VALUES (?, 'tesco', ?, ?, ?, ?)
+                 source_product_reference, source_item_id, status, approved_at)
+            VALUES (?, 'tesco', ?, ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status
+                source_item_id=excluded.source_item_id, status=excluded.status,
+                approved_at=CASE
+                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
+                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
+                END
             """,
             (mapping.catalog_id, mapping.expected_product_name,
              source_product_reference or mapping.source_tpnb, source_item_id or None,
-             mapping.status),
+             mapping.status, timestamp()),
         )
         if own_run:
             connection.execute(
@@ -1864,6 +2065,9 @@ def collect_tesco_one(
                  _decimal_text(drs_deposit) if drs_deposit is not None else None,
                  pack.pack_count, pack.unit_size_ml, pack.package_type,
                  component_unit_price, price_per_litre, timestamp()),
+            )
+            _touch_mapping_last_observed(
+                connection, pack.catalog_id, "tesco", timestamp()
             )
         if fallback_diagnostic:
             connection.execute(
@@ -2275,15 +2479,20 @@ def collect_lidl_one(
             """
             INSERT INTO catalog_mappings
                 (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status)
-            VALUES (?, 'lidl', ?, ?, ?, ?)
+                 source_product_reference, source_item_id, status, approved_at)
+            VALUES (?, 'lidl', ?, ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status
+                source_item_id=excluded.source_item_id, status=excluded.status,
+                approved_at=CASE
+                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
+                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
+                END
             """,
             (mapping.catalog_id, mapping.expected_product_name,
-             source_product_id or mapping.source_product_id, None, mapping.status),
+             source_product_id or mapping.source_product_id, None, mapping.status,
+             timestamp()),
         )
         if own_run:
             connection.execute(
@@ -2328,6 +2537,9 @@ def collect_lidl_one(
                  _decimal_text(drs_deposit) if drs_deposit is not None else None,
                  pack.pack_count, pack.unit_size_ml, pack.package_type,
                  component_unit_price, price_per_litre, timestamp()),
+            )
+            _touch_mapping_last_observed(
+                connection, pack.catalog_id, "lidl", timestamp()
             )
         connection.commit()
     return summary | ({"error": error} if error else {})
@@ -2631,15 +2843,20 @@ def collect_aldi_one(
             """
             INSERT INTO catalog_mappings
                 (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status)
-            VALUES (?, 'aldi', ?, ?, ?, ?)
+                 source_product_reference, source_item_id, status, approved_at)
+            VALUES (?, 'aldi', ?, ?, ?, ?, ?)
             ON CONFLICT(catalog_id, retailer) DO UPDATE SET
                 expected_product_name=excluded.expected_product_name,
                 source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status
+                source_item_id=excluded.source_item_id, status=excluded.status,
+                approved_at=CASE
+                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
+                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
+                END
             """,
             (mapping.catalog_id, mapping.expected_product_name,
-             source_product_id or mapping.source_product_id, None, mapping.status),
+             source_product_id or mapping.source_product_id, None, mapping.status,
+             timestamp()),
         )
         if own_run:
             connection.execute(
@@ -2685,6 +2902,9 @@ def collect_aldi_one(
                  pack.pack_count, pack.unit_size_ml, pack.package_type,
                  component_unit_price, price_per_litre, timestamp()),
             )
+            _touch_mapping_last_observed(
+                connection, pack.catalog_id, "aldi", timestamp()
+            )
         connection.commit()
     return summary | ({"error": error} if error else {})
 
@@ -2702,6 +2922,28 @@ def upsert_catalog_pack(connection: sqlite3.Connection, pack: BenchmarkPack) -> 
             pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
             pack.unit_size_ml, pack.package_type, pack.search_term,
         ),
+    )
+
+
+def _touch_mapping_last_observed(
+    connection: sqlite3.Connection,
+    catalog_id: str,
+    retailer: str,
+    observed_at: str,
+) -> None:
+    """Stamp the mapping row with the latest successful observation time.
+
+    Retention reconciles this from the observation store as well, so a
+    mapping's staleness anchor stays truthful across source scopes and
+    direct writers (e.g. basketwatch).
+    """
+    connection.execute(
+        """
+        UPDATE catalog_mappings SET last_observed_at = ?
+        WHERE catalog_id = ? AND retailer = ?
+          AND (last_observed_at IS NULL OR last_observed_at < ?)
+        """,
+        (observed_at, catalog_id, retailer, observed_at),
     )
 
 
@@ -3186,7 +3428,16 @@ def purge_retention(
     dormant_days: int = 180,
     purge_days: int = 365,
 ) -> dict[str, int]:
-    """Apply operational retention and mark or remove stale mappings."""
+    """Apply operational retention and mark or remove stale mappings.
+
+    A mapping's staleness anchor is the newest Price Observation for its
+    retailer-pack cell across every source scope; a mapping that has never
+    produced an observation ages from its ``approved_at`` timestamp.  Only
+    ``approved`` and ``dormant`` mappings transition (approved → dormant at
+    ``dormant_days``, then purged with their observations at ``purge_days``).
+    Catalog Candidates that are still open for review, or that a mapping or
+    open discovery review still references, are preserved regardless of age.
+    """
     if not (0 <= raw_days <= dormant_days <= purge_days):
         raise ValueError("retention periods must be ordered and non-negative")
     current = as_datetime(now)
@@ -3205,38 +3456,193 @@ def purge_retention(
         counts["deleted_diagnostics"] = connection.execute(
             "DELETE FROM collection_diagnostics WHERE created_at < ?", (raw_cutoff,)
         ).rowcount
+        # Catalog Candidates: keep anything still actionable — pending review
+        # work, a candidate a mapping was approved from, or one an open
+        # discovery review points at.  Everything older than the raw window
+        # that no longer matters is dropped.
+        candidate_delete = """
+            DELETE FROM catalog_candidates
+            WHERE first_seen_at < ?
+              AND status <> 'pending_review'
+        """
+        candidate_parameters: list[str] = [raw_cutoff]
+        # The candidate_id provenance column only exists once discovery's
+        # schema has been applied to this database.
+        if "candidate_id" in _columns_of(connection, "catalog_mappings"):
+            candidate_delete += """
+              AND candidate_id NOT IN (
+                  SELECT candidate_id FROM catalog_mappings
+                  WHERE candidate_id IS NOT NULL
+              )
+            """
+        if _table_exists(connection, "discovery_cells"):
+            candidate_delete += """
+              AND NOT EXISTS (
+                  SELECT 1 FROM discovery_cells AS dc
+                  WHERE dc.candidate_id = catalog_candidates.candidate_id
+                    AND dc.state = 'review'
+              )
+            """
         counts["deleted_candidates"] = connection.execute(
-            "DELETE FROM catalog_candidates WHERE first_seen_at < ?", (raw_cutoff,)
+            candidate_delete, tuple(candidate_parameters)
         ).rowcount
-        stale = connection.execute(
+        # Mappings approved through a path that does not stamp approved_at
+        # (e.g. discovery decisions) age from the moment retention first
+        # sees them, never from a fabricated earlier date.
+        connection.execute(
+            "UPDATE catalog_mappings SET approved_at = ? WHERE approved_at IS NULL",
+            (_iso(current),),
+        )
+        # Reconcile last_observed_at with the actual observation store so the
+        # anchor reflects every source scope, including direct writes that do
+        # not go through the collector's mapping bookkeeping.
+        if _has_observation_columns(connection):
+            connection.execute(
+                """
+                UPDATE catalog_mappings AS cm
+                SET last_observed_at = (
+                    SELECT MAX(po.observed_at) FROM price_observations AS po
+                    WHERE po.catalog_id = cm.catalog_id AND po.retailer = cm.retailer
+                )
+                WHERE EXISTS (
+                    SELECT 1 FROM price_observations AS po
+                    WHERE po.catalog_id = cm.catalog_id AND po.retailer = cm.retailer
+                )
+                """
+            )
+        # Approved mappings with no observation for dormant_days — including
+        # mappings that never produced an observation — go dormant.
+        counts["dormant_mappings"] = connection.execute(
             """
-            SELECT cm.catalog_id, cm.retailer, MAX(po.observed_at) AS last_seen
-            FROM catalog_mappings AS cm
-            JOIN price_observations AS po
-              ON po.catalog_id = cm.catalog_id AND po.retailer = cm.retailer
-            GROUP BY cm.catalog_id, cm.retailer
+            UPDATE catalog_mappings
+            SET status = 'dormant'
+            WHERE status = 'approved'
+              AND COALESCE(last_observed_at, approved_at) <= ?
+            """,
+            (dormant_cutoff,),
+        ).rowcount
+        # Dormant mappings past the purge window lose their detailed
+        # observations (all source scopes) and the mapping row itself; the
+        # Benchmark Catalog identity stays eligible for remapping.
+        counts["purged_observations"] = connection.execute(
             """
-        ).fetchall()
-        for catalog_id_value, retailer_value, last_seen_at in stale:
-            if last_seen_at <= purge_cutoff:
-                counts["purged_observations"] += connection.execute(
-                    "DELETE FROM price_observations WHERE catalog_id = ? AND retailer = ?",
-                    (catalog_id_value, retailer_value),
-                ).rowcount
-                counts["purged_mappings"] += connection.execute(
-                    "DELETE FROM catalog_mappings WHERE catalog_id = ? AND retailer = ?",
-                    (catalog_id_value, retailer_value),
-                ).rowcount
-            elif last_seen_at <= dormant_cutoff:
-                counts["dormant_mappings"] += connection.execute(
-                    """
-                    UPDATE catalog_mappings SET status = 'dormant'
-                    WHERE catalog_id = ? AND retailer = ? AND status <> 'dormant'
-                    """,
-                    (catalog_id_value, retailer_value),
-                ).rowcount
+            DELETE FROM price_observations
+            WHERE EXISTS (
+                SELECT 1 FROM catalog_mappings AS cm
+                WHERE cm.catalog_id = price_observations.catalog_id
+                  AND cm.retailer = price_observations.retailer
+                  AND cm.status IN ('approved', 'dormant')
+                  AND COALESCE(cm.last_observed_at, cm.approved_at) <= ?
+            )
+            """,
+            (purge_cutoff,),
+        ).rowcount
+        counts["purged_mappings"] = connection.execute(
+            """
+            DELETE FROM catalog_mappings
+            WHERE status IN ('approved', 'dormant')
+              AND COALESCE(last_observed_at, approved_at) <= ?
+            """,
+            (purge_cutoff,),
+        ).rowcount
         connection.commit()
     return counts
+
+
+# Canonical status vocabularies enforced by check_integrity().
+_RESULT_STATUSES = frozenset(
+    {"observed", "not_found", "source_error", "unmapped", "inconclusive"}
+)
+_RUN_STATUSES = frozenset(
+    {"completed", "failed", "interrupted", "running", "partial"}  # 'partial' is legacy
+)
+_MAPPING_STATUSES = frozenset({"approved", "review", "unmapped", "rejected", "dormant"})
+_CANDIDATE_STATUSES = frozenset({"pending_review", "approved", "rejected", "resolved"})
+
+_STATUS_CHECKS: tuple[tuple[str, frozenset[str]], ...] = (
+    ("collection_results", _RESULT_STATUSES),
+    ("collection_runs", _RUN_STATUSES),
+    ("catalog_mappings", _MAPPING_STATUSES),
+    ("catalog_candidates", _CANDIDATE_STATUSES),
+)
+
+# Money columns in price_observations must hold plain decimal text (as
+# written by _decimal_text) or NULL — never floats, symbols, or prose.
+_MONEY_PATTERN = re.compile(r"\d+(?:\.\d+)?\Z")
+_MONEY_COLUMNS: tuple[str, ...] = (
+    "displayed_price",
+    "clubcard_price",
+    "drs_deposit",
+    "component_unit_price",
+    "price_per_litre",
+)
+
+
+def _valid_money(value: Any) -> bool:
+    """Whether ``value`` is a well-formed decimal money string (or empty)."""
+    if value is None or value == "":
+        return True
+    return bool(_MONEY_PATTERN.fullmatch(str(value).strip()))
+
+
+def check_integrity(database: str | Path) -> dict[str, Any]:
+    """Run database-level integrity checks and report every violation class.
+
+    Checks SQLite's structural integrity (``PRAGMA integrity_check``),
+    foreign-key relationships (``PRAGMA foreign_key_check``), Collection
+    Result / run / mapping / candidate status vocabularies, and the money
+    text columns of Price Observations.  Read-only apart from any schema
+    migration ensure_schema performs on a pre-versioning database.
+    """
+    with closing(sqlite3.connect(database)) as connection:
+        ensure_schema(connection)
+        integrity = connection.execute("PRAGMA integrity_check").fetchone()[0]
+        foreign_key_violations = [
+            {"table": row[0], "rowid": row[1], "parent": row[2], "fkid": row[3]}
+            for row in connection.execute("PRAGMA foreign_key_check").fetchall()
+        ]
+        invalid_statuses: dict[str, int] = {}
+        for table, statuses in _STATUS_CHECKS:
+            if not _table_exists(connection, table):
+                invalid_statuses[table] = 0
+                continue
+            placeholders = ", ".join("?" for _ in statuses)
+            invalid_statuses[table] = connection.execute(
+                f"SELECT COUNT(*) FROM {table} "
+                f"WHERE status IS NULL OR status NOT IN ({placeholders})",
+                tuple(sorted(statuses)),
+            ).fetchone()[0]
+        invalid_money_values: dict[str, int] = {}
+        money_columns = tuple(
+            name
+            for name in _MONEY_COLUMNS
+            if name in _columns_of(connection, "price_observations")
+        )
+        if money_columns:
+            columns = ", ".join(money_columns)
+            for row in connection.execute(
+                f"SELECT {columns} FROM price_observations"
+            ):
+                for name, value in zip(money_columns, row):
+                    if not _valid_money(value):
+                        invalid_money_values[name] = (
+                            invalid_money_values.get(name, 0) + 1
+                        )
+        for name in _MONEY_COLUMNS:
+            invalid_money_values.setdefault(name, 0)
+    violations = (
+        integrity != "ok"
+        or bool(foreign_key_violations)
+        or any(invalid_statuses.values())
+        or any(invalid_money_values.values())
+    )
+    return {
+        "integrity_check": integrity,
+        "foreign_key_violations": foreign_key_violations,
+        "invalid_statuses": invalid_statuses,
+        "invalid_money_values": invalid_money_values,
+        "ok": not violations,
+    }
 
 
 def load_catalog(catalog_path: Path) -> list[BenchmarkPack]:

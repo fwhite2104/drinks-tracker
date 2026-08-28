@@ -1,5 +1,6 @@
 import builtins
 import io
+import itertools
 import json
 import sqlite3
 import tempfile
@@ -21,6 +22,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from beverage_feed.collector import (
+    SCHEMA_VERSION,
     AldiClient,
     AldiMapping,
     BenchmarkPack,
@@ -56,6 +58,7 @@ from beverage_feed.collector import (
     ensure_schema,
     last_seen,
     main,
+    check_integrity,
     price_history,
     purge_retention,
 )
@@ -3686,6 +3689,572 @@ class CollectionCliGuardTests(unittest.TestCase):
                     "--database", str(root / "feed.sqlite"),
                 ])
         self.assertIn("no collectable retailers", str(caught.exception))
+
+class SchemaMigrationTests(unittest.TestCase):
+    """Versioned SQLite migrations upgrade databases in place, idempotently."""
+
+    def test_ensure_schema_stamps_the_current_user_version_idempotently(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                self.assertEqual(
+                    connection.execute("PRAGMA user_version").fetchone()[0],
+                    SCHEMA_VERSION,
+                )
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)  # second run must be a no-op
+                self.assertEqual(
+                    connection.execute("PRAGMA user_version").fetchone()[0],
+                    SCHEMA_VERSION,
+                )
+
+    def test_migration_backfills_mapping_timestamps_and_keeps_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                connection.execute(
+                    "INSERT INTO catalog_packs VALUES (?, 'Coke', 'Coca-Cola', 'Zero', 1, 330, 'can', 'coke')",
+                    ("coke-330",),
+                )
+                connection.execute(
+                    "INSERT INTO catalog_mappings VALUES (?, 'dunnes', 'Coke', 'ref', 'item', 'approved', NULL, NULL)",
+                    ("coke-330",),
+                )
+                connection.execute(
+                    "INSERT INTO collection_runs VALUES ('run-1', 't', 't', 'completed', 1, 0, '{}')"
+                )
+                connection.execute(
+                    """
+                    INSERT INTO price_observations (
+                        run_id, catalog_id, retailer, source_product_reference,
+                        source_item_id, source_product_name, displayed_price,
+                        currency, pack_count, unit_size_ml, package_type, observed_at
+                    ) VALUES ('run-1', 'coke-330', 'dunnes', 'ref', 'item', 'Coke', '2.49', 'EUR', 1, 330, 'can',
+                              '2020-05-01T00:00:00Z')
+                    """
+                )
+                # Pretend this database predates the mapping-timestamp columns.
+                connection.execute(
+                    "UPDATE catalog_mappings SET approved_at = NULL, last_observed_at = NULL"
+                )
+                connection.execute("PRAGMA user_version = 1")
+                connection.commit()
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                approved_at, last_observed_at = connection.execute(
+                    "SELECT approved_at, last_observed_at FROM catalog_mappings"
+                ).fetchone()
+                rows = connection.execute("SELECT COUNT(*) FROM price_observations").fetchone()[0]
+
+        self.assertEqual(rows, 1)
+        self.assertIsNotNone(approved_at)
+        self.assertEqual(last_observed_at, "2020-05-01T00:00:00Z")
+
+    def test_migration_creates_the_query_supporting_indexes(self):
+        expected = {
+            "uq_price_observations_cell",
+            "ix_collection_results_cell",
+            "ix_collection_results_run",
+            "ix_price_observations_history",
+            "ix_price_observations_run",
+            "ix_catalog_mappings_status",
+            "ix_collection_diagnostics_run",
+            "ix_collection_diagnostics_created",
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                found = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'index' "
+                        "AND name NOT LIKE 'sqlite_%'"
+                    ).fetchall()
+                }
+        self.assertTrue(expected <= found, f"missing indexes: {expected - found}")
+
+    def test_migration_creates_discovery_evidence_indexes_when_tables_exist(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                connection.execute(
+                    """
+                    CREATE TABLE discovery_candidate_evidence (
+                        evidence_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        candidate_id TEXT NOT NULL,
+                        retailer TEXT NOT NULL,
+                        catalog_id TEXT NOT NULL,
+                        recorded_at TEXT NOT NULL
+                    )
+                    """
+                )
+                connection.execute("PRAGMA user_version = 1")
+                connection.commit()
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                found = {
+                    row[0]
+                    for row in connection.execute(
+                        "SELECT name FROM sqlite_master WHERE type = 'index' "
+                        "AND name NOT LIKE 'sqlite_%'"
+                    ).fetchall()
+                }
+        self.assertIn("ix_discovery_candidate_evidence_cell", found)
+
+
+class RetentionTransitionTests(unittest.TestCase):
+    """Retention transitions with multi-store and never-observed fixtures."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.database = Path(self.directory.name) / "feed.sqlite"
+        self._run_sequence = itertools.count(1)
+        with closing(sqlite3.connect(self.database)) as connection:
+            ensure_schema(connection)
+            connection.execute(
+                "INSERT INTO catalog_packs VALUES (?, 'Coke', 'Coca-Cola', 'Zero', 1, 330, 'can', 'coke')",
+                ("coke-330",),
+            )
+            connection.commit()
+
+    def _insert_mapping(
+        self,
+        *,
+        retailer: str = "dunnes",
+        status: str = "approved",
+        approved_at: str | None = None,
+        last_observed_at: str | None = None,
+    ) -> None:
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute(
+                """
+                INSERT INTO catalog_mappings (
+                    catalog_id, retailer, expected_product_name, status,
+                    approved_at, last_observed_at
+                ) VALUES ('coke-330', ?, 'Coke', ?, ?, ?)
+                """,
+                (retailer, status, approved_at, last_observed_at),
+            )
+            connection.commit()
+
+    def _insert_observation(
+        self,
+        *,
+        retailer: str = "dunnes",
+        source_scope: str | None = None,
+        observed_at: str = "2020-01-01T00:00:00Z",
+    ) -> None:
+        run_id = f"run-{next(self._run_sequence)}"
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute(
+                "INSERT INTO collection_runs VALUES (?, 't', 't', 'completed', 1, 0, '{}')",
+                (run_id,),
+            )
+            connection.execute(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price,
+                    source_scope, currency, pack_count, unit_size_ml,
+                    package_type, observed_at
+                ) VALUES (?, 'coke-330', ?, 'ref', 'item', 'Coke', '2.49',
+                          ?, 'EUR', 1, 330, 'can', ?)
+                """,
+                (run_id, retailer, source_scope, observed_at),
+            )
+            connection.commit()
+
+    def _mapping_status(self, retailer: str = "dunnes") -> str | None:
+        with closing(sqlite3.connect(self.database)) as connection:
+            row = connection.execute(
+                "SELECT status FROM catalog_mappings WHERE retailer = ?", (retailer,)
+            ).fetchone()
+        return row[0] if row else None
+
+    def test_never_observed_mapping_is_marked_dormant_after_the_dormant_window(self):
+        self._insert_mapping(approved_at="2020-01-01T00:00:00Z")
+        counts = purge_retention(
+            self.database,
+            now="2020-08-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        self.assertEqual(counts["dormant_mappings"], 1)
+        self.assertEqual(self._mapping_status(), "dormant")
+
+    def test_never_observed_mapping_is_purged_after_the_purge_window(self):
+        self._insert_mapping(approved_at="2019-01-01T00:00:00Z")
+        counts = purge_retention(
+            self.database,
+            now="2020-03-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        self.assertEqual(counts["purged_mappings"], 1)
+        self.assertIsNone(self._mapping_status())
+
+    def test_never_observed_mapping_inside_the_dormant_window_stays_approved(self):
+        self._insert_mapping(approved_at="2020-07-01T00:00:00Z")
+        counts = purge_retention(
+            self.database,
+            now="2020-08-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        self.assertEqual(counts["dormant_mappings"], 0)
+        self.assertEqual(self._mapping_status(), "approved")
+
+    def test_multi_store_observations_keep_the_mapping_active_until_latest_goes_stale(self):
+        self._insert_mapping(approved_at="2019-01-01T00:00:00Z")
+        self._insert_observation(source_scope=None, observed_at="2020-01-01T00:00:00Z")
+        self._insert_observation(source_scope="5550", observed_at="2021-12-01T00:00:00Z")
+        counts = purge_retention(
+            self.database,
+            now="2021-12-15T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        # The newest observation across every source scope anchors staleness.
+        self.assertEqual(counts["dormant_mappings"], 0)
+        self.assertEqual(self._mapping_status(), "approved")
+        with closing(sqlite3.connect(self.database)) as connection:
+            last_observed_at = connection.execute(
+                "SELECT last_observed_at FROM catalog_mappings"
+            ).fetchone()[0]
+        self.assertEqual(last_observed_at, "2021-12-01T00:00:00Z")
+
+    def test_multi_store_purge_removes_every_scoped_observation_with_the_mapping(self):
+        self._insert_mapping(approved_at="2019-01-01T00:00:00Z")
+        self._insert_observation(source_scope=None, observed_at="2019-02-01T00:00:00Z")
+        self._insert_observation(source_scope="5550", observed_at="2019-03-01T00:00:00Z")
+        counts = purge_retention(
+            self.database,
+            now="2020-06-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        self.assertEqual(counts["purged_observations"], 2)
+        self.assertEqual(counts["purged_mappings"], 1)
+        self.assertIsNone(self._mapping_status())
+        with closing(sqlite3.connect(self.database)) as connection:
+            remaining = connection.execute(
+                "SELECT COUNT(*) FROM price_observations"
+            ).fetchone()[0]
+        self.assertEqual(remaining, 0)
+
+    def test_retention_preserves_candidates_referenced_by_mappings_or_open_review(self):
+        self._insert_mapping(approved_at="2020-07-01T00:00:00Z")
+        with closing(sqlite3.connect(self.database)) as connection:
+            # Mirror the columns discovery's schema adds to catalog_mappings.
+            connection.execute("ALTER TABLE catalog_mappings ADD COLUMN candidate_id TEXT")
+            connection.execute(
+                "UPDATE catalog_mappings SET candidate_id = 'cand-mapped'"
+            )
+            connection.execute(
+                """
+                CREATE TABLE discovery_cells (
+                    retailer TEXT NOT NULL,
+                    catalog_id TEXT NOT NULL,
+                    state TEXT NOT NULL,
+                    review_category TEXT,
+                    candidate_id TEXT,
+                    decided_at TEXT,
+                    decided_by TEXT,
+                    reason TEXT,
+                    PRIMARY KEY (retailer, catalog_id)
+                )
+                """
+            )
+            connection.execute(
+                "INSERT INTO discovery_cells VALUES ('dunnes', 'coke-330', 'review', 'missing', 'cand-review', NULL, NULL, NULL)"
+            )
+            old = "2019-01-01T00:00:00Z"
+            for candidate_id, status in (
+                ("cand-pending", "pending_review"),
+                ("cand-mapped", "resolved"),
+                ("cand-review", "resolved"),
+                ("cand-stale", "resolved"),
+            ):
+                connection.execute(
+                    """
+                    INSERT INTO catalog_candidates (
+                        candidate_id, retailer, source_product_reference,
+                        source_item_id, source_product_name, raw_record,
+                        status, first_seen_at
+                    ) VALUES (?, 'dunnes', ?, 'item', 'Coke', '{}', ?, ?)
+                    """,
+                    (candidate_id, candidate_id, status, old),
+                )
+            connection.commit()
+        counts = purge_retention(
+            self.database,
+            now="2020-08-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        with closing(sqlite3.connect(self.database)) as connection:
+            remaining = {
+                row[0]
+                for row in connection.execute("SELECT candidate_id FROM catalog_candidates")
+            }
+        self.assertEqual(counts["deleted_candidates"], 1)
+        self.assertEqual(remaining, {"cand-pending", "cand-mapped", "cand-review"})
+
+    def test_stale_unreferenced_candidates_are_deleted_without_discovery_schema(self):
+        # Collector-only database: catalog_mappings has no candidate_id
+        # column, so mapping-referenced preservation cannot apply.
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute(
+                """
+                INSERT INTO catalog_candidates (
+                    candidate_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, raw_record,
+                    status, first_seen_at
+                ) VALUES ('cand-old', 'dunnes', 'ref', 'item', 'Coke', '{}',
+                          'resolved', '2019-01-01T00:00:00Z')
+                """
+            )
+            connection.commit()
+        counts = purge_retention(
+            self.database,
+            now="2020-08-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        self.assertEqual(counts["deleted_candidates"], 1)
+
+
+class DatabaseIntegrityTests(unittest.TestCase):
+    """check_integrity validates statuses, money values, and foreign keys."""
+
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.addCleanup(self.directory.cleanup)
+        self.database = Path(self.directory.name) / "feed.sqlite"
+        with closing(sqlite3.connect(self.database)) as connection:
+            ensure_schema(connection)
+            connection.commit()
+
+    def test_clean_database_reports_ok(self):
+        report = check_integrity(self.database)
+        self.assertTrue(report["ok"])
+        self.assertEqual(report["integrity_check"], "ok")
+        self.assertEqual(report["foreign_key_violations"], [])
+
+    def test_reports_invalid_statuses_across_tables(self):
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute(
+                "INSERT INTO catalog_packs VALUES (?, 'Coke', 'Coca-Cola', 'Zero', 1, 330, 'can', 'coke')",
+                ("coke-330",),
+            )
+            connection.execute(
+                "INSERT INTO catalog_mappings VALUES (?, 'dunnes', 'Coke', NULL, NULL, 'bogus', NULL, NULL)",
+                ("coke-330",),
+            )
+            connection.execute(
+                "INSERT INTO collection_runs VALUES ('run-1', 't', 't', 'bogus', 0, 0, '{}')"
+            )
+            connection.execute(
+                """
+                INSERT INTO collection_results (
+                    run_id, catalog_id, retailer, status, recorded_at
+                ) VALUES ('run-1', 'coke-330', 'dunnes', 'bogus', 't')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO catalog_candidates (
+                    candidate_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, raw_record,
+                    status, first_seen_at
+                ) VALUES ('cand-1', 'dunnes', 'ref', 'item', 'Coke', '{}', 'bogus', 't')
+                """
+            )
+            connection.commit()
+        report = check_integrity(self.database)
+        self.assertFalse(report["ok"])
+        for table in (
+            "collection_results",
+            "collection_runs",
+            "catalog_mappings",
+            "catalog_candidates",
+        ):
+            self.assertEqual(report["invalid_statuses"][table], 1, table)
+
+    def test_reports_malformed_money_values(self):
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute(
+                "INSERT INTO collection_runs VALUES ('run-1', 't', 't', 'completed', 1, 0, '{}')"
+            )
+            connection.execute(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price,
+                    clubcard_price, currency, pack_count, unit_size_ml,
+                    package_type, observed_at
+                ) VALUES ('run-1', 'coke-330', 'dunnes', 'ref', 'item', 'Coke',
+                          'two-fifty', '1.2.3', 'EUR', 1, 330, 'can', 't')
+                """
+            )
+            connection.commit()
+        report = check_integrity(self.database)
+        self.assertFalse(report["ok"])
+        self.assertEqual(report["invalid_money_values"]["displayed_price"], 1)
+        self.assertEqual(report["invalid_money_values"]["clubcard_price"], 1)
+
+    def test_reports_foreign_key_violations(self):
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute("PRAGMA foreign_keys = OFF")
+            connection.execute(
+                "INSERT INTO collection_runs VALUES ('run-1', 't', 't', 'completed', 1, 0, '{}')"
+            )
+            connection.execute(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price,
+                    currency, pack_count, unit_size_ml, package_type, observed_at
+                ) VALUES ('ghost-run', 'coke-330', 'dunnes', 'ref', 'item', 'Coke',
+                          '2.49', 'EUR', 1, 330, 'can', 't')
+                """
+            )
+            connection.commit()
+        report = check_integrity(self.database)
+        self.assertFalse(report["ok"])
+        self.assertTrue(report["foreign_key_violations"])
+
+
+class FeedQueryScaleTests(unittest.TestCase):
+    """Current Feed and retention queries stay responsive as the store grows."""
+
+    RETAILERS = ("tesco", "dunnes", "supervalu", "lidl", "aldi")
+    PACKS = 50
+    RUNS = 40
+
+    def _build_bulk_database(self, directory: Path) -> Path:
+        """Generated bulk fixture in a temp DB (never the real data store)."""
+        database = directory / "bulk.sqlite"
+        with closing(sqlite3.connect(database)) as connection:
+            ensure_schema(connection)
+            packs = [
+                (f"pack-{i:03d}", f"Pack {i}", "Brand", "Zero", 1, 330, "can", f"pack {i}")
+                for i in range(self.PACKS)
+            ]
+            connection.executemany(
+                "INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)", packs
+            )
+            old = "2020-01-01T00:00:00Z"
+            runs = [
+                (f"run-{r:03d}", old, old, "completed", 0, 0, "{}")
+                for r in range(self.RUNS)
+            ]
+            connection.executemany(
+                "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)", runs
+            )
+            results = []
+            for r in range(self.RUNS):
+                for p in range(self.PACKS):
+                    for retailer in self.RETAILERS:
+                        results.append(
+                            (
+                                f"run-{r:03d}", f"pack-{p:03d}", retailer,
+                                "observed" if retailer == "tesco" else "not_found",
+                                None, None, None, None, None, old,
+                            )
+                        )
+            connection.executemany(
+                """
+                INSERT INTO collection_results (
+                    run_id, catalog_id, retailer, status, error,
+                    source_product_reference, source_item_id, source_scope,
+                    complete, recorded_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                results,
+            )
+            observations = []
+            for r in range(self.RUNS):
+                for p in range(self.PACKS):
+                    observations.append(
+                        (
+                            f"run-{r:03d}", f"pack-{p:03d}", "tesco", "ref", "item",
+                            f"Pack {p}", "2.49", "EUR", 1, 330, "can",
+                            f"2020-01-{(r % 28) + 1:02d}T00:00:00Z",
+                        )
+                    )
+            connection.executemany(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price,
+                    currency, pack_count, unit_size_ml, package_type, observed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                observations,
+            )
+            diagnostics = [
+                (f"run-{(r % self.RUNS):03d}", "tesco", "pack-001", "info", "request", None, None, None, old)
+                for r in range(self.RUNS * 10)
+            ]
+            connection.executemany(
+                """
+                INSERT INTO collection_diagnostics (
+                    run_id, retailer, catalog_id, level, event, message,
+                    raw_record, request_metadata, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                diagnostics,
+            )
+            connection.commit()
+        return database
+
+    def test_current_feed_and_history_stay_fast_on_a_bulk_database(self):
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        database = self._build_bulk_database(Path(scratch.name))
+        started = time.perf_counter()
+        feed = current_feed(database)
+        feed_seconds = time.perf_counter() - started
+        started = time.perf_counter()
+        history = price_history(database, retailer="tesco", catalog_id="pack-001")
+        history_seconds = time.perf_counter() - started
+        started = time.perf_counter()
+        seen = last_seen(database, retailer="tesco", catalog_id="pack-001")
+        last_seen_seconds = time.perf_counter() - started
+        self.assertEqual(len(feed), self.PACKS)
+        self.assertLess(feed_seconds, 2.0, "current_feed is not scale-safe")
+        self.assertLess(history_seconds, 2.0, "price_history is not scale-safe")
+        self.assertLess(last_seen_seconds, 2.0, "last_seen is not scale-safe")
+        self.assertIsNotNone(seen)
+
+    def test_retention_stays_fast_on_a_bulk_database(self):
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        database = self._build_bulk_database(Path(scratch.name))
+        started = time.perf_counter()
+        counts = purge_retention(
+            database,
+            now="2020-02-01T00:00:00Z",
+            raw_days=30,
+            dormant_days=180,
+            purge_days=365,
+        )
+        seconds = time.perf_counter() - started
+        self.assertLess(seconds, 2.0, "purge_retention is not scale-safe")
+        self.assertEqual(counts["deleted_diagnostics"], self.RUNS * 10)
 
 
 if __name__ == "__main__":

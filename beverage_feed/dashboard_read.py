@@ -650,23 +650,27 @@ def _read_current_feed(path: Path) -> list[dict[str, Any]]:
                        ) AS position
                 FROM collection_results AS cr
             ),
-            latest_observations AS (
+            winning_results AS (
+                SELECT lr.run_id, lr.catalog_id, lr.retailer
+                FROM latest_results AS lr
+                WHERE lr.position = 1 AND lr.status = 'observed'
+            ),
+            ranked_observations AS (
                 SELECT po.*,
                        ROW_NUMBER() OVER (
                            PARTITION BY po.run_id, po.retailer, po.catalog_id
                            ORDER BY po.observed_at DESC, po.observation_id DESC
                        ) AS obs_position
                 FROM price_observations AS po
+                JOIN winning_results AS wr
+                  ON wr.run_id = po.run_id
+                 AND wr.catalog_id = po.catalog_id
+                 AND wr.retailer = po.retailer
             )
             SELECT {columns}
-            FROM latest_results AS lr
-            JOIN latest_observations AS po
-              ON po.run_id = lr.run_id
-             AND po.catalog_id = lr.catalog_id
-             AND po.retailer = lr.retailer
-             AND po.obs_position = 1
+            FROM ranked_observations AS po
             {pack_join}
-            WHERE lr.position = 1 AND lr.status = 'observed'
+            WHERE po.obs_position = 1
               {dormant_clause}
             ORDER BY po.retailer, po.catalog_id
             """
