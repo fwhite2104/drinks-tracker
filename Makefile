@@ -1,4 +1,4 @@
-.PHONY: build up down collect discover review report serve test coverage ingest-basketwatch dashboard
+.PHONY: build up down collect discover review report serve test coverage ingest-basketwatch dashboard deploy-check
 
 build:
 	docker compose build
@@ -35,3 +35,10 @@ ingest-basketwatch:
 
 dashboard:
 	.venv/bin/python -m beverage_feed dashboard $(ARGS)
+
+# Verify the deployed API (pass the public URL from outside the LAN):
+#   make deploy-check BASE_URL=https://api.<your-domain>
+# See deploy/README.md §6. Defaults to the local LAN endpoint.
+BASE_URL ?= http://localhost:8000
+deploy-check:
+	./deploy/healthcheck.sh $(BASE_URL)

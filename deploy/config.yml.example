@@ -1,0 +1,30 @@
+# Cloudflared tunnel configuration — TEMPLATE.
+#
+# Copy to /etc/cloudflared/config.yml on the VM and replace every
+# <placeholder>. Never commit the filled-in copy or tunnel credentials.
+#
+# This assumes cloudflared runs as a container attached to the compose
+# network (see deploy/README.md §3), so the compose service name `api`
+# resolves. If cloudflared runs on the VM host instead, replace the service
+# URL with http://localhost:8000.
+
+tunnel: <TUNNEL-UUID>
+credentials-file: /etc/cloudflared/<TUNNEL-UUID>.json
+
+# Optional: local metrics endpoint for debugging. Keep loopback-only.
+# metrics: 127.0.0.1:9900
+
+ingress:
+  # Public consumer API host. Anonymous; rate-limited at the Cloudflare edge
+  # (spec §2, ticket-02: no auth for v1). Route split details: deploy/ingress.md
+  - hostname: api.<your-domain>
+    service: http://api:8000
+
+  # OPTIONAL — Operator Dashboard for remote review sprints (ticket-02).
+  # Only uncomment if you also run the dashboard as a compose service.
+  # Must be protected by a Cloudflare Access policy (deploy/README.md §4).
+  # - hostname: operator.<your-domain>
+  #   service: http://dashboard:<port>
+
+  # Catch-all must always be the LAST rule.
+  - service: http_status:404
