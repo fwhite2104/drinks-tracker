@@ -21,13 +21,19 @@ export interface RetailerCell {
   retailer: string;
   display_name: string;
   state: CellState;
+  /** Server-owned §4 label — rendered verbatim, never re-derived. */
   label: string;
   displayed_price: string | null;
   clubcard_price: string | null;
   drs_deposit: string | null;
   component_unit_price: string | null;
+  source_scope: string | null;
   observed_at: string | null;
+  /** Present only on `last_seen` cells — never carries the old price. */
+  last_seen_at?: string | null;
   currency: string;
+  /** Server-marked cheapest observed slot (informational; ordering is by price). */
+  is_best?: boolean;
 }
 
 export interface FeedPack {
@@ -92,6 +98,47 @@ export function cheapestPrice(pack: FeedPack): string | null {
     if (cheapest == null || price < cheapest) cheapest = price;
   }
   return cheapest == null ? null : cheapest.toFixed(2);
+}
+
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+];
+
+/** "27 Aug 2026" from an ISO-8601 UTC instant (manual, Hermes-safe). */
+export function formatDate(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+/** True when the observation is older than 7 days (spec §3.2 staleness note). */
+export function isStale(iso: string, now: number = Date.now()): boolean {
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) && now - t > 7 * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Cheapest-first retailer order for the comparison screen (spec §2/§3.2):
+ * observed cells sorted ascending by Displayed Price, all non-observed
+ * states after them in server order. Clubcard never enters the comparison —
+ * only `displayed_price` is read, so a member price can never promote a
+ * retailer above a cheaper shelf price.
+ */
+export function orderedCells(pack: FeedPack): RetailerCell[] {
+  const priced: RetailerCell[] = [];
+  const rest: RetailerCell[] = [];
+  for (const cell of pack.retailers) {
+    if (cell.state === 'observed' && cell.displayed_price != null) {
+      priced.push(cell);
+    } else {
+      rest.push(cell);
+    }
+  }
+  priced.sort(
+    (a, b) => Number(a.displayed_price) - Number(b.displayed_price)
+  );
+  return [...priced, ...rest];
 }
 
 /** Case-insensitive substring match across pack name and brand. */
