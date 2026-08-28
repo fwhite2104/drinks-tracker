@@ -1,0 +1,28 @@
+{
+  "name": "drinks-tracker",
+  "description": "Drinks Tracker consumer app — Exact-Pack Comparison for Irish grocery beverages.",
+  "license": "0BSD",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "private": true,
+  "dependencies": {
+    "expo": "~57.0.17",
+    "expo-status-bar": "~57.0.1",
+    "react": "19.2.3",
+    "react-native": "0.86.3"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "eslint": "^9.39.5",
+    "eslint-config-expo": "~57.0.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "lint": "expo lint"
+  }
+}
