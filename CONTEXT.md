@@ -27,6 +27,9 @@ An approved relationship between one Benchmark Catalog pack and one retailer lis
 **Dormant Catalog Mapping**:
 A Catalog Mapping for which no Price Observation has been recorded for six months. It is hidden from normal history views and may be purged, along with its detailed observations, after twelve months without a new observation; the Benchmark Catalog identity remains eligible for remapping.
 
+**Brand Alias**:
+A curated mapping from a retailer's product-name identity to the catalog's canonical brand and variant (e.g. "Diet Coke" → brand Coca-Cola, variant Diet). Brand Aliases are applied when translating a listing into catalog identity, before the exact-pack agreement bar is applied; they never weaken the bar itself. Auto-suggested aliases require curation before use.
+
 **Catalog Candidate**:
 A retailer listing that may represent a new Benchmark Catalog pack but has not yet been approved for cross-retailer comparison. It has one canonical retailer/source identity and may be associated with multiple Catalog Pack cells that surfaced it.
 
