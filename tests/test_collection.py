@@ -3,6 +3,7 @@ import io
 import json
 import sqlite3
 import tempfile
+import time
 import types
 import urllib.error
 from contextlib import closing, redirect_stdout
@@ -39,6 +40,7 @@ from beverage_feed.collector import (
     _lidl_drs_deposit,
     _RunLock,
     _load_mappings,
+    _record_diagnostic,
     _validate_listing,
     as_datetime,
     load_catalog,
@@ -56,6 +58,11 @@ from beverage_feed.collector import (
     main,
     price_history,
     purge_retention,
+)
+from beverage_feed.source_http import (
+    DEFAULT_CIRCUIT_COOLDOWN,
+    DEFAULT_CIRCUIT_THRESHOLD,
+    SourceHTTPError,
 )
 
 
@@ -2657,6 +2664,453 @@ class CollectRunRetailerDispatchTests(unittest.TestCase):
         self.assertIn("unsupported retailer adapter", result[1])
         # A failed pair never writes a Price Observation.
         self.assertEqual(observations, 0)
+
+
+class ResilientSourceRequestTests(unittest.TestCase):
+    """Hardened retries, rate limits, circuit breaking, diagnostics (ticket 08).
+
+    Only transport failures, 429 responses, and retryable 5xx responses are
+    retried; Retry-After is honored; backoff is bounded exponential with
+    jitter; every client spaces its requests; repeated failures open a
+    circuit; diagnostics preserve status and retryability without secrets.
+    """
+
+    def setUp(self):
+        self.pack = BenchmarkPack(
+            catalog_id="coke-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml",
+        )
+        self.mapping = DunnesMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml",
+            source_product_reference="COKE-ZERO-330",
+            source_item_id="COKE-ZERO-330-EA",
+        )
+
+    @staticmethod
+    def _payload():
+        return {"data": {"productSearch": {"products": [{
+            "productName": "Coca-Cola Zero Sugar 330ml",
+            "productReference": "COKE-ZERO-330",
+            "items": [{"itemId": "COKE-ZERO-330-EA", "sellers": [
+                {"commertialOffer": {"Price": "2.49"}},
+            ]}],
+        }]}}}
+
+    def _matrix(self, count):
+        """`count` distinct packs with Dunnes mappings for circuit tests."""
+        packs = [
+            BenchmarkPack(
+                catalog_id=f"coke-zero-{index:02d}",
+                name=f"Coca-Cola Zero Sugar 330ml Can {index}",
+                brand="Coca-Cola",
+                variant="Zero Sugar",
+                pack_count=1,
+                unit_size_ml=330,
+                package_type="can",
+                search_term=f"Coca-Cola Zero Sugar {index}",
+            )
+            for index in range(1, count + 1)
+        ]
+        mappings = {
+            "dunnes": [
+                DunnesMapping(
+                    catalog_id=pack.catalog_id,
+                    expected_product_name=pack.name,
+                )
+                for pack in packs
+            ]
+        }
+        return packs, mappings
+
+    def test_429_response_is_retried_honoring_retry_after(self):
+        attempts = []
+
+        def fetch(_):
+            attempts.append(True)
+            if len(attempts) == 1:
+                raise SourceHTTPError("Dunnes HTTP 429", status=429, retry_after=30.0)
+            return self._payload()
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch("beverage_feed.collector.time.sleep") as slept:
+                summary = collect_run(
+                    [self.pack], {"dunnes": [self.mapping]}, {"dunnes": fetch},
+                    database, max_retries=1, retry_backoff=0,
+                )
+
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(summary["observed_count"], 1)
+        # The source's Retry-After wins over the (zero) backoff base.
+        slept.assert_called_once_with(30.0)
+
+    def test_retryable_5xx_responses_are_retried_until_success(self):
+        attempts = []
+
+        def fetch(_):
+            attempts.append(True)
+            if len(attempts) <= 2:
+                raise SourceHTTPError(f"Dunnes HTTP 50{attempts[-1]}", status=503)
+            return self._payload()
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                [self.pack], {"dunnes": [self.mapping]}, {"dunnes": fetch},
+                database, max_retries=2, retry_backoff=0,
+            )
+
+        self.assertEqual(len(attempts), 3)
+        self.assertEqual(summary["observed_count"], 1)
+
+    def test_permanent_http_status_fails_without_retrying(self):
+        attempts = []
+
+        def fetch(_):
+            attempts.append(True)
+            raise SourceHTTPError("Dunnes HTTP 403", status=403)
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                [self.pack], {"dunnes": [self.mapping]}, {"dunnes": fetch},
+                database, max_retries=3, retry_backoff=0,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, error FROM collection_results"
+                ).fetchone()
+
+        self.assertEqual(attempts, [True])  # no retry for a permanent status
+        self.assertEqual(summary["failed_count"], 1)
+        self.assertEqual(result, ("source_error", "Dunnes HTTP 403"))
+
+    def test_backoff_is_bounded_exponential_with_jitter(self):
+        def fetch(_):
+            raise SourceHTTPError("Dunnes HTTP 503", status=503)
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch("beverage_feed.collector.time.sleep") as slept:
+                collect_run(
+                    [self.pack], {"dunnes": [self.mapping]}, {"dunnes": fetch},
+                    database, max_retries=2, retry_backoff=0.5,
+                )
+
+        delays = [call.args[0] for call in slept.call_args_list]
+        self.assertEqual(len(delays), 2)
+        self.assertGreaterEqual(delays[0], 0.5)
+        self.assertLessEqual(delays[0], 0.625)  # 0.5s base + ≤25% jitter
+        self.assertGreaterEqual(delays[1], 1.0)
+        self.assertLessEqual(delays[1], 1.25)  # 1.0s base + ≤25% jitter
+
+    def test_diagnostics_preserve_status_and_retryability(self):
+        def fetch(_):
+            raise SourceHTTPError("Dunnes HTTP 429", status=429, retry_after=2.0)
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            collect_run(
+                [self.pack], {"dunnes": [self.mapping]}, {"dunnes": fetch},
+                database, max_retries=1, retry_backoff=0,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                events = connection.execute(
+                    "SELECT event, message, request_metadata FROM collection_diagnostics "
+                    "ORDER BY diagnostic_id"
+                ).fetchall()
+
+        error_events = [event for event in events if event[0] == "error"]
+        self.assertEqual(len(error_events), 2)  # initial attempt + retry
+        for _, message, metadata in error_events:
+            payload = json.loads(metadata or "{}")
+            self.assertEqual(payload["http_status"], 429)
+            self.assertIs(payload["retryable"], True)
+        retry_events = [event for event in events if event[0] == "retry"]
+        self.assertEqual(len(retry_events), 1)
+        self.assertIn("retrying after", retry_events[0][1])
+        self.assertEqual(
+            json.loads(retry_events[0][2])["retry_after_seconds"], 2.0,
+        )
+
+    def test_request_diagnostics_never_retain_sensitive_headers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)
+                connection.execute(
+                    "INSERT INTO collection_runs (run_id, started_at, finished_at, "
+                    "status, observed_count, failed_count, summary) "
+                    "VALUES ('run-diag', 'x', 'x', 'completed', 0, 0, '{}')"
+                )
+                connection.commit()
+            _record_diagnostic(
+                database, "run-diag", "dunnes", None, "request",
+                request_metadata={
+                    "search_term": "Coca-Cola",
+                    "headers": {
+                        "Authorization": "Bearer abc",
+                        "Cookie": "session=1",
+                        "x-apikey": "k-123",
+                    },
+                },
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                (metadata,) = connection.execute(
+                    "SELECT request_metadata FROM collection_diagnostics"
+                ).fetchone()
+
+        self.assertIn("Coca-Cola", metadata)
+        self.assertEqual(metadata.count("[redacted]"), 3)
+        self.assertNotIn("Bearer", metadata)
+        self.assertNotIn("session=1", metadata)
+        self.assertNotIn("k-123", metadata)
+
+    def test_dunnes_client_classifies_status_and_transport_failures(self):
+        class Responsive(_FakeHTTPResponse):
+            def __init__(self, status, body, headers=None):
+                super().__init__(status, body)
+                self.headers = headers or {}
+
+        with patch(
+            "urllib.request.urlopen",
+            lambda request, timeout=None: Responsive(
+                429, b"{}", {"Retry-After": "9"}
+            ),
+        ):
+            with self.assertRaises(SourceHTTPError) as rate_limited:
+                DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+        self.assertEqual(rate_limited.exception.status, 429)
+        self.assertTrue(rate_limited.exception.retryable)
+        self.assertEqual(rate_limited.exception.retry_after, 9.0)
+
+        with patch(
+            "urllib.request.urlopen",
+            lambda request, timeout=None: Responsive(403, b"{}"),
+        ):
+            with self.assertRaises(SourceHTTPError) as forbidden:
+                DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+        self.assertEqual(forbidden.exception.status, 403)
+        self.assertFalse(forbidden.exception.retryable)
+
+        def refuse(request, timeout=None):
+            raise urllib.error.URLError("connection refused")
+
+        with patch("urllib.request.urlopen", refuse):
+            with self.assertRaises(SourceHTTPError) as down:
+                DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+        self.assertIsNone(down.exception.status)
+        self.assertTrue(down.exception.retryable)
+        self.assertIn("Dunnes request failed", str(down.exception))
+
+    def test_dunnes_client_spaces_successive_requests(self):
+        with patch(
+            "urllib.request.urlopen",
+            lambda request, timeout=None: _FakeHTTPResponse(200, b'{"items": []}'),
+        ), patch("beverage_feed.collector.time.sleep") as slept:
+            client = DunnesClient(min_request_interval=1.0)
+            client("Coca-Cola Zero")
+            client("Coca-Cola Zero")
+
+        self.assertEqual(slept.call_count, 1)  # only the second request waits
+        delay = slept.call_args.args[0]
+        self.assertGreater(delay, 0.0)
+        self.assertLessEqual(delay, 1.0)
+
+    def test_request_intervals_are_validated_for_all_clients(self):
+        with self.assertRaises(ValueError):
+            DunnesClient(min_request_interval=-1)
+        with self.assertRaises(ValueError):
+            SuperValuClient("store", min_request_interval=-1)
+
+    def test_supervalu_client_spaces_successive_requests(self):
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        responses = [
+            Response(b"<html></html>"),
+            Response(json.dumps({"items": []}).encode()),
+            Response(json.dumps({"items": []}).encode()),
+        ]
+
+        class Opener:
+            def open(self, request, timeout):
+                return responses.pop(0)
+
+        client = SuperValuClient("store 123", opener=Opener())
+        with patch("beverage_feed.collector.time.sleep") as slept:
+            client("Coca-Cola")
+            client("Coca-Cola")
+
+        # Three requests (home warm-up + two searches); every request after
+        # the first waits out the per-retailer spacing.
+        self.assertEqual(slept.call_count, 2)
+        for call in slept.call_args_list:
+            self.assertGreater(call.args[0], 0.0)
+            self.assertLessEqual(call.args[0], 1.0)
+
+    def test_circuit_breaker_skips_remaining_pairs_after_repeated_failures(self):
+        packs, mappings = self._matrix(5)
+        attempts = []
+
+        def fetch(_):
+            attempts.append(True)
+            raise SourceHTTPError("Dunnes HTTP 503", status=503)
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                packs, mappings, {"dunnes": fetch}, database,
+                max_retries=0, retry_backoff=0,
+                circuit_threshold=4, circuit_cooldown=300.0,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                results = connection.execute(
+                    "SELECT catalog_id, status, error FROM collection_results "
+                    "ORDER BY catalog_id"
+                ).fetchall()
+                events = connection.execute(
+                    "SELECT event FROM collection_diagnostics"
+                ).fetchall()
+
+        # Four consecutive failures trip the circuit; the fifth pair is
+        # skipped without touching the source.
+        self.assertEqual(len(attempts), 4)
+        self.assertEqual(summary["failed_count"], 5)
+        skipped = [row for row in results if row[0] == "coke-zero-05"]
+        self.assertEqual(skipped[0][1], "source_error")
+        self.assertIn("circuit open", skipped[0][2])
+        self.assertIn("circuit_open", [event[0] for event in events])
+
+    def test_circuit_breaker_resets_after_a_success(self):
+        packs, mappings = self._matrix(5)
+        failing_terms = {"Coca-Cola Zero Sugar 1", "Coca-Cola Zero Sugar 3", "Coca-Cola Zero Sugar 4"}
+        attempts = []
+
+        def fetch(term):
+            attempts.append(term)
+            if term in failing_terms:
+                raise SourceHTTPError("Dunnes HTTP 503", status=503)
+            return self._payload()
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                packs, mappings, {"dunnes": fetch}, database,
+                max_retries=0, retry_backoff=0,
+                circuit_threshold=2, circuit_cooldown=300.0,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                statuses = connection.execute(
+                    "SELECT catalog_id, status FROM collection_results ORDER BY catalog_id"
+                ).fetchall()
+
+        # p1 fails, p2 succeeds (reset), p3+p4 fail (circuit opens), p5 skipped.
+        # The generic payload is a not_found for the matrix packs, which is
+        # itself a non-error outcome that resets the breaker.
+        self.assertEqual(len(attempts), 4)
+        self.assertEqual(summary["failed_count"], 4)
+        self.assertEqual(
+            statuses,
+            [
+                ("coke-zero-01", "source_error"),
+                ("coke-zero-02", "not_found"),
+                ("coke-zero-03", "source_error"),
+                ("coke-zero-04", "source_error"),
+                ("coke-zero-05", "source_error"),
+            ],
+        )
+
+    def test_circuit_breaker_half_opens_after_the_cooldown(self):
+        packs, mappings = self._matrix(3)
+        clock = {"now": time.monotonic(), "readings": 0}
+        attempts = []
+
+        def fetch(_):
+            attempts.append(True)
+            if len(attempts) == 1:
+                raise SourceHTTPError("Dunnes HTTP 503", status=503)
+            return self._payload()
+
+        def fake_monotonic():
+            # Deterministic clock. Readings 1-4 are frozen at failure time:
+            # the run-start stamp, the failing pack's start/end stamps, and
+            # the breaker's failure stamp. The first open-check after that
+            # (reading 5) is still within the 100s cooldown, so the second
+            # pair is skipped; from the next open-check on (200s elapsed) the
+            # cooldown has passed and the trial attempt is allowed.
+            clock["readings"] += 1
+            if clock["readings"] <= 4:
+                return clock["now"]
+            if clock["readings"] == 5:
+                return clock["now"] + 50.0
+            return clock["now"] + 200.0
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch("beverage_feed.source_http.time.monotonic", fake_monotonic):
+                summary = collect_run(
+                    packs, mappings, {"dunnes": fetch}, database,
+                    max_retries=0, retry_backoff=0,
+                    circuit_threshold=1, circuit_cooldown=100.0,
+                )
+            with closing(sqlite3.connect(database)) as connection:
+                results = connection.execute(
+                    "SELECT catalog_id, status, error FROM collection_results "
+                    "ORDER BY catalog_id"
+                ).fetchall()
+
+        # p1 fails; p2 is skipped while the circuit is open; p3 runs as the
+        # half-open trial and completes without error (not_found), proving
+        # the breaker allowed and then reset the trial.
+        self.assertEqual(len(attempts), 2)
+        self.assertEqual(summary["failed_count"], 2)
+        skipped = [row for row in results if row[0] == "coke-zero-02"]
+        self.assertIn("circuit open", skipped[0][2])
+        trial = [row for row in results if row[0] == "coke-zero-03"]
+        self.assertEqual(trial[0][1], "not_found")
+
+    def test_circuit_settings_are_validated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with self.assertRaises(ValueError):
+                collect_run(
+                    [self.pack], {"dunnes": [self.mapping]},
+                    {"dunnes": lambda _: self._payload()}, database,
+                    circuit_threshold=0,
+                )
+            with self.assertRaises(ValueError):
+                collect_run(
+                    [self.pack], {"dunnes": [self.mapping]},
+                    {"dunnes": lambda _: self._payload()}, database,
+                    circuit_cooldown=-1,
+                )
+
+    def test_defaults_match_the_shared_module_constants(self):
+        import inspect
+
+        signature = inspect.signature(collect_run)
+        self.assertEqual(
+            signature.parameters["circuit_threshold"].default,
+            DEFAULT_CIRCUIT_THRESHOLD,
+        )
+        self.assertEqual(
+            signature.parameters["circuit_cooldown"].default,
+            DEFAULT_CIRCUIT_COOLDOWN,
+        )
 
 
 class CollectionRunRecoveryTests(unittest.TestCase):

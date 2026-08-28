@@ -22,6 +22,8 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
+from . import source_http
+
 
 DUNNES_ENDPOINT = "https://storefrontgateway.dunnesstoresgrocery.com/api/stores"
 DUNNES_STORE_ID = os.environ.get("DUNNES_STORE_ID", "258")
@@ -93,9 +95,19 @@ class DunnesClient:
     the ``productSearch.products`` envelope the collector expects.
     """
 
-    def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID):
+    def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID, min_request_interval: float = 1.0):
+        if min_request_interval < 0:
+            raise ValueError("Dunnes request interval must not be negative")
         self.endpoint = endpoint.rstrip("/")
         self.store_id = store_id
+        self.min_request_interval = min_request_interval
+        self._last_request_at: float | None = None
+
+    def _throttle(self) -> None:
+        """Space out successive requests to the Dunnes gateway."""
+        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         if not search_term.strip():
@@ -112,15 +124,27 @@ class DunnesClient:
                 "User-Agent": "drinks-tracker/0.1",
             },
         )
+        self._throttle()
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
                 if response.status >= 400:
-                    raise RuntimeError(f"Dunnes HTTP {response.status}")
+                    raise source_http.status_error(
+                        "Dunnes", response.status,
+                        source_http.response_retry_after(response),
+                    )
                 payload = json.load(response)
+        except source_http.SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise source_http.status_error(
+                "Dunnes", exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except source_http.TRANSPORT_ERRORS as exc:
+            raise source_http.transport_error("Dunnes", exc) from exc
         except Exception as exc:
-            if isinstance(exc, RuntimeError):
-                raise
             raise RuntimeError(f"Dunnes request failed: {exc}") from exc
+        finally:
+            self._last_request_at = time.monotonic()
 
         items = payload.get("items") if isinstance(payload, dict) else None
         if not isinstance(items, list):
@@ -574,16 +598,23 @@ def _retrying_fetcher(
                 )
                 return payload
             except Exception as exc:
+                # Diagnostics preserve the status code and retryability;
+                # safe_record scrubs any sensitive keys before persistence.
+                failure = source_http.failure_metadata(exc)
                 _record_diagnostic(
                     database, run_id, retailer, catalog_id, "error",
-                    level="error", message=str(exc), request_metadata=metadata,
+                    level="error", message=str(exc),
+                    request_metadata={**metadata, **failure},
                 )
-                if attempt_number >= max_retries:
+                if attempt_number >= max_retries or not source_http.is_retryable_failure(exc):
                     raise
-                delay = retry_backoff * (2 ** attempt_number)
+                delay = source_http.backoff_delay(
+                    retry_backoff, attempt_number, getattr(exc, "retry_after", None)
+                )
                 _record_diagnostic(
                     database, run_id, retailer, catalog_id, "retry",
-                    message=f"retrying after {delay:g}s", request_metadata=metadata,
+                    message=f"retrying after {delay:.1f}s",
+                    request_metadata={**metadata, **failure, "delay_seconds": round(delay, 3)},
                 )
                 if delay:
                     time.sleep(delay)
@@ -1040,12 +1071,17 @@ class SuperValuClient:
         endpoint: str = SUPERVALU_ENDPOINT,
         opener: urllib.request.OpenerDirector | None = None,
         product_endpoint: str = SUPERVALU_PRODUCT_ENDPOINT,
+        min_request_interval: float = 1.0,
     ):
         if not store_id.strip():
             raise ValueError("SuperValu store_id must not be empty")
+        if min_request_interval < 0:
+            raise ValueError("SuperValu request interval must not be negative")
         self.store_id = store_id
         self.endpoint = endpoint
         self.product_endpoint = product_endpoint
+        self.min_request_interval = min_request_interval
+        self._last_request_at: float | None = None
         self.opener = opener or urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
         )
@@ -1089,6 +1125,12 @@ class SuperValuClient:
                 pass
         return payload
 
+    def _throttle(self) -> None:
+        """Space out successive requests to the SuperValu storefront."""
+        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
+
     def _get(self, url: str, *, parse_json: bool = True) -> Any:
         request = urllib.request.Request(
             url,
@@ -1099,15 +1141,27 @@ class SuperValuClient:
                 "Referer": SUPERVALU_HOME,
             },
         )
+        self._throttle()
         try:
             with self.opener.open(request, timeout=30) as response:
                 if getattr(response, "status", 200) >= 400:
-                    raise RuntimeError(f"SuperValu HTTP {response.status}")
+                    raise source_http.status_error(
+                        "SuperValu", getattr(response, "status", 200),
+                        source_http.response_retry_after(response),
+                    )
                 return json.load(response) if parse_json else response.read()
+        except source_http.SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise source_http.status_error(
+                "SuperValu", exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except source_http.TRANSPORT_ERRORS as exc:
+            raise source_http.transport_error("SuperValu", exc) from exc
         except Exception as exc:
-            if isinstance(exc, RuntimeError):
-                raise
             raise RuntimeError(f"SuperValu request failed: {exc}") from exc
+        finally:
+            self._last_request_at = time.monotonic()
 
 
 def _find_supervalu_listing(
@@ -1504,11 +1558,13 @@ class TescoClient:
                 products.append({"tpnb": tpnb, **product})
         return products
 
+    def _throttle(self) -> None:
+        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
+
     def _request_json(self, request: urllib.request.Request) -> Any:
-        if self._last_request_at is not None:
-            delay = self.min_request_interval - (time.monotonic() - self._last_request_at)
-            if delay > 0:
-                time.sleep(delay)
+        self._throttle()
         try:
             if self._impersonator is not None:
                 response = self._impersonator.request(
@@ -1519,16 +1575,32 @@ class TescoClient:
                     timeout=30,
                 )
                 if response.status_code >= 400:
-                    raise RuntimeError(f"Tesco HTTP {response.status_code}")
+                    raise source_http.status_error(
+                        "Tesco", response.status_code,
+                        source_http.response_retry_after(response),
+                    )
                 return response.json()
             with self.opener.open(request, timeout=30) as response:
                 if getattr(response, "status", 200) >= 400:
-                    raise RuntimeError(f"Tesco HTTP {response.status}")
+                    raise source_http.status_error(
+                        "Tesco", getattr(response, "status", 200),
+                        source_http.response_retry_after(response),
+                    )
                 return json.load(response)
+        except source_http.SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise source_http.status_error(
+                "Tesco", exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except ValueError as exc:
+            # A malformed body is a response failure, not a transport outage;
+            # it must not be retried.
+            raise RuntimeError(f"Tesco response was not valid JSON: {exc}") from exc
         except Exception as exc:
-            if isinstance(exc, RuntimeError):
-                raise
-            raise RuntimeError(f"Tesco request failed: {exc}") from exc
+            # The impersonated session raises its own transport exception
+            # types; anything else here is an outage-class failure.
+            raise source_http.transport_error("Tesco", exc) from exc
         finally:
             self._last_request_at = time.monotonic()
 
@@ -2015,10 +2087,9 @@ class LidlClient:
         return record
 
     def _throttle(self) -> None:
-        if self._last_request_at is not None:
-            delay = self.min_request_interval - (time.monotonic() - self._last_request_at)
-            if delay > 0:
-                time.sleep(delay)
+        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
 
     def _request_json(self, url: str) -> Any:
         return json.loads(self._request_text(url, accept=LIDL_SEARCH_ACCEPT))
@@ -2032,11 +2103,20 @@ class LidlClient:
         try:
             with self.opener.open(request, timeout=30) as response:
                 if getattr(response, "status", 200) >= 400:
-                    raise RuntimeError(f"Lidl HTTP {response.status}")
+                    raise source_http.status_error(
+                        "Lidl", getattr(response, "status", 200),
+                        source_http.response_retry_after(response),
+                    )
                 body = response.read()
+        except source_http.SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise source_http.status_error(
+                "Lidl", exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except source_http.TRANSPORT_ERRORS as exc:
+            raise source_http.transport_error("Lidl", exc) from exc
         except Exception as exc:
-            if isinstance(exc, RuntimeError):
-                raise
             raise RuntimeError(f"Lidl request failed: {exc}") from exc
         finally:
             self._last_request_at = time.monotonic()
@@ -2377,10 +2457,9 @@ class AldiClient:
         return {"items": matching}
 
     def _throttle(self) -> None:
-        if self._last_request_at is not None:
-            delay = self.min_request_interval - (time.monotonic() - self._last_request_at)
-            if delay > 0:
-                time.sleep(delay)
+        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
 
     def _request_json(self, url: str) -> Any:
         self._throttle()
@@ -2391,11 +2470,20 @@ class AldiClient:
         try:
             with self.opener.open(request, timeout=30) as response:
                 if getattr(response, "status", 200) >= 400:
-                    raise RuntimeError(f"Aldi HTTP {response.status}")
+                    raise source_http.status_error(
+                        "Aldi", getattr(response, "status", 200),
+                        source_http.response_retry_after(response),
+                    )
                 body = response.read()
+        except source_http.SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise source_http.status_error(
+                "Aldi", exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except source_http.TRANSPORT_ERRORS as exc:
+            raise source_http.transport_error("Aldi", exc) from exc
         except Exception as exc:
-            if isinstance(exc, RuntimeError):
-                raise
             raise RuntimeError(f"Aldi request failed: {exc}") from exc
         finally:
             self._last_request_at = time.monotonic()
@@ -2790,10 +2878,14 @@ def collect_run(
     store_ids: Mapping[str, str] | None = None,
     max_retries: int = 2,
     retry_backoff: float = 0.5,
+    circuit_threshold: int = source_http.DEFAULT_CIRCUIT_THRESHOLD,
+    circuit_cooldown: float = source_http.DEFAULT_CIRCUIT_COOLDOWN,
 ) -> dict[str, Any]:
     """Run the active catalog matrix with isolated retailer-pack results."""
     if max_retries < 0 or retry_backoff < 0:
         raise ValueError("retry settings must not be negative")
+    if circuit_threshold < 1 or circuit_cooldown < 0:
+        raise ValueError("circuit settings must not be negative")
 
     started_at = timestamp()
     started = time.monotonic()
@@ -2827,6 +2919,8 @@ def collect_run(
             store_ids=store_ids,
             max_retries=max_retries,
             retry_backoff=retry_backoff,
+            circuit_threshold=circuit_threshold,
+            circuit_cooldown=circuit_cooldown,
         )
     except BaseException as exc:
         # A run that dies unexpectedly (process interruption, database error)
@@ -2855,6 +2949,8 @@ def _run_matrix(
     store_ids: Mapping[str, str] | None,
     max_retries: int,
     retry_backoff: float,
+    circuit_threshold: int,
+    circuit_cooldown: float,
 ) -> dict[str, Any]:
     """Collect the retailer-pack matrix for one prepared run row."""
     selected_catalog = [
@@ -2892,6 +2988,11 @@ def _run_matrix(
             if getattr(row, "catalog_id", None)
         }
         adapter = adapters[retailer_name]
+        # One breaker per retailer: repeated consecutive source failures stop
+        # further requests to that retailer for the rest of the run.
+        breaker = source_http.CircuitBreaker(
+            threshold=circuit_threshold, cooldown=circuit_cooldown
+        )
         for pack in selected_catalog:
             summary["attempted_count"] += 1
             mapping = rows.get(pack.catalog_id)
@@ -2920,38 +3021,14 @@ def _run_matrix(
                     retry_backoff=retry_backoff,
                     direct_fetcher=getattr(adapter, "fetch_product", None),
                 )
-                try:
-                    if retailer_name == "dunnes":
-                        result = collect_one(
-                            pack, mapping, fetcher, database_path,
-                            _run_id=run_id, _started_at=started_at,
-                        )
-                    elif retailer_name == "supervalu":
-                        result = collect_supervalu_one(
-                            pack, mapping, fetcher, database_path,
-                            store_id=scope, _run_id=run_id, _started_at=started_at,
-                        )
-                    elif retailer_name == "tesco":
-                        result = collect_tesco_one(
-                            pack, mapping, fetcher, database_path,
-                            _run_id=run_id, _started_at=started_at,
-                        )
-                    elif retailer_name == "lidl":
-                        result = collect_lidl_one(
-                            pack, mapping, fetcher, database_path,
-                            _run_id=run_id, _started_at=started_at,
-                        )
-                    elif retailer_name == "aldi":
-                        result = collect_aldi_one(
-                            pack, mapping, fetcher, database_path,
-                            _run_id=run_id, _started_at=started_at,
-                        )
-                    else:
-                        raise ValueError(f"unsupported retailer adapter: {retailer_name}")
-                except Exception as exc:
+                if breaker.open:
                     result = {
                         "status": "source_error",
-                        "error": str(exc),
+                        "error": (
+                            f"circuit open after {breaker.threshold} consecutive "
+                            "failures; remaining requests to this retailer are "
+                            "skipped for this run"
+                        ),
                         "observed_count": 0,
                         "failed_count": 1,
                     }
@@ -2959,6 +3036,58 @@ def _run_matrix(
                         database_path, run_id, pack, retailer_name,
                         result["status"], result["error"], scope,
                     )
+                    _record_diagnostic(
+                        database_path, run_id, retailer_name, pack.catalog_id,
+                        "circuit_open", level="error", message=result["error"],
+                        request_metadata={"threshold": breaker.threshold},
+                    )
+                else:
+                    try:
+                        if retailer_name == "dunnes":
+                            result = collect_one(
+                                pack, mapping, fetcher, database_path,
+                                _run_id=run_id, _started_at=started_at,
+                            )
+                        elif retailer_name == "supervalu":
+                            result = collect_supervalu_one(
+                                pack, mapping, fetcher, database_path,
+                                store_id=scope, _run_id=run_id, _started_at=started_at,
+                            )
+                        elif retailer_name == "tesco":
+                            result = collect_tesco_one(
+                                pack, mapping, fetcher, database_path,
+                                _run_id=run_id, _started_at=started_at,
+                            )
+                        elif retailer_name == "lidl":
+                            result = collect_lidl_one(
+                                pack, mapping, fetcher, database_path,
+                                _run_id=run_id, _started_at=started_at,
+                            )
+                        elif retailer_name == "aldi":
+                            result = collect_aldi_one(
+                                pack, mapping, fetcher, database_path,
+                                _run_id=run_id, _started_at=started_at,
+                            )
+                        else:
+                            raise ValueError(f"unsupported retailer adapter: {retailer_name}")
+                    except Exception as exc:
+                        result = {
+                            "status": "source_error",
+                            "error": str(exc),
+                            "observed_count": 0,
+                            "failed_count": 1,
+                        }
+                        _record_collection_result(
+                            database_path, run_id, pack, retailer_name,
+                            result["status"], result["error"], scope,
+                        )
+                    # A half-open trial that fails re-trips the breaker; any
+                    # non-error outcome (observed, not_found, inconclusive)
+                    # resets the failure streak.
+                    if result["status"] == "source_error":
+                        breaker.record_failure()
+                    else:
+                        breaker.record_success()
 
             status = result["status"]
             _log_decision(
