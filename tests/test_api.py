@@ -1,7 +1,9 @@
 """Read-only HTTP API coverage against temporary SQLite databases."""
 
+import json
 import sqlite3
 from contextlib import closing
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -363,6 +365,247 @@ def test_consumer_feed_filters_by_catalog_id(client):
     ).json()
     assert empty["packs"] == []
     assert empty["pack_count"] == 0
+
+
+def _seed_pack_with_mapping(
+    database: Path,
+    *,
+    catalog_id: str,
+    retailer: str,
+    mapping_status: str,
+) -> None:
+    """Insert a catalog pack with a single mapping in the given status."""
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES (?, ?, 'Brand', 'Variant', 1, 330, 'can', 'Search')
+            """,
+            (catalog_id, f"Pack {catalog_id}"),
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES (?, ?, ?, ?)
+            """,
+            (catalog_id, retailer, f"Pack {catalog_id}", mapping_status),
+        )
+        connection.commit()
+
+
+def _seed_inconclusive_scenario(database: Path) -> None:
+    """Seed two approved-mapping packs whose latest result is inconclusive.
+
+    ``fanta-can`` has an older Price Observation; ``sprite-can`` was never
+    observed. Commit 911a2a5 introduced ``inconclusive`` for truncated pages:
+    absence from a truncated page proves nothing, so neither pack may surface
+    as unavailable or current.
+    """
+    with closing(sqlite3.connect(database)) as connection:
+        connection.executemany(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES (?, ?, ?, 'Original', 1, 330, 'can', ?)
+            """,
+            [
+                ("fanta-can", "Fanta 330ml Can", "Fanta", "Fanta Original"),
+                ("sprite-can", "Sprite 330ml Can", "Sprite", "Sprite Original"),
+            ],
+        )
+        connection.executemany(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES (?, 'tesco', ?, 'approved')
+            """,
+            [("fanta-can", "Fanta 330ml Can"), ("sprite-can", "Sprite 330ml Can")],
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_runs
+                (run_id, started_at, finished_at, status, observed_count,
+                 failed_count, summary)
+            VALUES ('run-inc', '2026-01-03T10:00:00Z', '2026-01-03T10:01:00Z',
+                    'ok', 0, 0, '{}')
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, recorded_at)
+            VALUES ('run-inc', ?, 'tesco', 'inconclusive', '2026-01-03T10:00:30Z')
+            """,
+            [("fanta-can",), ("sprite-can",)],
+        )
+        connection.execute(
+            """
+            INSERT INTO price_observations
+                (run_id, catalog_id, retailer, source_product_reference,
+                 source_item_id, source_product_name, displayed_price, currency,
+                 pack_count, unit_size_ml, package_type, observed_at)
+            VALUES ('run-a', 'fanta-can', 'tesco', 'ref', 'item',
+                    'Fanta 330ml Can', '1.80', 'EUR', 1, 330, 'can',
+                    '2026-01-01T10:00:45Z')
+            """
+        )
+        connection.commit()
+
+
+def test_consumer_feed_inconclusive_result_after_observation_stays_last_seen(client):
+    """An inconclusive latest result never fakes current or unavailable.
+
+    A truncated retailer page proves nothing about absence, so a pack with an
+    older observation stays exactly where the last proof left it: last_seen,
+    with the old price withheld.
+    """
+    database = Path(client.app.state.database)
+    _seed_inconclusive_scenario(database)
+    body = client.get("/consumer/feed").json()
+
+    pack = next(p for p in body["packs"] if p["catalog_id"] == "fanta-can")
+    tesco = next(c for c in pack["retailers"] if c["retailer"] == "tesco")
+
+    assert tesco["state"] == "last_seen"
+    assert tesco["label"] == "Last seen"
+    assert tesco["displayed_price"] is None  # old price never shown as current
+    assert tesco["last_seen_at"] == "2026-01-01T10:00:45Z"
+    assert tesco["is_best"] is False
+
+
+def test_consumer_feed_inconclusive_result_without_observation_is_awaiting_price(client):
+    """Inconclusive on a never-observed pack stays awaiting_price.
+
+    ``temporarily_unavailable`` means the latest result errored; an
+    inconclusive page is not an error claim, and the approved mapping has
+    genuinely never been observed. ``awaiting_price`` implies no availability.
+    """
+    database = Path(client.app.state.database)
+    _seed_inconclusive_scenario(database)
+    body = client.get("/consumer/feed").json()
+
+    pack = next(p for p in body["packs"] if p["catalog_id"] == "sprite-can")
+    tesco = next(c for c in pack["retailers"] if c["retailer"] == "tesco")
+
+    assert tesco["state"] == "awaiting_price"
+    assert tesco["displayed_price"] is None
+
+
+def _seed_multipack_with_money_fields(database: Path) -> None:
+    """Seed a 6-pack observed with Clubcard Price and DRS Deposit recorded."""
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES ('cola-6pk', 'Cola 6x500ml', 'Cola', 'Original', 6, 500,
+                    'bottle', 'Cola Original 6x')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES ('cola-6pk', 'tesco', 'Cola 6x500ml', 'approved')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, recorded_at)
+            VALUES ('run-m', 'cola-6pk', 'tesco', 'observed', '2026-01-02T10:00:30Z')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO price_observations
+                (run_id, catalog_id, retailer, source_product_reference,
+                 source_item_id, source_product_name, displayed_price,
+                 clubcard_price, drs_deposit, currency, pack_count,
+                 unit_size_ml, package_type, observed_at)
+            VALUES ('run-m', 'cola-6pk', 'tesco', 'ref', 'item', 'Cola 6x500ml',
+                    '8.40', '7.50', '0.72', 'EUR', 6, 500, 'bottle',
+                    '2026-01-02T10:00:45Z')
+            """
+        )
+        connection.commit()
+
+
+def test_consumer_feed_money_dates_and_slot_shape_follow_spec_contract(client):
+    """Spec §4 shapes: decimal-string money + currency, ISO-8601 UTC
+    observed_at, and a slot carrying no operator diagnostics."""
+    database = Path(client.app.state.database)
+    _seed_multipack_with_money_fields(database)
+    body = client.get("/consumer/feed").json()
+
+    pack = next(p for p in body["packs"] if p["catalog_id"] == "cola-6pk")
+    tesco = next(c for c in pack["retailers"] if c["retailer"] == "tesco")
+
+    assert tesco["state"] == "observed"
+    assert tesco["displayed_price"] == "8.40"
+    assert tesco["clubcard_price"] == "7.50"
+    assert tesco["drs_deposit"] == "0.72"  # own field, never folded into price
+    assert tesco["component_unit_price"] == "1.40"  # derived from pack_count
+    assert tesco["currency"] == "EUR"
+
+    observed_at = tesco["observed_at"]
+    assert observed_at.endswith("Z")
+    datetime.strptime(observed_at, "%Y-%m-%dT%H:%M:%SZ")  # ISO-8601 UTC
+
+    assert set(tesco) == {
+        "retailer", "display_name", "state", "label", "displayed_price",
+        "clubcard_price", "drs_deposit", "component_unit_price",
+        "source_scope", "observed_at", "currency", "is_best",
+    }
+
+
+def test_consumer_feed_leaks_no_operator_diagnostics_anywhere(client):
+    """Run ids, source refs, errors, and raw candidates stay operator-only."""
+    database = Path(client.app.state.database)
+    _seed_consumer_scenario(database)
+    _seed_multipack_with_money_fields(database)
+    body = client.get("/consumer/feed").json()
+
+    forbidden_keys = {
+        "run_id", "error", "source_item_id", "source_product_reference",
+        "source_product_name", "raw_record", "candidate_id", "status",
+    }
+
+    def _walk(node: object) -> None:
+        if isinstance(node, dict):
+            assert not forbidden_keys & set(node), forbidden_keys & set(node)
+            for value in node.values():
+                _walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                _walk(value)
+
+    _walk(body)
+    serialized = json.dumps(body)
+    assert "run-a" not in serialized and "run-b" not in serialized
+
+
+def test_consumer_feed_omits_packs_without_any_approved_mapping(client):
+    """Per-catalog-pack entries exist only where an approved mapping does."""
+    database = Path(client.app.state.database)
+    _seed_pack_with_mapping(
+        database, catalog_id="review-only", retailer="tesco",
+        mapping_status="review",
+    )
+    body = client.get("/consumer/feed").json()
+
+    assert "review-only" not in {p["catalog_id"] for p in body["packs"]}
+
+    filtered = client.get(
+        "/consumer/feed", params={"catalog_id": "review-only"}
+    ).json()
+    assert filtered["packs"] == []
+    assert filtered["pack_count"] == 0
 
 
 def test_runs_survives_a_corrupt_summary_without_a_500(client):

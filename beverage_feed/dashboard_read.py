@@ -861,6 +861,14 @@ def consumer_cell(
     This is the single source of truth for consumer cell semantics — both the
     dashboard Consumer Feed Preview and the ``/consumer/feed`` API endpoint
     render through it, so the two surfaces cannot drift.
+
+    An ``inconclusive`` latest collection result (truncated retailer page —
+    absence from it proves nothing, collector ``_absence_status``) is
+    deliberately *not* ``temporarily_unavailable``: that state means the latest
+    result errored. An inconclusive page is not an error claim and not an
+    observation, so the cell falls through to ``last_seen`` when an older
+    observation exists, or ``awaiting_price`` when the approved mapping has
+    never been observed. Neither state implies availability or absence.
     """
     if mapping_state == "dormant":
         return None
