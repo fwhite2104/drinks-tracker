@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS collection_results (
     source_product_reference TEXT,
     source_item_id TEXT,
     source_scope TEXT,
+    complete TEXT,
     recorded_at TEXT NOT NULL,
     PRIMARY KEY (run_id, catalog_id, retailer),
     FOREIGN KEY (run_id) REFERENCES collection_runs(run_id)
@@ -287,6 +288,41 @@ def _decimal_text(value: Decimal, places: str = "0.01") -> str:
     return format(value.quantize(Decimal(places), rounding=ROUND_HALF_UP), "f")
 
 
+def _page_completeness(payload: Mapping[str, Any] | None) -> str:
+    """Classify a retailer response page as complete, truncated, or unknown.
+
+    Retailer clients that normalize pagination metadata (``items`` plus
+    ``pagination.total``/``pagination.offset``) let collection prove a page
+    covered every match — the same completeness evidence discovery records
+    per search. Sources without that evidence stay ``unknown`` rather than
+    claiming a complete absence.
+    """
+    if not isinstance(payload, Mapping):
+        return "unknown"
+    pagination = payload.get("pagination")
+    if not isinstance(pagination, Mapping):
+        return "unknown"
+    total = pagination.get("total")
+    if not isinstance(total, int) or isinstance(total, bool):
+        return "unknown"
+    offset = pagination.get("offset", 0)
+    if not isinstance(offset, int) or isinstance(offset, bool):
+        offset = 0
+    items = payload.get("items")
+    seen = len(items) if isinstance(items, list) else 0
+    return "true" if offset + seen >= total else "false"
+
+
+def _absence_status(payload: Mapping[str, Any] | None) -> str:
+    """Distinguish a proven ``not_found`` from an ``inconclusive`` page.
+
+    A mapped product absent from a page that provably covered every match is
+    genuinely not_found; absence from a truncated page is inconclusive and
+    must never be recorded as a false absence.
+    """
+    return "inconclusive" if _page_completeness(payload) == "false" else "not_found"
+
+
 _GENERIC_PACKAGE_TOKENS = {"can", "cans", "bottle", "bottles", "carton", "cartons", "pouch", "pouches"}
 
 
@@ -333,6 +369,7 @@ def _find_listing(
         raise ValueError("Dunnes response has no productSearch.products list")
 
     expected_tokens = _normalise_name(mapping.expected_product_name)
+    identity_matched = False
     for product in products:
         if not isinstance(product, dict):
             continue
@@ -350,10 +387,17 @@ def _find_listing(
         for item in items:
             if mapping.source_item_id and item.get("itemId") != mapping.source_item_id:
                 continue
-            sellers = item.get("sellers") or []
-            offer = sellers[0].get("commertialOffer") if sellers else None
-            if isinstance(offer, dict) and offer.get("Price") is not None:
-                return product, item, offer
+            identity_matched = True
+            # Iterate every seller until one carries a usable priced offer;
+            # an unpriced first seller is not an absence of the product.
+            for seller in item.get("sellers") or []:
+                offer = seller.get("commertialOffer") if isinstance(seller, dict) else None
+                if isinstance(offer, dict) and offer.get("Price") is not None:
+                    return product, item, offer
+    if identity_matched:
+        # The mapped listing was found but no seller prices it: a source
+        # problem, not a not-found result.
+        raise ValueError("mapped Dunnes listing has no seller with a priced offer")
     raise LookupError("mapped Dunnes product was not found")
 
 
@@ -395,6 +439,7 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
     # Keep a database created by the first Dunnes-only milestone usable.
     for table, column, definition in (
         ("collection_results", "source_scope", "TEXT"),
+        ("collection_results", "complete", "TEXT"),
         ("price_observations", "clubcard_price", "TEXT"),
         ("price_observations", "drs_deposit", "TEXT"),
         ("price_observations", "source_scope", "TEXT"),
@@ -591,9 +636,9 @@ def current_feed(
 ) -> list[dict[str, Any]]:
     """Return only observed results from the latest result for each pair.
 
-    The latest result wins even when it is ``not_found`` or ``source_error``;
-    this prevents an older price from being presented as current. Results for
-    other retailer-pack pairs are independent.
+    The latest result wins even when it is ``not_found``, ``source_error``,
+    or ``inconclusive``; this prevents an older price from being presented as
+    current. Results for other retailer-pack pairs are independent.
     """
     where, parameters = _filter_clause(retailer, catalog_id, "cr.")
     return _read_rows(
@@ -716,6 +761,7 @@ def collect_one(
     item: dict[str, Any] | None = None
     offer: dict[str, Any] | None = None
     payload: Mapping[str, Any] | None = None
+    complete = "unknown"
 
     if mapping.status != "approved":
         status = "unmapped"
@@ -723,13 +769,14 @@ def collect_one(
     else:
         try:
             payload = fetcher(pack.search_term)
+            complete = _page_completeness(payload)
             product, item, offer = _find_listing(payload, mapping)
             reason = _validate_listing(product.get("productName", ""), pack)
             if reason is not None:
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = "not_found"
+            status = _absence_status(payload)
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -764,6 +811,7 @@ def collect_one(
         "retailer": "dunnes",
         "catalog_id": pack.catalog_id,
         "status": status,
+        "complete": complete,
         "observed_count": int(status == "observed"),
         "failed_count": int(status == "source_error"),
         "duration_ms": duration_ms,
@@ -826,7 +874,13 @@ def collect_one(
                 ),
             )
         connection.execute(
-            "INSERT INTO collection_results VALUES (?, ?, 'dunnes', ?, ?, ?, ?, NULL, ?)",
+            """
+            INSERT INTO collection_results (
+                run_id, catalog_id, retailer, status, error,
+                source_product_reference, source_item_id, source_scope,
+                complete, recorded_at
+            ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, NULL, ?, ?)
+            """,
             (
                 run_id,
                 pack.catalog_id,
@@ -834,6 +888,7 @@ def collect_one(
                 error,
                 product.get("productReference") if product else None,
                 item.get("itemId") if item else None,
+                complete,
                 observed_at,
             ),
         )
@@ -1081,6 +1136,8 @@ def collect_supervalu_one(
     status = "observed"
     error: str | None = None
     item: dict[str, Any] | None = None
+    payload: Mapping[str, Any] | None = None
+    complete = "unknown"
 
     if mapping.status != "approved":
         status = "unmapped"
@@ -1092,6 +1149,7 @@ def collect_supervalu_one(
                 hydrate = hydrator or getattr(fetcher, "fetch_product", None)
                 if hydrate is not None and callable(hydrate):
                     payload = hydrate(str(mapping.source_product_id))
+                    complete = _page_completeness(payload)
                     items = payload.get("items")
                     if isinstance(items, list) and items:
                         item = items[0] if isinstance(items[0], dict) else None
@@ -1100,15 +1158,19 @@ def collect_supervalu_one(
                     if item is None:
                         raise LookupError(f"SuperValu product {mapping.source_product_id} returned no item")
                 else:
-                    item = _find_supervalu_listing(fetcher(pack.search_term), mapping)
+                    payload = fetcher(pack.search_term)
+                    complete = _page_completeness(payload)
+                    item = _find_supervalu_listing(payload, mapping)
             else:
-                item = _find_supervalu_listing(fetcher(pack.search_term), mapping)
+                payload = fetcher(pack.search_term)
+                complete = _page_completeness(payload)
+                item = _find_supervalu_listing(payload, mapping)
             reason = _validate_listing(item.get("name", ""), pack)
             if reason is not None:
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = "not_found"
+            status = _absence_status(payload)
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -1160,6 +1222,7 @@ def collect_supervalu_one(
         "catalog_id": pack.catalog_id,
         "source_scope": store_id,
         "status": status,
+        "complete": complete,
         "observed_count": int(status == "observed"),
         "failed_count": int(status == "source_error"),
         "duration_ms": duration_ms,
@@ -1218,14 +1281,17 @@ def collect_supervalu_one(
             """
             INSERT INTO collection_results
                 (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope, recorded_at)
-            VALUES (?, ?, 'supervalu', ?, ?, ?, ?, ?, ?)
+                 source_product_reference, source_item_id, source_scope,
+                 complete, recorded_at)
+            VALUES (?, ?, 'supervalu', ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 run_id, pack.catalog_id, status, error,
                 source_product_id or None,
                 source_item_id or None,
-                store_id, observed_at,
+                store_id,
+                complete,
+                observed_at,
             ),
         )
         if status == "observed":
@@ -1526,6 +1592,8 @@ def collect_tesco_one(
     status = "observed"
     error: str | None = None
     item: dict[str, Any] | None = None
+    payload: Mapping[str, Any] | None = None
+    complete = "unknown"
     if mapping.status != "approved":
         status = "unmapped"
         error = "catalog mapping is not approved"
@@ -1543,13 +1611,14 @@ def collect_tesco_one(
                 if mapping.source_tpnb and callable(direct_fetcher)
                 else fetcher(pack.search_term)
             )
+            complete = _page_completeness(payload)
             item = _find_tesco_listing(payload, mapping)
             reason = _validate_listing(item.get("title", ""), pack)
             if reason is not None:
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = "not_found"
+            status = _absence_status(payload)
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -1583,6 +1652,7 @@ def collect_tesco_one(
         "retailer": "tesco",
         "catalog_id": pack.catalog_id,
         "status": status,
+        "complete": complete,
         "observed_count": int(status == "observed"),
         "failed_count": int(status == "source_error"),
         "duration_ms": round((time.monotonic() - started) * 1000, 1),
@@ -1633,11 +1703,13 @@ def collect_tesco_one(
             """
             INSERT INTO collection_results
                 (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope, recorded_at)
-            VALUES (?, ?, 'tesco', ?, ?, ?, ?, NULL, ?)
+                 source_product_reference, source_item_id, source_scope,
+                 complete, recorded_at)
+            VALUES (?, ?, 'tesco', ?, ?, ?, ?, NULL, ?, ?)
             """,
             (run_id, pack.catalog_id, status, error,
-             source_product_reference or None, source_item_id or None, timestamp()),
+             source_product_reference or None, source_item_id or None,
+             complete, timestamp()),
         )
         if status == "observed":
             assert item is not None and displayed_price is not None
@@ -1984,6 +2056,8 @@ def collect_lidl_one(
     status = "observed"
     error: str | None = None
     item: dict[str, Any] | None = None
+    payload: Mapping[str, Any] | None = None
+    complete = "unknown"
     if mapping.status != "approved":
         status = "unmapped"
         error = "catalog mapping is not approved"
@@ -1995,13 +2069,14 @@ def collect_lidl_one(
                 if mapping.source_product_id and callable(direct_fetcher)
                 else fetcher(pack.search_term)
             )
+            complete = _page_completeness(payload)
             item = _find_lidl_listing(payload, mapping)
             reason = _validate_listing(item.get("name", ""), pack)
             if reason is not None:
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = "not_found"
+            status = _absence_status(payload)
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -2031,6 +2106,7 @@ def collect_lidl_one(
         "retailer": "lidl",
         "catalog_id": pack.catalog_id,
         "status": status,
+        "complete": complete,
         "observed_count": int(status == "observed"),
         "failed_count": int(status == "source_error"),
         "duration_ms": round((time.monotonic() - started) * 1000, 1),
@@ -2080,11 +2156,12 @@ def collect_lidl_one(
             """
             INSERT INTO collection_results
                 (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope, recorded_at)
-            VALUES (?, ?, 'lidl', ?, ?, ?, NULL, NULL, ?)
+                 source_product_reference, source_item_id, source_scope,
+                 complete, recorded_at)
+            VALUES (?, ?, 'lidl', ?, ?, ?, NULL, NULL, ?, ?)
             """,
             (run_id, pack.catalog_id, status, error,
-             source_product_id or None, timestamp()),
+             source_product_id or None, complete, timestamp()),
         )
         if status == "observed":
             assert item is not None and displayed_price is not None
@@ -2317,6 +2394,8 @@ def collect_aldi_one(
     status = "observed"
     error: str | None = None
     item: dict[str, Any] | None = None
+    payload: Mapping[str, Any] | None = None
+    complete = "unknown"
     if mapping.status != "approved":
         status = "unmapped"
         error = "catalog mapping is not approved"
@@ -2328,6 +2407,7 @@ def collect_aldi_one(
                 if mapping.source_product_id and callable(direct_fetcher)
                 else fetcher(pack.search_term)
             )
+            complete = _page_completeness(payload)
             item = _find_aldi_listing(payload, mapping)
             # Aldi keeps the brand in a structured field rather than the
             # product name, so validate against the combined evidence.
@@ -2339,7 +2419,7 @@ def collect_aldi_one(
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = "not_found"
+            status = _absence_status(payload)
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -2369,6 +2449,7 @@ def collect_aldi_one(
         "retailer": "aldi",
         "catalog_id": pack.catalog_id,
         "status": status,
+        "complete": complete,
         "observed_count": int(status == "observed"),
         "failed_count": int(status == "source_error"),
         "duration_ms": round((time.monotonic() - started) * 1000, 1),
@@ -2418,11 +2499,12 @@ def collect_aldi_one(
             """
             INSERT INTO collection_results
                 (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope, recorded_at)
-            VALUES (?, ?, 'aldi', ?, ?, ?, NULL, NULL, ?)
+                 source_product_reference, source_item_id, source_scope,
+                 complete, recorded_at)
+            VALUES (?, ?, 'aldi', ?, ?, ?, NULL, NULL, ?, ?)
             """,
             (run_id, pack.catalog_id, status, error,
-             source_product_id or None, timestamp()),
+             source_product_id or None, complete, timestamp()),
         )
         if status == "observed":
             assert item is not None and displayed_price is not None
@@ -2477,8 +2559,9 @@ def _record_collection_result(
             """
             INSERT INTO collection_results
                 (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope, recorded_at)
-            VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?)
+                 source_product_reference, source_item_id, source_scope,
+                 complete, recorded_at)
+            VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, 'unknown', ?)
             """,
             (run_id, pack.catalog_id, retailer, status, error, source_scope, timestamp()),
         )
@@ -2497,8 +2580,9 @@ def _log_decision(
 
     This is the per-product audit trail for "why is this product missing?":
     every cell is logged exactly once with the stage that accepted or
-    rejected it (unmapped → no approved mapping; not_found / source_error →
-    rejected at collection with the reason; observed → became an observation).
+    rejected it (unmapped → no approved mapping; not_found / source_error /
+    inconclusive → rejected at collection with the reason; observed → became
+    an observation).
     """
     status = result["status"]
     level = {
@@ -2506,6 +2590,7 @@ def _log_decision(
         "unmapped": logging.INFO,
         "not_found": logging.WARNING,
         "source_error": logging.ERROR,
+        "inconclusive": logging.WARNING,
     }.get(status, logging.WARNING)
     fields = [
         f"run={run_id}",
@@ -2580,6 +2665,7 @@ def collect_run(
         "observed_count": 0,
         "failed_count": 0,
         "not_found_count": 0,
+        "inconclusive_count": 0,
         "unmapped_count": 0,
         "affected_retailers": set(),
         "affected_catalog_ids": set(),
@@ -2676,9 +2762,11 @@ def collect_run(
                 summary["failed_count"] += 1
             elif status == "not_found":
                 summary["not_found_count"] += 1
+            elif status == "inconclusive":
+                summary["inconclusive_count"] += 1
             elif status == "unmapped":
                 summary["unmapped_count"] += 1
-            if status in {"source_error", "not_found"}:
+            if status in {"source_error", "not_found", "inconclusive"}:
                 summary["affected_retailers"].add(retailer_name)
                 summary["affected_catalog_ids"].add(pack.catalog_id)
                 _record_diagnostic(
@@ -2928,6 +3016,7 @@ def main(argv: list[str] | None = None) -> int:
         f"mapped={summary['mapped_count']} "
         f"observed={summary['observed_count']} "
         f"not_found={summary['not_found_count']} "
+        f"inconclusive={summary['inconclusive_count']} "
         f"unmapped={summary['unmapped_count']} "
         f"failed={summary['failed_count']} "
         f"duration_ms={summary['duration_ms']} "

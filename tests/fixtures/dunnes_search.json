@@ -1,0 +1,33 @@
+{
+  "data": {
+    "productSearch": {
+      "products": [
+        {
+          "productName": "Coca-Cola Zero Sugar 330ml",
+          "productReference": "COKE-ZERO-330",
+          "items": [
+            {
+              "itemId": "COKE-ZERO-330-EA",
+              "sellers": [
+                {
+                  "commertialOffer": {
+                    "Price": null,
+                    "ListPrice": null,
+                    "Tax": 0
+                  }
+                },
+                {
+                  "commertialOffer": {
+                    "Price": "2.49",
+                    "ListPrice": "2.99",
+                    "Tax": 0
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}

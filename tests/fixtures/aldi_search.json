@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "productId": "000000000728654001",
+      "brand": "COCA-COLA",
+      "name": "Zero Sugar 330ml Can",
+      "price": "\u20ac2.49",
+      "bottleDepositText": "\u20ac0.15"
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "offset": 0
+  }
+}

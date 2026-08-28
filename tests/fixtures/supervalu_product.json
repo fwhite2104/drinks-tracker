@@ -1,0 +1,13 @@
+{
+  "productId": "SV-330",
+  "sku": "SV-330-SKU",
+  "name": "Coca-Cola Zero Sugar Can (330 ml)",
+  "priceNumeric": 2.79,
+  "price": "\u20ac2.79",
+  "taxDetails": [
+    {
+      "groupName": "Deposit",
+      "amount": 0.15
+    }
+  ]
+}

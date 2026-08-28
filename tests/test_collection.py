@@ -921,11 +921,14 @@ class CollectionCommandTests(unittest.TestCase):
                     ("run-1", "t", "t", "completed", 2, 0, "{}"),
                 )
                 connection.execute(
-                    "INSERT INTO collection_results VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    (
-                        "run-1", self.pack.catalog_id, "tesco", "observed",
-                        None, "tpnb", "tpnb", None, "2026-01-01T00:00:00Z",
-                    ),
+                    """
+                    INSERT INTO collection_results (
+                        run_id, catalog_id, retailer, status, error,
+                        source_product_reference, source_item_id, source_scope,
+                        recorded_at
+                    ) VALUES (?, ?, 'tesco', 'observed', NULL, 'tpnb', 'tpnb', NULL, ?)
+                    """,
+                    ("run-1", self.pack.catalog_id, "2026-01-01T00:00:00Z"),
                 )
                 for price, observed_at in (("1.00", "2026-01-01T00:00:00Z"),
                                            ("1.10", "2026-01-01T00:00:01Z")):
@@ -2013,6 +2016,361 @@ class CollectionCommandTests(unittest.TestCase):
 
         self.assertEqual(observation, ("2.49", None))
         self.assertIn(("drs_not_available",), events)
+
+    # --- Complete retailer source handling (not_found vs source_error vs inconclusive)
+
+    def test_dunnes_unpriced_first_seller_falls_through_to_priced_seller(self):
+        payload = {
+            "data": {"productSearch": {"products": [{
+                "productName": "Coca-Cola Zero Sugar 330ml",
+                "productReference": "COKE-ZERO-330",
+                "items": [{"itemId": "COKE-ZERO-330-EA", "sellers": [
+                    {"commertialOffer": {"Price": None}},
+                    {"commertialOffer": {"Price": "2.49"}},
+                ]}],
+            }]}}
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
+
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                observation = connection.execute(
+                    "SELECT displayed_price, source_item_id FROM price_observations"
+                ).fetchone()
+        self.assertEqual(observation, ("2.49", "COKE-ZERO-330-EA"))
+
+    def test_dunnes_mapped_listing_without_priced_seller_is_source_error(self):
+        payload = {
+            "data": {"productSearch": {"products": [{
+                "productName": "Coca-Cola Zero Sugar 330ml",
+                "productReference": "COKE-ZERO-330",
+                "items": [{"itemId": "COKE-ZERO-330-EA", "sellers": [
+                    {"commertialOffer": {"Price": None}},
+                ]}],
+            }]}}
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
+
+            self.assertEqual(summary["status"], "source_error")
+            self.assertEqual(summary["observed_count"], 0)
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+        self.assertEqual(result, ("source_error",))
+        self.assertEqual(observations, 0)
+
+    def test_dunnes_completeness_is_unknown_without_pagination_metadata(self):
+        payload = {"data": {"productSearch": {"products": []}}}
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["complete"], "unknown")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+        self.assertEqual(result, ("not_found", "unknown"))
+
+    def test_truncated_lidl_page_is_inconclusive_not_found(self):
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+        )
+        observed_payload = {
+            "items": [{
+                "productId": "10062229",
+                "name": "Coca-Cola Zero Sugar 330ml Can",
+                "price": 2.49,
+                "specialTaxes": [],
+            }],
+            "pagination": {"total": 1, "offset": 0},
+        }
+        truncated_payload = {
+            "items": [{"productId": "99999", "name": "HATA Cola Drink"}],
+            "pagination": {"total": 30, "offset": 0},
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            first = collect_lidl_one(self.pack, mapping, lambda _: observed_payload, database)
+            self.assertEqual(first["status"], "observed")
+            summary = collect_lidl_one(
+                self.pack, mapping, lambda _: truncated_payload, database,
+            )
+
+            self.assertEqual(summary["status"], "inconclusive")
+            self.assertEqual(summary["complete"], "false")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results ORDER BY rowid DESC LIMIT 1"
+                ).fetchone()
+            # The inconclusive page must not create an observation, and the
+            # older price must not resurface as current.
+            self.assertEqual(result, ("inconclusive", "false"))
+            self.assertEqual(len(price_history(database, retailer="lidl")), 1)
+            self.assertEqual(current_feed(database, retailer="lidl"), [])
+
+    def test_complete_lidl_page_missing_product_is_not_found(self):
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+        )
+        payload = {
+            "items": [{"productId": "99999", "name": "HATA Cola Drink"}],
+            "pagination": {"total": 1, "offset": 0},
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(self.pack, mapping, lambda _: payload, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["complete"], "true")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+        self.assertEqual(result, ("not_found", "true"))
+
+    def test_lidl_hydrated_response_without_pagination_stays_not_found(self):
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_product_id="10062229",
+        )
+
+        class HydratingClient:
+            def fetch_product(self, product_id):
+                return {"items": [{"productId": "99999", "name": "HATA Cola Drink"}]}
+
+            def __call__(self, term):
+                raise AssertionError("direct hydration should be used")
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(
+                self.pack, mapping, HydratingClient(), database,
+            )
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["complete"], "unknown")
+
+    def test_aldi_truncated_page_is_inconclusive_not_found(self):
+        mapping = AldiMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+        )
+        payload = {
+            "items": [{"productId": "000000000728654001", "brand": "COCA-COLA",
+                       "name": "Zero Sugar 500ml Bottle", "price": "€2.19"}],
+            "pagination": {"total": 40, "offset": 0},
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_aldi_one(self.pack, mapping, lambda _: payload, database)
+
+            self.assertEqual(summary["status"], "inconclusive")
+            self.assertEqual(summary["complete"], "false")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+        self.assertEqual(result, ("inconclusive", "false"))
+        self.assertEqual(observations, 0)
+
+    def test_run_summary_counts_inconclusive_separately(self):
+        truncated_payload = {
+            "items": [{"productId": "99999", "name": "HATA Cola Drink"}],
+            "pagination": {"total": 30, "offset": 0},
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_run(
+                [self.pack],
+                {"lidl": [LidlMapping(
+                    catalog_id=self.pack.catalog_id,
+                    expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+                )]},
+                {"lidl": lambda _: truncated_payload},
+                database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                diagnostics = connection.execute(
+                    "SELECT event, level FROM collection_diagnostics"
+                ).fetchall()
+
+        self.assertEqual(summary["status"], "completed")
+        self.assertEqual(summary["inconclusive_count"], 1)
+        self.assertEqual(summary["not_found_count"], 0)
+        self.assertEqual(summary["failed_count"], 0)
+        self.assertEqual(summary["affected_retailers"], ["lidl"])
+        self.assertIn(("result", "warning"), diagnostics)
+
+    def test_clubcard_attribution_does_not_rescue_meal_deal_promotions(self):
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+        )
+        payload = {
+            "products": [{
+                "tpnb": "12345",
+                "id": "tesco-id",
+                "title": "Coca-Cola Zero Sugar 330ml Can",
+                "price": {"actual": "2.99"},
+                "promotions": [{
+                    "description": "Meal deal main + snack + drink €3.00",
+                    "attributes": ["CLUBCARD_PRICING"],
+                }],
+            }]
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_tesco_one(
+                self.pack, mapping, lambda _: payload, database,
+            )
+
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                clubcard = connection.execute(
+                    "SELECT clubcard_price FROM price_observations"
+                ).fetchone()[0]
+        self.assertIsNone(clubcard)
+
+
+class CapturedFixtureTests(unittest.TestCase):
+    """Every supported retailer ships a captured (trimmed) response fixture.
+
+    Fixtures capture the client-normalized response shape the collectors
+    consume; each was trimmed from a live captured response documented in the
+    client docstrings. They pin that a realistic first page still observes a
+    price and reports completeness metadata.
+    """
+
+    def setUp(self):
+        self.pack = BenchmarkPack(
+            catalog_id="coke-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml",
+        )
+        self.fixtures = Path(__file__).parent / "fixtures"
+
+    def _fixture(self, name):
+        return json.loads((self.fixtures / name).read_text())
+
+    def test_dunnes_search_fixture_yields_observed_price(self):
+        mapping = DunnesMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml",
+            source_product_reference="COKE-ZERO-330",
+            source_item_id="COKE-ZERO-330-EA",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            summary = collect_one(
+                self.pack, mapping, lambda _: self._fixture("dunnes_search.json"),
+                Path(directory) / "feed.sqlite",
+            )
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(summary["complete"], "unknown")
+
+    def test_supervalu_product_fixture_yields_observed_price_and_deposit(self):
+        mapping = SuperValuMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar Can (330 ml)",
+            source_product_id="SV-330",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            summary = collect_supervalu_one(
+                self.pack, mapping, lambda _: (_ for _ in ()).throw(
+                    AssertionError("hydration should be used")
+                ),
+                Path(directory) / "feed.sqlite",
+                store_id="store-123",
+                hydrator=lambda _: self._fixture("supervalu_product.json"),
+            )
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(summary["source_scope"], "store-123")
+
+    def test_tesco_products_fixture_yields_clubcard_and_deposit(self):
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_tpnb="12345",
+        )
+
+        class DirectFetcher:
+            def fetch_product(self, tpnb):
+                fixture = json.loads(
+                    (Path(__file__).parent / "fixtures" / "tesco_products.json")
+                    .read_text()
+                )
+                return fixture
+
+        with tempfile.TemporaryDirectory() as directory:
+            summary = collect_tesco_one(
+                self.pack, mapping, DirectFetcher(), Path(directory) / "feed.sqlite",
+            )
+
+        self.assertEqual(summary["status"], "observed")
+
+    def test_lidl_search_fixture_yields_observed_price_on_complete_page(self):
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_product_id="10062229",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            summary = collect_lidl_one(
+                self.pack, mapping, lambda _: self._fixture("lidl_search.json"),
+                Path(directory) / "feed.sqlite",
+            )
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(summary["complete"], "true")
+
+    def test_aldi_search_fixture_yields_observed_price_on_complete_page(self):
+        mapping = AldiMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_product_id="000000000728654001",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            summary = collect_aldi_one(
+                self.pack, mapping, lambda _: self._fixture("aldi_search.json"),
+                Path(directory) / "feed.sqlite",
+            )
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(summary["complete"], "true")
 
 
 class ValidateListingTests(unittest.TestCase):

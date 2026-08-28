@@ -1,0 +1,27 @@
+{
+  "products": [
+    {
+      "tpnb": "12345",
+      "id": "tesco-id",
+      "gtin": "05449000000000",
+      "title": "Coca-Cola Zero Sugar 330ml Can",
+      "price": {
+        "actual": "2.99",
+        "unitPrice": "2.99",
+        "unitOfMeasure": "each"
+      },
+      "promotions": [
+        {
+          "description": "Any 2 for \u20ac5.00 Clubcard Price",
+          "attributes": ["CLUBCARD_PRICING"]
+        }
+      ],
+      "charges": [
+        {
+          "__typename": "ProductDepositReturnCharge",
+          "amount": 0.25
+        }
+      ]
+    }
+  ]
+}

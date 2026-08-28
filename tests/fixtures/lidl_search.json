@@ -1,0 +1,15 @@
+{
+  "items": [
+    {
+      "productId": "10062229",
+      "name": "Coca-Cola Zero Sugar 330ml Can",
+      "price": 2.49,
+      "basePriceText": "\u20ac0.15 Deposit Return",
+      "specialTaxes": []
+    }
+  ],
+  "pagination": {
+    "total": 1,
+    "offset": 0
+  }
+}
