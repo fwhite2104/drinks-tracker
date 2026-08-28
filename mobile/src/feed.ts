@@ -3,8 +3,9 @@
  *
  * The app never re-derives the §4 state machine: every retailer slot is
  * consumed verbatim from `GET /consumer/feed` (server-owned semantics via
- * `_consumer_cell`). Money stays as decimal strings end-to-end; the only
- * numeric use is picking the cheapest observed price per pack.
+ * `_consumer_cell`). Money stays as decimal strings end-to-end: prices are compared as exact
+ * fixed-point decimals (never IEEE doubles) and every displayed price is
+ * the server's original string verbatim.
  */
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -85,19 +86,75 @@ export function packMeta(pack: FeedPack): string {
 }
 
 /**
- * Cheapest current (observed) Displayed Price across retailers, as the
- * server-supplied decimal string. Null when no retailer has an observed
- * price — the card then shows the honest "no prices yet" state.
+ * Exact fixed-point comparison of two decimal strings ("2.35" vs "10.00")
+ * without converting to IEEE doubles — spec §4 money purity: money is a
+ * decimal string and the app must not re-derive it through floats.
+ * Handles multi-euro integer parts and any fraction length. Returns null
+ * when either operand is not a plain (optionally signed) decimal number.
+ */
+export function compareDecimal(a: string, b: string): number | null {
+  const left = parseDecimal(a);
+  const right = parseDecimal(b);
+  if (left == null || right == null) return null;
+  const [signA, intA, fracA] = left;
+  const [signB, intB, fracB] = right;
+
+  // Compare magnitudes as digit strings: strip insignificant leading zeros,
+  // then longer integer part wins, then lexicographic (same length), then
+  // right-padded fraction comparison.
+  const magA = intA.replace(/^0+(?=\d)/, '');
+  const magB = intB.replace(/^0+(?=\d)/, '');
+  const width = Math.max(fracA.length, fracB.length);
+  const fA = fracA.padEnd(width, '0');
+  const fB = fracB.padEnd(width, '0');
+  const magnitude =
+    magA.length !== magB.length
+      ? magA.length < magB.length
+        ? -1
+        : 1
+      : magA === magB
+        ? fA === fB
+          ? 0
+          : fA < fB
+            ? -1
+            : 1
+        : magA < magB
+          ? -1
+          : 1;
+
+  if (signA !== signB) return signA === '-' ? -1 : 1;
+  return signA === '-' ? -magnitude : magnitude;
+}
+
+/** Splits a decimal string into [sign, integer digits, fraction digits]. */
+function parseDecimal(s: string): [string, string, string] | null {
+  const match = /^(-)?(\d+)(?:\.(\d*))?$/.exec(s.trim());
+  if (match == null) return null;
+  return [match[1] ?? '+', match[2], match[3] ?? ''];
+}
+
+/**
+ * Cheapest current (observed) Displayed Price across retailers, returned
+ * as the server's original decimal string verbatim (never re-formatted).
+ * Comparison is exact fixed-point (see `compareDecimal`), so "10.00" vs
+ * "2.35" picks "2.35" regardless of string or float ordering. Null when no
+ * retailer has an observed price — the card then shows the honest
+ * "no prices yet" state.
  */
 export function cheapestPrice(pack: FeedPack): string | null {
-  let cheapest: number | null = null;
+  let cheapest: string | null = null;
   for (const cell of pack.retailers) {
     if (cell.state !== 'observed' || cell.displayed_price == null) continue;
-    const price = Number(cell.displayed_price);
-    if (!Number.isFinite(price)) continue;
-    if (cheapest == null || price < cheapest) cheapest = price;
+    if (cheapest == null) {
+      if (compareDecimal(cell.displayed_price, cell.displayed_price) != null) {
+        cheapest = cell.displayed_price;
+      }
+      continue;
+    }
+    const cmp = compareDecimal(cell.displayed_price, cheapest);
+    if (cmp != null && cmp < 0) cheapest = cell.displayed_price;
   }
-  return cheapest == null ? null : cheapest.toFixed(2);
+  return cheapest;
 }
 
 const MONTHS = [
@@ -135,8 +192,12 @@ export function orderedCells(pack: FeedPack): RetailerCell[] {
       rest.push(cell);
     }
   }
+  // Exact decimal-string comparison — never floats (spec §4 money purity).
+  // Cells here always have a non-null displayed_price; unparseable values
+  // (never expected from the server) compare as equal and keep their order.
   priced.sort(
-    (a, b) => Number(a.displayed_price) - Number(b.displayed_price)
+    (a, b) =>
+      compareDecimal(a.displayed_price ?? '', b.displayed_price ?? '') ?? 0
   );
   return [...priced, ...rest];
 }
@@ -170,9 +231,8 @@ function pairRows(packs: FeedPack[]): [FeedPack, FeedPack | null][] {
 
 /**
  * Brand-grouped sections for the browse view, revealed in lazy chunks of
- * ~24 packs: brands are walked alphabetically until the visible budget is
- * crossed, so each scroll step adds one more chunk. Returns null when the
- * budget still covers brands beyond `visibleCount` (i.e. more to load).
+ * ~24 packs: brands are walked alphabetically (locale-aware) until the
+ * visible budget is crossed, so each scroll step adds one more chunk.
  */
 export function buildBrowseSections(
   packs: FeedPack[],
@@ -188,7 +248,11 @@ export function buildBrowseSections(
   const sections: CatalogSection[] = [];
   let acc = 0;
   let hasMore = false;
-  for (const [brand, brandPacks] of byBrand) {
+  // Map iteration preserves API insertion order — sort the brand keys
+  // explicitly so sections really are alphabetical (spec §3.1 prototype).
+  const brands = [...byBrand.keys()].sort((a, b) => a.localeCompare(b));
+  for (const brand of brands) {
+    const brandPacks = byBrand.get(brand)!;
     if (acc >= visibleCount) {
       hasMore = true;
       break;
