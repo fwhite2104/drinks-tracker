@@ -2990,7 +2990,12 @@ def main(argv: list[str] | None = None) -> int:
             elif retailer == "lidl":
                 adapters[retailer] = LidlClient()
             elif retailer == "aldi":
-                adapters[retailer] = AldiClient()
+                # Collection runs use the focused Aldi Glue client from
+                # aldi.py (ticket 10); same fetcher contract as the inline
+                # stub above, plus servicePoint and sellingSize pack parsing.
+                from .aldi import AldiClient as WorkingAldiClient
+
+                adapters[retailer] = WorkingAldiClient()
         except ValueError as exc:
             # A single unconfigured retailer (e.g. missing API key) must not
             # block collection across every other configured retailer.
