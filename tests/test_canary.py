@@ -5,7 +5,9 @@ test suite; every test here drives the canary's logic through fake retailer
 clients and captured fixtures, exactly like the collection tests.
 """
 
+import io
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -486,6 +488,56 @@ class CanaryCommandTests(unittest.TestCase):
                         "--retry-backoff", "0",
                     ])
             self.assertIn("tesco", release_gate(gate_state))
+
+    def test_main_without_supervalu_store_id_returns_nonzero_without_raising(self):
+        """A missing store id is a usage error: main returns nonzero (CONTRIBUTING §9).
+
+        Package code never raises SystemExit via parser.error; the CLI reports
+        the problem on stderr and returns an exit code instead.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            argv = [
+                "--catalog", str(_catalog_file(directory)),
+                "--mapping", str(_mapping_file(directory, "supervalu", SUPERVALU_MAPPING)),
+                "--retailer", "supervalu",
+                "--gate-state", str(Path(directory) / "gate.json"),
+            ]
+            env = {k: v for k, v in os.environ.items() if k != "SUPERVALU_STORE_ID"}
+            stderr = io.StringIO()
+            with patch.dict(os.environ, env, clear=True), \
+                    patch("sys.stderr", stderr):
+                try:
+                    code = main(argv)
+                except SystemExit as exc:
+                    self.fail(
+                        f"main raised SystemExit({exc.code!r}) instead of returning"
+                    )
+
+        self.assertEqual(code, 2)
+        self.assertIn("--supervalu-store-id", stderr.getvalue())
+
+    def test_main_supervalu_store_id_from_environment_passes_the_requirement_check(self):
+        """SUPERVALU_STORE_ID in the environment satisfies the store-id requirement.
+
+        The probe against the fake may still fail (code 1); what matters is that
+        main gets past the usage check and never prints the store-id error.
+        """
+        clients = {
+            "supervalu": SuperValuFakeClient(_fixture("supervalu_product.json")),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.dict(os.environ, {"SUPERVALU_STORE_ID": "1234"}), \
+                    patch("beverage_feed.canary._default_clients", return_value=clients):
+                code = main([
+                    "--catalog", str(_catalog_file(directory)),
+                    "--mapping", str(_mapping_file(directory, "supervalu", SUPERVALU_MAPPING)),
+                    "--retailer", "supervalu",
+                    "--gate-state", str(Path(directory) / "gate.json"),
+                    "--retry-backoff", "0",
+                ])
+
+        # The probe itself may fail against the fake; only the usage guard matters.
+        self.assertIn(code, (0, 1))
 
     def test_main_gate_status_reports_blocked_retailer(self):
         with tempfile.TemporaryDirectory() as directory:

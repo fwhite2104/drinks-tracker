@@ -801,7 +801,12 @@ def main(argv: list[str] | None = None) -> int:
 
     retailers = (args.retailer,) if args.retailer else CANARY_RETAILERS
     if "supervalu" in retailers and not args.supervalu_store_id:
-        parser.error("--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu")
+        print(
+            "beverage_feed canary: --supervalu-store-id or SUPERVALU_STORE_ID"
+            " is required for SuperValu",
+            file=sys.stderr,
+        )
+        return 2
 
     catalog = load_catalog(args.catalog)
     if args.catalog_id and not any(pack.catalog_id == args.catalog_id for pack in catalog):
