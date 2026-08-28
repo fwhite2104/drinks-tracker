@@ -195,7 +195,7 @@ def is_relevant_candidate(name: str, pack: BenchmarkPack) -> bool:
     return shares_identity_token(name, identity_phrases(pack))
 
 
-def _attribute_candidates(
+def attribute_candidates(
     catalog: Iterable[BenchmarkPack], listing: SourceListing
 ) -> list[BenchmarkPack]:
     inferred_size = listing.unit_size_ml or _unit_size_ml(listing.name)
@@ -231,7 +231,7 @@ def match_catalog(
     catalog: Iterable[BenchmarkPack], listing: SourceListing
 ) -> MatchResult:
     """Return an approval only for one exact, high-confidence pack match."""
-    candidates = _attribute_candidates(catalog, listing)
+    candidates = attribute_candidates(catalog, listing)
     if len(candidates) > 1:
         return MatchResult("review", None, "multiple catalog packs share the source attributes")
     if not candidates:

@@ -523,6 +523,12 @@ class ReviewCliMainTests(unittest.TestCase):
             raw_price_value="1.20", price_parse_status="valid",
         )
         self.store.set_cell_state("dunnes", "pack-1", "pending")
+        self.catalog_path = self.root / "catalog.json"
+        self.catalog_path.write_text(json.dumps([{
+            "catalog_id": "pack-1", "name": "Cola 330ml Can", "brand": "Cola",
+            "variant": "Original", "pack_count": 1, "unit_size_ml": 330,
+            "package_type": "can", "search_term": "Cola",
+        }]))
         self.base = [
             "--database", str(self.database),
             "--mapping", str(self.mapping_path),
@@ -575,6 +581,29 @@ class ReviewCliMainTests(unittest.TestCase):
         self.assertEqual(code, 0)
         challenges = json.loads(stdout.getvalue())
         self.assertEqual(challenges[0]["challenger_candidate_id"], "dunnes:sku-1:item-1")
+
+    def test_classify_prints_a_compact_summary_and_exits_zero(self):
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = review_main([
+                *self.base, "classify", "--catalog", str(self.catalog_path),
+            ])
+        self.assertEqual(code, 0)
+        self.assertIn("candidate_cells total=1 A=1", stdout.getvalue())
+        self.assertIn("cells total=1 A=1", stdout.getvalue())
+
+    def test_classify_json_prints_the_full_report(self):
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = review_main([
+                *self.base, "classify", "--catalog", str(self.catalog_path), "--json",
+            ])
+        self.assertEqual(code, 0)
+        report = json.loads(stdout.getvalue())
+        self.assertEqual(report["counts"]["candidate_cells"]["A"], 1)
+        self.assertEqual(
+            report["batches"]["A"][0]["candidate_id"], "dunnes:sku-1:item-1",
+        )
 
     def test_missing_required_arguments_exit_with_usage_error(self):
         with self.assertRaises(SystemExit) as ctx:

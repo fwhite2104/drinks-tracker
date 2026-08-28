@@ -491,6 +491,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--candidate-id", required=True)
     p.add_argument("--reason", required=True)
 
+    p = subparsers.add_parser("classify")
+    p.add_argument("--catalog", type=Path, default=Path("data/catalog.json"))
+    p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
+    p.add_argument("--json", action="store_true", help="print the full JSON report")
+
     p = subparsers.add_parser("challenges")
     p.add_argument("--retailer", choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument(
@@ -500,6 +505,17 @@ def main(argv: list[str] | None = None) -> int:
 
     args = parser.parse_args(argv)
     store = DiscoveryStore(args.database)
+
+    if args.command == "classify":
+        from .collector import load_catalog
+        from .discovery_classify import classify_evidence, format_classification
+
+        report = classify_evidence(
+            load_catalog(args.catalog), store, retailer=args.retailer,
+        )
+        print(json.dumps(report, indent=2, default=str) if args.json else format_classification(report))
+        return 0
+
     reconcile_json_decisions(store.database, args.mapping, args.rejections)
 
     if args.command == "review-list":
