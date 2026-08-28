@@ -227,6 +227,42 @@ def name_matches(pack: BenchmarkPack, listing: _NamedListing) -> bool:
     return False
 
 
+def search_formulations(pack: BenchmarkPack) -> tuple[str, ...]:
+    """Alternate search formulations for one catalog pack (ticket 14).
+
+    Ordered, unique: the pack's search term, its curated aliases
+    (alias-explicit, e.g. "Diet Coke"), then count-explicit
+    ("<identity> 8 pack") and size-explicit ("<identity> 330ml" /
+    "<identity> 2 litre") phrasings built from the canonical brand+variant
+    identity and each alias.  Retailer searches answer different phrasings
+    with different result sets, so the re-discovery pass over thin and
+    Class-D cells searches these alternates instead of re-issuing the
+    original query.
+    """
+    canonical = " ".join(part for part in (pack.brand, pack.variant) if part)
+    heads: list[str] = []
+    for phrase in (canonical, *pack.aliases):
+        stripped = phrase.strip()
+        if stripped and stripped not in heads:
+            heads.append(stripped)
+    terms: list[str] = []
+    for phrase in (pack.search_term, *pack.aliases):
+        stripped = phrase.strip()
+        if stripped and stripped not in terms:
+            terms.append(stripped)
+    if pack.pack_count > 1:
+        for head in heads:
+            terms.append(f"{head} {pack.pack_count} pack")
+    for head in heads:
+        size = (
+            f"{pack.unit_size_ml // 1000} litre"
+            if pack.unit_size_ml % 1000 == 0
+            else f"{pack.unit_size_ml}ml"
+        )
+        terms.append(f"{head} {size}")
+    return tuple(dict.fromkeys(terms))
+
+
 def match_catalog(
     catalog: Iterable[BenchmarkPack], listing: SourceListing
 ) -> MatchResult:

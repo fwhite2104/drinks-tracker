@@ -8,6 +8,7 @@ from beverage_feed.matching import (
     is_relevant_candidate,
     match_catalog,
     resolve_brand_alias,
+    search_formulations,
 )
 
 
@@ -444,3 +445,68 @@ class JunkGateTests(unittest.TestCase):
         )
 
         self.assertTrue(is_relevant_candidate("Coke Zero 6 Pack", zero_pack))
+
+
+class SearchFormulationTests(unittest.TestCase):
+    """Ticket 14 term expansion: alternate search formulations per pack.
+
+    Count-explicit ("Coke Zero 8 pack"), alias-explicit ("Diet Coke"), and
+    size-explicit ("Coca-Cola Zero Sugar 330ml") phrasings, on top of the
+    pack's own search term and curated aliases.
+    """
+
+    def multipack(self) -> BenchmarkPack:
+        return BenchmarkPack(
+            catalog_id="coke-zero-8x330",
+            name="Coca-Cola Zero Sugar 330ml Can x8",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=8,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+            aliases=("Coke Zero",),
+        )
+
+    def test_covers_base_alias_count_and_size_formulations(self):
+        terms = list(search_formulations(self.multipack()))
+
+        self.assertEqual(terms[0], "Coca-Cola Zero Sugar")
+        self.assertIn("Coke Zero", terms)  # alias-explicit
+        self.assertIn("Coca-Cola Zero Sugar 8 pack", terms)  # count-explicit
+        self.assertIn("Coke Zero 8 pack", terms)  # alias + count-explicit
+        self.assertIn("Coca-Cola Zero Sugar 330ml", terms)  # size-explicit
+        self.assertIn("Coke Zero 330ml", terms)  # alias + size-explicit
+
+    def test_single_packs_get_no_count_formulation(self):
+        single = BenchmarkPack(
+            catalog_id="coke-zero-330",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+        )
+
+        self.assertNotIn("Coca-Cola Zero Sugar 1 pack", search_formulations(single))
+
+    def test_whole_litres_are_explicit(self):
+        bottle = BenchmarkPack(
+            catalog_id="coke-diet-2000",
+            name="Coca-Cola Diet 2L Bottle",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Diet Coke 2L",
+        )
+
+        self.assertIn("Coca-Cola Diet 2 litre", search_formulations(bottle))
+
+    def test_formulations_are_unique_and_order_preserving(self):
+        terms = search_formulations(self.multipack())
+
+        self.assertEqual(len(terms), len(set(terms)))

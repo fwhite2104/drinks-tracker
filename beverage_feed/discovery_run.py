@@ -8,8 +8,11 @@ sole price-observation writer.
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import sqlite3
 from contextlib import closing
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -26,12 +29,23 @@ from .discovery import (
     DiscoveryStore, candidate_id_for, load_rejections, reconcile_json_decisions,
 )
 from .discovery_adapters import DiscoveryAdapter, DiscoveryResult, NormalizedListing
+from .discovery_classify import classify_evidence, format_classification
 from .discovery_decisions import exact_match, decide_cell
-from .matching import is_relevant_candidate
+from .matching import is_relevant_candidate, search_formulations
 
 TERMINAL_STATES = {"approved", "rejected", "do_not_map", "unmapped"}
 SKIPPED_STATES = TERMINAL_STATES | {"review"}
 DEFAULT_REQUEST_CAP = 200
+
+# Cell states the re-discovery pass treats as unresolved even when
+# classification produced a class: the decision is still open.
+REDISCOVERY_UNRESOLVED_STATES = {"pending", "inconclusive", "unmapped"}
+
+# Politeness (ticket 11): Tesco discovery runs only via CI egress, so the
+# default --rediscover retailer set never includes it; pass --retailer tesco
+# explicitly from the CI workflow instead.
+REDISCOVERY_DEFAULT_RETAILERS = ("dunnes", "supervalu", "lidl", "aldi")
+REDISCOVERY_MAX_FORMULATIONS = 4
 
 _IDENTITY_BASIS = {
     "composite": "product_reference:item_id",
@@ -266,6 +280,269 @@ def run_discovery(
     return summary
 
 
+def rediscovery_targets(
+    catalog: list[BenchmarkPack],
+    store: DiscoveryStore,
+    *,
+    report: Mapping[str, Any] | None = None,
+    retailer: str | None = None,
+) -> list[dict[str, Any]]:
+    """Cells the term-expansion re-discovery pass should search (ticket 14).
+
+    The union of the classification report's rerun targets (thin cells and
+    Class-D price-missing cells, ticket 13) and the still-pending,
+    inconclusive, or unmapped cells that classification could not resolve
+    into a decision.  Decided cells (approved/rejected/do_not_map) are never
+    targets; review cells with classifiable evidence are not either.
+    """
+    classification = report if report is not None else classify_evidence(
+        catalog, store, retailer=retailer,
+    )
+    targets: dict[tuple[str, str], dict[str, Any]] = {}
+    for target in classification["rerun_targets"]:
+        if retailer is not None and target["retailer"] != retailer:
+            continue
+        targets[(target["retailer"], target["catalog_id"])] = dict(target)
+    with closing(store.connection()) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute("SELECT retailer, catalog_id, state FROM discovery_cells")
+        for row in rows:
+            key = (row["retailer"], row["catalog_id"])
+            if row["state"] not in REDISCOVERY_UNRESOLVED_STATES or key in targets:
+                continue
+            if retailer is not None and row["retailer"] != retailer:
+                continue
+            targets[key] = {
+                "retailer": key[0],
+                "catalog_id": key[1],
+                "state": row["state"],
+                "reason": (
+                    f"unresolved state {row['state']!r}: "
+                    "classification could not decide the cell"
+                ),
+            }
+    return [targets[key] for key in sorted(targets)]
+
+
+def run_rediscovery(
+    catalog: list[BenchmarkPack],
+    adapters: Mapping[str, DiscoveryAdapter],
+    store: DiscoveryStore,
+    *,
+    targets: Iterable[Mapping[str, Any]] | None = None,
+    mapping_path: str | Path | None = None,
+    rejection_path: str | Path | None = None,
+    retailer: str | None = None,
+    request_caps: Mapping[str, int] | None = None,
+    run_id: str | None = None,
+    max_formulations: int = REDISCOVERY_MAX_FORMULATIONS,
+    reclassify: bool = True,
+) -> dict[str, Any]:
+    """Term-expansion re-discovery pass over thin target cells (ticket 14).
+
+    Searches only the cells in *targets* (by default
+    :func:`rediscovery_targets`: thin/Class-D cells from the classification
+    pass plus still-unresolved cells).  Each target cell is searched with
+    alternate search formulations (:func:`matching.search_formulations`) up
+    to *max_formulations* per cell, skipping queries already recorded in the
+    cell's search history so no retailer request is wasted repeating the
+    original pass.  Per-retailer request caps and failure pausing work as in
+    :func:`run_discovery`; searches are recorded with request kind
+    ``rediscovery``.
+
+    When *reclassify* is set, the evidence classification pass re-runs after
+    the searches so the new evidence lands in the sprint batches.
+    """
+    if mapping_path is not None and rejection_path is not None:
+        reconcile_json_decisions(store.database, mapping_path, rejection_path)
+    suppressed = _suppressed_candidates(rejection_path)
+    caps = {name: DEFAULT_REQUEST_CAP for name in adapters}
+    for name, cap in (request_caps or {}).items():
+        if cap < 0:
+            raise ValueError("request caps must not be negative")
+        caps[name] = cap
+
+    target_map: dict[tuple[str, str], str] = {}
+    resolved_targets = targets if targets is not None else rediscovery_targets(
+        catalog, store, retailer=retailer,
+    )
+    for target in resolved_targets:
+        key = (target["retailer"], target["catalog_id"])
+        if retailer is not None and key[0] != retailer:
+            continue
+        target_map[key] = str(target.get("reason", "operator-supplied target"))
+
+    resumed = run_id is not None and _run_exists(store, run_id)
+    run_id = run_id or store.start_run()
+    attempt_id = store.start_attempt(run_id)
+    started_at = timestamp()
+
+    summary: dict[str, Any] = {
+        "run_id": run_id,
+        "attempt_id": attempt_id,
+        "pass": "rediscovery",
+        "resumed": resumed,
+        "started_at": started_at,
+        "target_cells": len(target_map),
+        "max_formulations": max_formulations,
+        "cells_evaluated": 0,
+        "cells_advanced": 0,
+        "auto_approved": 0,
+        "challenges": 0,
+        "candidates_found": 0,
+        "formulation_searches": 0,
+        "skipped_searched": 0,
+        "pending": 0,
+        "inconclusive": 0,
+        "unmapped": 0,
+        "failures": 0,
+        "request_counts": {},
+        "batch_sizes": {},
+        "retailers_exhausted": [],
+    }
+
+    # Politeness: never re-issue a query the cell's search history already
+    # holds, regardless of which pass recorded it.
+    searched: dict[tuple[str, str], set[str]] = {}
+    with closing(store.connection()) as connection:
+        connection.row_factory = sqlite3.Row
+        for row in connection.execute(
+            "SELECT retailer, catalog_id, search_term FROM discovery_search_history"
+        ):
+            key = (row["retailer"], row["catalog_id"])
+            if key in target_map:
+                searched.setdefault(key, set()).add(row["search_term"].strip().lower())
+
+    selected = [name for name in adapters if retailer is None or name == retailer]
+    search_cache: dict[tuple[str, str], DiscoveryResult] = {}
+    paused = False
+
+    for retailer_name in selected:
+        adapter = adapters[retailer_name]
+        cap = caps[retailer_name]
+        spent = 0
+        for pack_index, pack in enumerate(catalog):
+            key = (retailer_name, pack.catalog_id)
+            if key not in target_map:
+                continue
+            all_terms = search_formulations(pack)
+            new_terms = [
+                term for term in all_terms
+                if term.strip().lower() not in searched.get(key, set())
+            ]
+            summary["skipped_searched"] += len(all_terms) - len(new_terms)
+            if not new_terms:
+                continue
+            formulations = new_terms[:max_formulations]
+            summary["cells_evaluated"] += 1
+
+            cell_exact: dict[str, Any] = {}
+            cell_listings: list[NormalizedListing] = []
+            complete_seen = False
+            for term in formulations:
+                cost = _search_cost(adapter)
+                if spent + cost > cap:
+                    if retailer_name not in summary["retailers_exhausted"]:
+                        summary["retailers_exhausted"].append(retailer_name)
+                    summary["pending"] += 1 + sum(
+                        1 for remaining in catalog[pack_index + 1:]
+                        if (retailer_name, remaining.catalog_id) in target_map
+                    )
+                    break
+                term_pack = replace(pack, search_term=term)
+                try:
+                    result, deduplicated = _search(
+                        adapter, retailer_name, term_pack, search_cache,
+                    )
+                except Exception as exc:
+                    summary["failures"] += 1
+                    store.set_cell_state(
+                        retailer_name, pack.catalog_id, "pending",
+                        decided_by="discovery", reason=f"rediscovery failure: {exc}",
+                    )
+                    store.diagnostic(
+                        event="rediscovery_failure", level="error", message=str(exc),
+                        run_id=run_id, attempt_id=attempt_id,
+                        retailer=retailer_name, catalog_id=pack.catalog_id,
+                    )
+                    paused = True
+                    break
+
+                spent += 0 if deduplicated else _charge(summary, result)
+                summary["formulation_searches"] += 1
+                store.record_search(
+                    run_id, attempt_id, pack.catalog_id, retailer_name, term,
+                    complete=result.complete, request_kind="rediscovery",
+                    request_metadata={"deduplicated": deduplicated},
+                )
+                cell_exact.update(_record_candidates(
+                    store, summary, retailer_name, pack, result, term, suppressed,
+                ))
+                cell_listings.extend(
+                    _attached_listings(pack, result.listings, suppressed, retailer_name),
+                )
+                complete_seen = complete_seen or result.complete is True
+
+            if paused:
+                break
+            if "retailers_exhausted" in summary and \
+                    retailer_name in summary["retailers_exhausted"]:
+                break
+
+            summary["cells_advanced"] += 1
+            if cell_exact:
+                decision = decide_cell(
+                    store, retailer=retailer_name, pack=pack,
+                    candidates=cell_listings, adapter=adapter,
+                    mapping_path=mapping_path, run_id=run_id,
+                )
+                if decision["decision"] == "approved":
+                    summary["auto_approved"] += 1
+                elif decision["decision"] == "challenge":
+                    summary["challenges"] += 1
+            elif complete_seen:
+                store.set_cell_state(
+                    retailer_name, pack.catalog_id, "unmapped",
+                    decided_by="discovery",
+                    reason="rediscovery complete result sets contain no exact candidate",
+                )
+                summary["unmapped"] += 1
+            else:
+                store.set_cell_state(
+                    retailer_name, pack.catalog_id, "inconclusive",
+                    decided_by="discovery",
+                    reason="rediscovery result sets are incomplete for every formulation",
+                )
+                summary["inconclusive"] += 1
+
+    if paused:
+        status = "paused"
+    elif summary["retailers_exhausted"]:
+        status = "budget_exhausted"
+    else:
+        status = "complete"
+    summary["status"] = status
+    summary["finished_at"] = timestamp()
+    store.finish_attempt(
+        run_id, attempt_id, status=status,
+        request_counts=summary["request_counts"],
+        batch_sizes={kind: max(sizes) for kind, sizes in summary["batch_sizes"].items()},
+        cells_advanced=summary["cells_advanced"],
+    )
+    store.finish_run(
+        run_id, status,
+        request_counts=summary["request_counts"],
+        batch_sizes={kind: max(sizes) for kind, sizes in summary["batch_sizes"].items()},
+        cells_advanced=summary["cells_advanced"],
+        summary=summary,
+    )
+    if reclassify:
+        # Re-classify so the new evidence lands in the sprint batches
+        # (ticket 14: re-classify the new evidence after the pass).
+        summary["classification"] = classify_evidence(catalog, store)
+    return summary
+
+
 def _search(
     adapter: DiscoveryAdapter,
     retailer_name: str,
@@ -355,6 +632,30 @@ def _record_candidates(
     return exact
 
 
+def _build_adapter(name: str, supervalu_store_id: str | None) -> DiscoveryAdapter:
+    """Construct the discovery adapter for one retailer name."""
+    from .discovery_adapters import (
+        AldiDiscoveryAdapter,
+        DunnesDiscoveryAdapter,
+        LidlDiscoveryAdapter,
+        SuperValuDiscoveryAdapter,
+        TescoDiscoveryAdapter,
+    )
+    if name == "dunnes":
+        return DunnesDiscoveryAdapter(DunnesClient())
+    if name == "supervalu":
+        if not supervalu_store_id:
+            raise ValueError(
+                "--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu"
+            )
+        return SuperValuDiscoveryAdapter(SuperValuClient(supervalu_store_id))
+    if name == "tesco":
+        return TescoDiscoveryAdapter(TescoClient())
+    if name == "lidl":
+        return LidlDiscoveryAdapter(LidlClient())
+    return AldiDiscoveryAdapter(AldiClient())
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Run budgeted Catalog Mapping discovery")
     parser.add_argument("--catalog", type=Path, default=Path("data/catalog.json"))
@@ -372,6 +673,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--run-id", help="resume an existing discovery run")
     parser.add_argument(
+        "--rediscover", action="store_true",
+        help="term-expansion re-discovery pass over thin/Class-D/unresolved cells",
+    )
+    parser.add_argument(
+        "--max-formulations", type=int, default=REDISCOVERY_MAX_FORMULATIONS,
+        help="maximum alternate search formulations per cell in --rediscover mode",
+    )
+    parser.add_argument(
+        "--list-targets", action="store_true",
+        help="print the rediscovery target cells as JSON and exit (no retailer requests)",
+    )
+    parser.add_argument(
         "--supervalu-store-id",
         default=os.environ.get("SUPERVALU_STORE_ID"),
         help="configured SuperValu store identifier (or SUPERVALU_STORE_ID)",
@@ -383,28 +696,67 @@ def main(argv: list[str] | None = None) -> int:
     catalog = load_catalog(args.catalog)
     store = DiscoveryStore(args.database)
 
-    retailers = [args.retailer] if args.retailer else ["dunnes", "supervalu", "tesco", "lidl", "aldi"]
-    adapters: dict[str, DiscoveryAdapter] = {}
-    from .discovery_adapters import (
-        AldiDiscoveryAdapter,
-        DunnesDiscoveryAdapter,
-        LidlDiscoveryAdapter,
-        SuperValuDiscoveryAdapter,
-        TescoDiscoveryAdapter,
-    )
-    for name in retailers:
-        if name == "dunnes":
-            adapters[name] = DunnesDiscoveryAdapter(DunnesClient())
-        elif name == "supervalu":
-            if not args.supervalu_store_id:
-                parser.error("--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu")
-            adapters[name] = SuperValuDiscoveryAdapter(SuperValuClient(args.supervalu_store_id))
-        elif name == "tesco":
-            adapters[name] = TescoDiscoveryAdapter(TescoClient())
-        elif name == "lidl":
-            adapters[name] = LidlDiscoveryAdapter(LidlClient())
+    if args.list_targets:
+        targets = rediscovery_targets(catalog, store, retailer=args.retailer)
+        print(json.dumps(targets, indent=2, default=str))
+        return 0
+
+    if args.rediscover:
+        targets = rediscovery_targets(catalog, store, retailer=args.retailer)
+        target_retailers = {target["retailer"] for target in targets}
+        if args.retailer:
+            retailers = [args.retailer] if args.retailer in target_retailers else []
         else:
-            adapters[name] = AldiDiscoveryAdapter(AldiClient())
+            # Politeness (ticket 11): Tesco discovery runs only via CI egress,
+            # so it is excluded from the default re-discovery pass; run it
+            # explicitly with --retailer tesco from the CI workflow.
+            retailers = [
+                name for name in REDISCOVERY_DEFAULT_RETAILERS if name in target_retailers
+            ]
+        adapters: dict[str, DiscoveryAdapter] = {}
+        try:
+            for name in retailers:
+                adapters[name] = _build_adapter(name, args.supervalu_store_id)
+        except ValueError as exc:
+            parser.error(str(exc))
+
+        summary = run_rediscovery(
+            catalog, adapters, store,
+            targets=targets,
+            mapping_path=args.mapping,
+            rejection_path=args.rejections,
+            retailer=args.retailer,
+            request_caps={name: args.request_cap for name in adapters},
+            run_id=args.run_id,
+            max_formulations=args.max_formulations,
+        )
+        requests = ",".join(
+            f"{kind}={count}" for kind, count in sorted(summary["request_counts"].items())
+        ) or "-"
+        print(
+            f"rediscovery {summary['status']}: run={summary['run_id']} "
+            f"attempt={summary['attempt_id']} "
+            f"targets={summary['target_cells']} "
+            f"evaluated={summary['cells_evaluated']} "
+            f"advanced={summary['cells_advanced']} "
+            f"auto_approved={summary['auto_approved']} "
+            f"searches={summary['formulation_searches']} "
+            f"skipped_searched={summary['skipped_searched']} "
+            f"inconclusive={summary['inconclusive']} "
+            f"unmapped={summary['unmapped']} "
+            f"failures={summary['failures']} "
+            f"requests={requests}"
+        )
+        print(format_classification(summary["classification"]))
+        return 0 if summary["status"] == "complete" else 1
+
+    retailers = [args.retailer] if args.retailer else ["dunnes", "supervalu", "tesco", "lidl", "aldi"]
+    adapters = {}
+    try:
+        for name in retailers:
+            adapters[name] = _build_adapter(name, args.supervalu_store_id)
+    except ValueError as exc:
+        parser.error(str(exc))
 
     summary = run_discovery(
         catalog, adapters, store,
@@ -432,4 +784,7 @@ def main(argv: list[str] | None = None) -> int:
     return 0 if summary["status"] == "complete" else 1
 
 
-__all__ = ["run_discovery", "main", "DEFAULT_REQUEST_CAP"]
+__all__ = [
+    "run_discovery", "run_rediscovery", "rediscovery_targets", "main",
+    "DEFAULT_REQUEST_CAP", "REDISCOVERY_MAX_FORMULATIONS",
+]
