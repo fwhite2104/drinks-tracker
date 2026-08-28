@@ -208,3 +208,78 @@ class CatalogMatchingTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BrandAliasTests(unittest.TestCase):
+    """Brand Alias (CONTEXT.md): curated aliases translate a retailer's
+    consumer brand name to the canonical brand/variant before the exact-pack
+    bar is applied; the bar itself (variant, pack count, unit size) never
+    weakens."""
+
+    def setUp(self):
+        self.diet_two_litre = BenchmarkPack(
+            catalog_id="coca-diet-2000",
+            name="Coca-Cola Diet 2L Bottle",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+        self.zero_two_litre = BenchmarkPack(
+            catalog_id="coca-zero-2000",
+            name="Coca-Cola Zero Sugar 2L Bottle",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Coca-Cola Zero Sugar",
+            aliases=("Coke Zero",),
+        )
+
+    def listing(self, **overrides):
+        fields = dict(
+            retailer="supervalu",
+            source_product_reference="1023917003",
+            source_item_id="1023917003",
+            name="Diet Coke Bottle 2L",
+            brand="Diet Coke",
+            variant="Diet",
+            unit_size_ml=2000,
+            pack_count=1,
+            package_type="bottle",
+        )
+        fields.update(overrides)
+        return SourceListing(**fields)
+
+    def test_consumer_brand_alias_matches_catalog_brand(self):
+        # SuperValu lists "Diet Coke" under the consumer brand name while the
+        # catalog records brand=Coca-Cola, variant=Diet.
+        result = match_catalog([self.diet_two_litre], self.listing())
+
+        self.assertEqual((result.status, result.catalog_id), ("approved", "coca-diet-2000"))
+
+    def test_consumer_brand_alias_matches_regardless_of_token_order(self):
+        result = match_catalog(
+            [self.diet_two_litre], self.listing(brand="Coke Diet", name="Coke Diet Bottle 2L"),
+        )
+
+        self.assertEqual((result.status, result.catalog_id), ("approved", "coca-diet-2000"))
+
+    def test_brand_alias_does_not_widen_to_other_variants(self):
+        # "Diet Coke" is a curated alias of the Diet pack only; it must never
+        # approve the Zero Sugar pack.
+        result = match_catalog([self.zero_two_litre], self.listing())
+
+        self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
+
+    def test_brand_alias_never_weakens_the_variant_bar(self):
+        # The alias translates the brand; the variant must still agree exactly.
+        result = match_catalog(
+            [self.diet_two_litre], self.listing(variant="Zero Sugar"),
+        )
+
+        self.assertEqual((result.status, result.catalog_id), ("unmapped", None))

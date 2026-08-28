@@ -204,6 +204,72 @@ class DecideCellTests(unittest.TestCase):
                 "SELECT state FROM discovery_cells").fetchone()
         self.assertEqual(state, ("approved",))
 
+    def _decide_supervalu(self, record, catalog_id="coca-diet-2000"):
+        """Run decide_cell for a SuperValu listing via its product identity."""
+        pack = BenchmarkPack(
+            catalog_id=catalog_id,
+            name="Coca-Cola Diet 2L Bottle",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+        adapter = CollectableAdapter()
+        adapter.retailer = "supervalu"
+        adapter.capabilities = CapabilityContract({
+            "product": Capability("product", True, "fixture", "fixture path"),
+        })
+        return decide_cell(
+            self.store,
+            retailer="supervalu",
+            pack=pack,
+            candidates=[normalize_listing("supervalu", record)],
+            adapter=adapter,
+            mapping_path=self.mapping_path,
+            run_id="run-1",
+        )
+
+    def test_supervalu_consumer_brand_alias_auto_approves_exact_candidate(self):
+        # SuperValu's storefrontgateway lists Coca-Cola Diet products under the
+        # consumer brand name "Diet Coke"; the curated Brand Alias translates
+        # that identity to brand=Coca-Cola, variant=Diet before the exact-pack
+        # bar is applied (CONTEXT.md, Brand Alias).
+        decision = self._decide_supervalu({
+            "productId": "1023917003",
+            "name": "Diet Coke Bottle 2L",
+            "brand": "Diet Coke",
+            "variant": "Diet",
+            "unitSizeMl": 2000,
+            "packCount": 1,
+            "packageType": "bottle",
+            "priceNumeric": "3.15",
+        })
+
+        self.assertEqual(decision["decision"], "approved")
+        row = load_mappings(self.mapping_path)["supervalu"][0]
+        self.assertEqual(row["catalog_id"], "coca-diet-2000")
+        self.assertEqual(row["matched_source_identity"], "1023917003")
+
+    def test_supervalu_brand_alias_still_requires_exact_variant(self):
+        # The alias translates only the brand identity; a divergent variant
+        # still routes to review instead of auto-approval.
+        decision = self._decide_supervalu({
+            "productId": "1023917004",
+            "name": "Diet Coke Bottle 2L",
+            "brand": "Diet Coke",
+            "variant": "Zero Sugar",
+            "unitSizeMl": 2000,
+            "packCount": 1,
+            "packageType": "bottle",
+            "priceNumeric": "3.15",
+        })
+
+        self.assertEqual((decision["decision"], decision["category"]), ("review", "missing"))
+        self.assertFalse(self.mapping_path.exists())
+
     def test_discovery_price_is_evidence_only_and_never_writes_observations(self):
         self.decide([listing()])
         observations = self.store.connection().execute(

@@ -18,7 +18,7 @@ from .discovery import (
     write_mappings,
 )
 from .discovery_adapters import DiscoveryAdapter, NormalizedListing
-from .matching import name_matches, same_text
+from .matching import brand_matches_alias, name_matches, same_text
 
 _EXACT_ATTRIBUTES = ("brand", "variant", "pack_count", "unit_size_ml", "package_type")
 # Fixture case: name_pack_signature is a weak fallback identity and never
@@ -32,7 +32,10 @@ def exact_match(pack: BenchmarkPack, listing: Any) -> bool:
     if any(attrs.get(key) is None for key in _EXACT_ATTRIBUTES):
         return False
     return (
-        same_text(pack.brand, str(attrs["brand"]))
+        (
+            same_text(pack.brand, str(attrs["brand"]))
+            or brand_matches_alias(pack, str(attrs["brand"]))
+        )
         and same_text(pack.variant, str(attrs["variant"]))
         and attrs["pack_count"] == pack.pack_count
         and attrs["unit_size_ml"] == pack.unit_size_ml

@@ -84,6 +84,23 @@ def same_text(left: str | None, right: str) -> bool:
     return bool(left) and _core_tokens(left or "") == _core_tokens(right)
 
 
+def brand_matches_alias(pack: BenchmarkPack, brand: str | None) -> bool:
+    """True when *brand* is a curated Brand Alias of the pack's brand.
+
+    Brand Alias (CONTEXT.md): a curated alias translates the retailer's
+    consumer brand name (e.g. "Diet Coke") to the catalog's canonical brand
+    and variant (Coca-Cola, Diet) before the exact-pack bar is applied. The
+    alias belongs to the pack, so it never widens to other variants; the
+    variant, pack-count, and unit-size agreement checks still apply.
+    """
+    if not brand:
+        return False
+    brand_tokens = _core_tokens(brand)
+    return bool(brand_tokens) and any(
+        _core_tokens(alias) == brand_tokens for alias in pack.aliases
+    )
+
+
 def _attribute_candidates(
     catalog: Iterable[BenchmarkPack], listing: SourceListing
 ) -> list[BenchmarkPack]:
@@ -92,7 +109,10 @@ def _attribute_candidates(
     inferred_package = listing.package_type or _package_type(listing.name)
     candidates = []
     for pack in catalog:
-        if listing.brand and not same_text(listing.brand, pack.brand):
+        if listing.brand and not (
+            same_text(listing.brand, pack.brand)
+            or brand_matches_alias(pack, listing.brand)
+        ):
             continue
         if listing.variant and not same_text(listing.variant, pack.variant):
             continue
