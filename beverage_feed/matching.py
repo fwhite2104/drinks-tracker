@@ -1,4 +1,8 @@
-"""Small, deterministic catalog-to-retailer-listing matching workflow."""
+"""Small, deterministic catalog-to-retailer-listing matching workflow.
+
+Also hosts the curated Brand Alias translation layer (CONTEXT.md: Brand Alias)
+and the universal junk relevance gate used by the discovery pipeline.
+"""
 
 from __future__ import annotations
 
@@ -84,21 +88,111 @@ def same_text(left: str | None, right: str) -> bool:
     return bool(left) and _core_tokens(left or "") == _core_tokens(right)
 
 
+# Curated Brand Alias dictionary (CONTEXT.md: Brand Alias). Maps a retailer's
+# consumer brand phrasing to the catalog's canonical brand and variant (the
+# variant is None when the phrasing carries none). Starts with the catalog's
+# top brands; review sprints extend it by editing this table. Auto-mined
+# aliases are suggestions only and never enter the dictionary uncurated, so
+# nothing is ever auto-applied at runtime.
+BRAND_ALIAS_DICTIONARY: dict[str, tuple[str, str | None]] = {
+    # Coke family
+    "diet coke": ("Coca-Cola", "Diet"),
+    "coke diet": ("Coca-Cola", "Diet"),
+    "coke zero": ("Coca-Cola", "Zero Sugar"),
+    "coke original": ("Coca-Cola", "Original Taste"),
+    "coke original taste": ("Coca-Cola", "Original Taste"),
+    "coca cola zero": ("Coca-Cola", "Zero Sugar"),
+    "coke": ("Coca-Cola", None),
+    "coca cola": ("Coca-Cola", None),
+    # Other top brands
+    "7up free": ("7UP", "Free"),
+    "7up": ("7UP", None),
+    "fanta zero": ("Fanta", "Orange Zero"),
+    "fanta": ("Fanta", None),
+    "sprite zero": ("Sprite", "Zero Sugar"),
+    "sprite": ("Sprite", None),
+    "lucozade sport": ("Lucozade Sport", None),
+    "lucozade": ("Lucozade", None),
+    "rock original": ("Rockstar", "Original"),
+    "rock": ("Rockstar", None),
+    "pepsi max": ("Pepsi", "Max"),
+}
+
+_ALIAS_PHRASES = tuple(sorted(BRAND_ALIAS_DICTIONARY, key=len, reverse=True))
+
+
+@dataclass(frozen=True)
+class BrandAliasTranslation:
+    """One curated alias resolution: phrase found, canonical identity."""
+
+    phrase: str
+    brand: str
+    variant: str | None
+
+
+def resolve_brand_alias(text: str | None) -> BrandAliasTranslation | None:
+    """Translate a curated Brand Alias phrase inside *text*, longest first.
+
+    Matching is token-based and case/hyphen insensitive ("Diet-Coke" equals
+    "diet coke"). Returns None when no curated phrase occurs, so junk names
+    ("POWCUT hoodie", "LED lamp") never gain brand identity.
+    """
+    if not text:
+        return None
+    normalized = " ".join(re.findall(r"[a-z0-9]+", text.lower().replace("-", " ")))
+    for phrase in _ALIAS_PHRASES:
+        if re.search(rf"\b{re.escape(phrase)}\b", normalized):
+            brand, variant = BRAND_ALIAS_DICTIONARY[phrase]
+            return BrandAliasTranslation(phrase, brand, variant)
+    return None
+
+
 def brand_matches_alias(pack: BenchmarkPack, brand: str | None) -> bool:
     """True when *brand* is a curated Brand Alias of the pack's brand.
 
     Brand Alias (CONTEXT.md): a curated alias translates the retailer's
     consumer brand name (e.g. "Diet Coke") to the catalog's canonical brand
-    and variant (Coca-Cola, Diet) before the exact-pack bar is applied. The
-    alias belongs to the pack, so it never widens to other variants; the
-    variant, pack-count, and unit-size agreement checks still apply.
+    and variant (Coca-Cola, Diet) before the exact-pack bar is applied. Two
+    curated sources feed this check: the pack's own aliases and the shared
+    Brand Alias dictionary. The alias belongs to the pack, so it never widens
+    to other variants; the variant, pack-count, and unit-size agreement
+    checks still apply.
     """
     if not brand:
         return False
     brand_tokens = _core_tokens(brand)
-    return bool(brand_tokens) and any(
+    if brand_tokens and any(
         _core_tokens(alias) == brand_tokens for alias in pack.aliases
-    )
+    ):
+        return True
+    translation = resolve_brand_alias(brand)
+    if translation is None or not same_text(pack.brand, translation.brand):
+        return False
+    return translation.variant is None or same_text(pack.variant, translation.variant)
+
+
+def identity_phrases(pack: BenchmarkPack) -> tuple[str, ...]:
+    """Every phrase that carries the pack's brand/identity tokens."""
+    return (pack.search_term, pack.name, pack.brand, pack.variant, *pack.aliases)
+
+
+def shares_identity_token(name: str, phrases: Iterable[str]) -> bool:
+    """True when *name* shares at least one core token with any phrase.
+
+    Universal junk gate: a candidate attaches to a catalog cell only when its
+    name shares a brand/identity token with the search term or pack. Size and
+    count tokens are excluded (a 330ml lamp is still a lamp), so POWERCUT
+    clothing and LED lamps never attach to drink cells.
+    """
+    tokens = _core_tokens(name)
+    if not tokens:
+        return False
+    return any(tokens & _core_tokens(phrase) for phrase in phrases if phrase)
+
+
+def is_relevant_candidate(name: str, pack: BenchmarkPack) -> bool:
+    """Junk gate against the pack's full identity: term, name, brand, variant."""
+    return shares_identity_token(name, identity_phrases(pack))
 
 
 def _attribute_candidates(

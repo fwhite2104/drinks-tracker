@@ -1,7 +1,14 @@
 import unittest
 
 from beverage_feed.collector import BenchmarkPack
-from beverage_feed.matching import SourceListing, match_catalog
+from beverage_feed.matching import (
+    BRAND_ALIAS_DICTIONARY,
+    SourceListing,
+    brand_matches_alias,
+    is_relevant_candidate,
+    match_catalog,
+    resolve_brand_alias,
+)
 
 
 class CatalogMatchingTests(unittest.TestCase):
@@ -283,3 +290,157 @@ class BrandAliasTests(unittest.TestCase):
         )
 
         self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
+
+
+class CuratedBrandAliasDictionaryTests(unittest.TestCase):
+    """The curated Brand Alias dictionary translates consumer phrasings into
+    canonical catalog identity (CONTEXT.md: Brand Alias). It is a code-level
+    curated table so review sprints extend it by reviewable edits; nothing
+    auto-applies at runtime."""
+
+    def test_diet_coke_resolves_to_coca_cola_diet(self):
+        translation = resolve_brand_alias("Diet Coke")
+
+        self.assertEqual((translation.brand, translation.variant), ("Coca-Cola", "Diet"))
+
+    def test_resolves_a_phrase_inside_a_longer_text(self):
+        translation = resolve_brand_alias("Coke Zero 0.33L Can")
+
+        self.assertEqual((translation.brand, translation.variant), ("Coca-Cola", "Zero Sugar"))
+
+    def test_bare_consumer_brand_resolves_with_unknown_variant(self):
+        translation = resolve_brand_alias("Coke")
+
+        self.assertEqual((translation.brand, translation.variant), ("Coca-Cola", None))
+
+    def test_longest_phrase_wins(self):
+        translation = resolve_brand_alias("Coca-Cola Zero Sugar 330ml")
+
+        self.assertEqual(translation.phrase, "coca cola zero")
+        self.assertEqual(translation.variant, "Zero Sugar")
+
+    def test_matching_is_case_and_hyphen_insensitive(self):
+        self.assertEqual(resolve_brand_alias("DIET-COKE").variant, "Diet")
+
+    def test_junk_names_resolve_to_nothing(self):
+        for junk in ("POWERCUT Zip Hoodie", "LED Desk Lamp 5W", "Cola Sweets Bag", "", None):
+            self.assertIsNone(resolve_brand_alias(junk))
+
+    def test_dictionary_covers_the_catalog_top_brands(self):
+        covered = {brand for brand, _ in BRAND_ALIAS_DICTIONARY.values()}
+        for brand in ("Coca-Cola", "7UP", "Fanta", "Sprite", "Lucozade", "Rockstar"):
+            self.assertIn(brand, covered)
+
+
+class CuratedDictionaryBrandAliasTests(unittest.TestCase):
+    """brand_matches_alias is fed by both curated sources: the pack's own
+    aliases and the shared Brand Alias dictionary; the exact-pack bar is
+    unchanged either way."""
+
+    def setUp(self):
+        # Mirrors the real catalog entry, whose aliases bridge the consumer
+        # name for the name check; only the shared dictionary can bridge the
+        # brand *attribute* translation.
+        self.diet_can = BenchmarkPack(
+            catalog_id="coca-diet-330-single",
+            name="Coca-Cola Diet 330ml Can",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+
+    def test_dictionary_alias_matches_without_pack_aliases(self):
+        self.assertTrue(brand_matches_alias(self.diet_can, "Diet Coke"))
+
+    def test_dictionary_alias_translates_before_the_exact_bar(self):
+        result = match_catalog(
+            [self.diet_can],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="100298012",
+                source_item_id="100298012",
+                name="Diet Coke 330ml Can",
+                brand="Diet Coke",
+                variant="Diet",
+                unit_size_ml=330,
+                pack_count=1,
+                package_type="can",
+            ),
+        )
+
+        self.assertEqual((result.status, result.catalog_id), ("approved", "coca-diet-330-single"))
+
+    def test_dictionary_alias_never_widens_to_another_variant(self):
+        # The Diet pack's alias "Diet Coke" must not approve a Zero Sugar
+        # listing whose only bridge is the same dictionary family.
+        result = match_catalog(
+            [self.diet_can],
+            SourceListing(
+                retailer="dunnes",
+                source_product_reference="100298099",
+                source_item_id="100298099",
+                name="Coke Zero 330ml Can",
+                brand="Coke Zero",
+                variant="Zero Sugar",
+                unit_size_ml=330,
+                pack_count=1,
+                package_type="can",
+            ),
+        )
+
+        self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
+
+    def test_dictionary_alias_never_weakens_the_variant_bar(self):
+        self.assertFalse(brand_matches_alias(self.diet_can, "Coke Zero"))
+
+
+class JunkGateTests(unittest.TestCase):
+    """Universal relevance gate: a candidate attaches to a cell only when its
+    name shares at least one brand/identity token with the search term or
+    pack. POWERCUT/LED-lamp-class junk stops attaching to drink cells."""
+
+    def setUp(self):
+        self.diet_can = BenchmarkPack(
+            catalog_id="coca-diet-330-single",
+            name="Coca-Cola Diet 330ml Can",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+
+    def test_diet_coke_listing_shares_identity_with_the_pack(self):
+        self.assertTrue(is_relevant_candidate("Diet Coke 330ml Can", self.diet_can))
+
+    def test_pack_name_tokens_are_identity_tokens(self):
+        self.assertTrue(is_relevant_candidate("Coca-Cola Diet Can 330ml", self.diet_can))
+
+    def test_powercut_and_lamp_class_names_never_attach(self):
+        for junk in ("POWERCUT Zip Hoodie Navy", "LED Desk Lamp 5W", "Batteries AA 4 Pack"):
+            self.assertFalse(is_relevant_candidate(junk, self.diet_can))
+
+    def test_size_tokens_alone_are_not_identity(self):
+        # A lamp quoting "330ml" still shares no brand/identity token.
+        self.assertFalse(is_relevant_candidate("LED Lamp 330ml", self.diet_can))
+
+    def test_alias_phrasing_shares_identity(self):
+        zero_pack = BenchmarkPack(
+            catalog_id="coca-zero-330-6",
+            name="Coca-Cola Zero Sugar 330ml Cans x6",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=6,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml Cans x6",
+            aliases=("Coke Zero",),
+        )
+
+        self.assertTrue(is_relevant_candidate("Coke Zero 6 Pack", zero_pack))

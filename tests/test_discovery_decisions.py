@@ -20,7 +20,7 @@ from beverage_feed.discovery_adapters import (
     normalize_listing,
 )
 from beverage_feed.discovery_cli import approve
-from beverage_feed.discovery_decisions import decide_cell, resolve_challenge
+from beverage_feed.discovery_decisions import decide_cell, exact_match, resolve_challenge
 
 
 def make_pack(catalog_id="pack-1"):
@@ -67,6 +67,53 @@ class CollectableAdapter(DiscoveryAdapter):
 
 class NoPathAdapter(CollectableAdapter):
     capabilities = CapabilityContract({})
+
+
+class ExactMatchBrandAliasTests(unittest.TestCase):
+    """exact_match judges Brand Alias-translated attributes against the
+    unchanged exact-pack bar (brand, variant, pack count, unit size,
+    package type must all be known and equal)."""
+
+    def test_translated_brandless_dunnes_record_is_an_exact_match(self):
+        pack = BenchmarkPack(
+            catalog_id="coca-diet-330-single",
+            name="Coca-Cola Diet 330ml Can",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+        candidate = listing({
+            "productReference": "100298012",
+            "itemId": "100298012",
+            "productName": "Diet Coke 330ml Can",
+            "price": "1.35",
+        })
+
+        self.assertTrue(exact_match(pack, candidate))
+
+    def test_alias_translation_never_widens_the_variant_bar(self):
+        pack = BenchmarkPack(
+            catalog_id="coca-diet-330-single",
+            name="Coca-Cola Diet 330ml Can",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Diet Coke",
+        )
+        candidate = listing({
+            "productReference": "100298099",
+            "itemId": "100298099",
+            "productName": "Coke Zero 330ml Can",
+            "price": "1.35",
+        })
+
+        self.assertFalse(exact_match(pack, candidate))
 
 
 class DecideCellTests(unittest.TestCase):

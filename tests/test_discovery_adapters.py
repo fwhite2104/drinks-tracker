@@ -3,6 +3,7 @@ import unittest
 from beverage_feed.collector import BenchmarkPack
 from beverage_feed.discovery_adapters import (
     DunnesDiscoveryAdapter,
+    LidlDiscoveryAdapter,
     SuperValuDiscoveryAdapter,
     TescoDiscoveryAdapter,
     normalize_listing,
@@ -124,9 +125,63 @@ class DiscoveryAdapterTests(unittest.TestCase):
         self.assertEqual(listing.attributes["unit_size_ml"], 500)
         self.assertEqual(listing.name_attributes["unit_size_ml"], 330)
         self.assertIn("unit_size_ml", listing.conflicts)
-        self.assertIn("variant", listing.missing_attributes)
+        # The consumer phrasing "Coke Zero" in the name translates to the
+        # canonical variant the record never stated (Brand Alias, CONTEXT.md).
+        self.assertEqual(listing.attributes["variant"], "zero sugar")
+        self.assertEqual(listing.inference_basis["variant"], "brand-alias")
         self.assertEqual(listing.price.status, "malformed")
         self.assertEqual(listing.raw_attributes["name"], "Coke Zero 0.33L Can x6")
+
+    def test_variant_stays_missing_without_any_alias_phrase(self):
+        listing = normalize_listing("supervalu", {
+            "productId": "sv-2",
+            "name": "Fizzy Orange Drink 0.5L Bottle",
+            "brand": "Generic",
+        })
+
+        self.assertNotIn("variant", listing.attributes)
+        self.assertIn("variant", listing.missing_attributes)
+
+    def test_brand_alias_translates_a_brandless_dunnes_record(self):
+        # Dunnes gateway records carry no brand/variant fields; the curated
+        # Brand Alias dictionary extracts them from the listing name.
+        listing = normalize_listing("dunnes", {
+            "productName": "Diet Coke 330ml Can",
+            "productReference": "100298012",
+            "items": [{"itemId": "100298012"}],
+        })
+
+        self.assertEqual(listing.attributes["brand"], "coca cola")
+        self.assertEqual(listing.attributes["variant"], "diet")
+        self.assertEqual(listing.inference_basis["brand"], "brand-alias")
+
+    def test_junk_names_gain_no_brand_identity(self):
+        listing = normalize_listing("dunnes", {
+            "productName": "POWERCUT Zip Hoodie Navy",
+            "productReference": "lamp-1",
+            "items": [{"itemId": "lamp-1"}],
+        })
+
+        self.assertIsNone(listing.attributes.get("brand"))
+        self.assertIsNone(listing.attributes.get("variant"))
+
+    def test_structured_consumer_brand_is_translated_but_the_variant_bar_holds(self):
+        # SuperValu lists brand "Diet Coke": the alias rewrites the brand to
+        # Coca-Cola; a conflicting stated variant survives untouched so the
+        # exact-pack bar still rejects it.
+        listing = normalize_listing("supervalu", {
+            "productId": "sv-3",
+            "name": "Diet Coke Bottle 2L",
+            "brand": "Diet Coke",
+            "variant": "Zero Sugar",
+            "unitSizeMl": 2000,
+            "packCount": 1,
+            "packageType": "bottle",
+        })
+
+        self.assertEqual(listing.attributes["brand"], "coca cola")
+        self.assertEqual(listing.inference_basis["brand"], "brand-alias")
+        self.assertEqual(listing.attributes["variant"], "zero sugar")
 
     def test_each_adapter_exposes_complete_truncated_and_unknown_states(self):
         def dunnes(payload):
@@ -154,7 +209,10 @@ class DiscoveryAdapterTests(unittest.TestCase):
         cases = [
             ({"itemId": "item"}, ("item", "item")),
             ({"productReference": "product"}, ("product", "product")),
-            ({}, ("coke 330ml can|coke|original|330|1|can", "name_pack_signature")),
+            # Brand Alias translation rewrites the consumer brand "Coke" to
+            # the canonical "coca cola" before the identity signature is
+            # built, so fallback identities are catalog-shaped.
+            ({}, ("coke 330ml can|coca cola|original|330|1|can", "name_pack_signature")),
         ]
         for fields, expected in cases:
             record = {"productName": "Coke 330ml Can", "brand": "Coke", "variant": "Original", **fields}
@@ -176,3 +234,50 @@ class DiscoveryAdapterTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CategoryScopeTests(unittest.TestCase):
+    """Adapter-level category filters where the retailer API offers them:
+    clients expose scoped_search(term, category); the adapter passes its
+    declared scope, and plain clients are called exactly as before."""
+
+    def test_lidl_declares_the_verified_drinks_category_scope(self):
+        self.assertEqual(LidlDiscoveryAdapter.category_scope, "10071022")
+
+    def test_scoped_client_receives_the_category(self):
+        calls = []
+
+        class ScopedClient:
+            def scoped_search(self, term, category):
+                calls.append((term, category))
+                return {"items": []}
+
+        LidlDiscoveryAdapter(ScopedClient()).search(PACK)
+
+        self.assertEqual(calls, [(PACK.search_term, "10071022")])
+
+    def test_plain_client_is_called_with_the_term_only(self):
+        calls = []
+
+        def client(term):
+            calls.append(term)
+            return {"items": []}
+
+        LidlDiscoveryAdapter(client).search(PACK)
+
+        self.assertEqual(calls, [PACK.search_term])
+
+    def test_adapters_without_a_scope_ignore_a_scoped_client(self):
+        calls = []
+
+        class ScopedClient:
+            def scoped_search(self, term, category):
+                raise AssertionError("must not be used without a category scope")
+
+            def __call__(self, term):
+                calls.append(term)
+                return {"data": {"productSearch": {"products": []}}}
+
+        DunnesDiscoveryAdapter(ScopedClient()).search(PACK)
+
+        self.assertEqual(calls, [PACK.search_term])

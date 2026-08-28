@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Callable, Mapping, Sequence
 
 from .collector import BenchmarkPack
+from .matching import resolve_brand_alias
 
 
 Completeness = bool | str
@@ -292,22 +293,58 @@ def _price(record: Mapping[str, Any]) -> PriceEvidence:
     return PriceEvidence(value, "valid", None)
 
 
+def _translate_brand_attributes(
+    attributes: dict[str, Any],
+    basis: dict[str, str],
+    structured: Mapping[str, Any],
+    structured_translation: Any,
+    name_translation: Any,
+) -> None:
+    """Apply curated Brand Alias translation to extracted attributes.
+
+    Brand Alias (CONTEXT.md): the consumer phrasing ("Diet Coke") resolves to
+    the canonical brand and variant (Coca-Cola, Diet) during extraction, so
+    the exact-pack bar can judge it. A structured brand is authoritative and
+    is replaced only when the alias genuinely rewrites it; a name-only alias
+    fills brand/variant the record never stated. The bar itself (variant,
+    pack count, unit size) is untouched and still applied afterwards.
+    """
+    if structured_translation is not None and structured.get("brand") is not None:
+        translated = _canonical_text(structured_translation.brand)
+        if attributes.get("brand") != translated:
+            attributes["brand"] = translated
+            basis["brand"] = "brand-alias"
+    elif "brand" not in attributes and name_translation is not None:
+        attributes["brand"] = _canonical_text(name_translation.brand)
+        basis["brand"] = "brand-alias"
+    if "variant" not in attributes:
+        for translation in (structured_translation, name_translation):
+            if translation is not None and translation.variant is not None:
+                attributes["variant"] = _canonical_text(translation.variant)
+                basis["variant"] = "brand-alias"
+                break
+
+
 def normalize_listing(
     retailer: str,
     record: Mapping[str, Any],
     *,
-    aliases: Mapping[str, str] | Sequence[str] | None = None,
+    aliases: Mapping[str, str] | None = None,
 ) -> NormalizedListing:
-    """Normalize one retailer listing while retaining source evidence."""
+    """Normalize one retailer listing while retaining source evidence.
+
+    ``aliases`` optionally canonicalizes phrasings inside brand/variant text
+    (e.g. ``{"coke": "coca cola"}``). Brand Alias translation is applied
+    separately from the curated dictionary in :mod:`beverage_feed.matching`.
+    """
     name = _text(_first(record, "productName", "name", "title", "product_name"))
-    alias_map = (
-        aliases if isinstance(aliases, Mapping)
-        else {alias: name for alias in (aliases or ())}
-    )
+    alias_map = aliases or {}
     canonical_name = _canonical_text(name, alias_map)
     raw_attributes, structured = _structured_attributes(record)
     raw_named = _name_attributes(name)
     named = _name_attributes(_apply_aliases(name, alias_map))
+    structured_translation = resolve_brand_alias(structured.get("brand"))
+    name_translation = resolve_brand_alias(name)
     attributes: dict[str, Any] = {}
     basis: dict[str, str] = {}
     conflicts: dict[str, Mapping[str, Any]] = {}
@@ -338,6 +375,7 @@ def normalize_listing(
         if total % attributes["pack_count"] == 0:
             attributes["unit_size_ml"] = total // attributes["pack_count"]
             basis["unit_size_ml"] = "derived: total_volume_ml / pack_count"
+    _translate_brand_attributes(attributes, basis, structured, structured_translation, name_translation)
     missing = tuple(key for key in _ATTRIBUTES if attributes.get(key) is None)
     identity, tier = _identity(retailer, record, name, attributes)
     raw_attributes = dict(raw_attributes)
@@ -416,6 +454,14 @@ class DiscoveryAdapter:
     # budget pre-checks. Fixture case: tesco spends one search plus one batched
     # GraphQL hydration call.
     max_requests_per_search = 1
+    # Adapter-level junk gate, source-scoped flavor: retailer search APIs that
+    # narrow by category at the source (e.g. Lidl's ``category.id`` Drinks
+    # tree, verified in the discovery research notes) never return
+    # out-of-category junk. Clients expose that by implementing
+    # ``scoped_search(term, category)``; adapters declare the scope to use in
+    # ``category_scope``. Sources without such an API keep ``None`` and rely
+    # on the universal relevance gate in discovery_run.
+    category_scope: str | None = None
 
     def __init__(self, client: Callable[[str], Mapping[str, Any]], *, limit: int | None = None):
         self.client = client
@@ -425,7 +471,14 @@ class DiscoveryAdapter:
     def session_bootstrapped(self) -> bool:
         return True
 
-    def _result(self, payload: Mapping[str, Any], events: Sequence[RequestEvent], aliases: Sequence[str] = ()) -> DiscoveryResult:
+    def _search_request(self, term: str) -> Mapping[str, Any]:
+        """Call the retailer client, adding the category scope when supported."""
+        scoped = getattr(self.client, "scoped_search", None)
+        if self.category_scope is not None and callable(scoped):
+            return scoped(term, self.category_scope)
+        return self.client(term)
+
+    def _result(self, payload: Mapping[str, Any], events: Sequence[RequestEvent], aliases: Mapping[str, str] | None = None) -> DiscoveryResult:
         records = _records(payload, self.retailer)
         complete, pagination = _completeness(payload, len(records), self.limit)
         listings = tuple(normalize_listing(self.retailer, record, aliases=aliases) for record in records)
@@ -454,8 +507,8 @@ class DunnesDiscoveryAdapter(DiscoveryAdapter):
         super().__init__(client, limit=50)
 
     def search(self, pack: BenchmarkPack) -> DiscoveryResult:
-        payload = self.client(pack.search_term)
-        return self._result(payload, (RequestEvent("search"),), pack.aliases)
+        payload = self._search_request(pack.search_term)
+        return self._result(payload, (RequestEvent("search"),))
 
 
 class SuperValuDiscoveryAdapter(DiscoveryAdapter):
@@ -489,7 +542,7 @@ class SuperValuDiscoveryAdapter(DiscoveryAdapter):
             events.append(RequestEvent("bootstrap", metadata=scope))
             self._bootstrapped = True
         payload = self.client(pack.search_term)
-        return self._result(payload, (*events, RequestEvent("search", metadata=scope)), pack.aliases)
+        return self._result(payload, (*events, RequestEvent("search", metadata=scope)))
 
     def hydrate(self, product_id: str) -> DiscoveryResult:
         if self.hydrator is None:
@@ -519,12 +572,12 @@ class TescoDiscoveryAdapter(DiscoveryAdapter):
         super().__init__(client, limit=10)
 
     def search(self, pack: BenchmarkPack) -> DiscoveryResult:
-        payload = self.client(pack.search_term)
-        products = payload.get("products", []) if isinstance(payload, Mapping) else []
+        payload = self._search_request(pack.search_term)
         events = [RequestEvent("search")]
+        products = payload.get("products", []) if isinstance(payload, Mapping) else []
         if products:
             events.append(RequestEvent("hydration", batch_size=len(products)))
-        return self._result(payload, events, pack.aliases)
+        return self._result(payload, events)
 
     def hydrate(self, tpnb: str) -> DiscoveryResult:
         fetcher = getattr(self.client, "fetch_product", None)
@@ -539,6 +592,11 @@ class LidlDiscoveryAdapter(DiscoveryAdapter):
 
     retailer = "lidl"
     max_requests_per_search = 1
+    # Lidl's search API accepts a ``category.id`` scope; Drinks is 10071022
+    # (verified against the live API — see the discovery research notes).
+    # Clients exposing scoped_search(term, category) junk-gate at the source.
+    LIDL_DRINKS_CATEGORY = "10071022"
+    category_scope = LIDL_DRINKS_CATEGORY
 
     def __init__(
         self,
@@ -559,8 +617,8 @@ class LidlDiscoveryAdapter(DiscoveryAdapter):
         super().__init__(client, limit=100)
 
     def search(self, pack: BenchmarkPack) -> DiscoveryResult:
-        payload = self.client(pack.search_term)
-        return self._result(payload, (RequestEvent("search"),), pack.aliases)
+        payload = self._search_request(pack.search_term)
+        return self._result(payload, (RequestEvent("search"),))
 
     def hydrate(self, product_id: str) -> DiscoveryResult:
         if self.hydrator is None:
@@ -594,8 +652,8 @@ class AldiDiscoveryAdapter(DiscoveryAdapter):
         super().__init__(client, limit=50)
 
     def search(self, pack: BenchmarkPack) -> DiscoveryResult:
-        payload = self.client(pack.search_term)
-        return self._result(payload, (RequestEvent("search"),), pack.aliases)
+        payload = self._search_request(pack.search_term)
+        return self._result(payload, (RequestEvent("search"),))
 
     def hydrate(self, product_id: str) -> DiscoveryResult:
         if self.hydrator is None:

@@ -7,12 +7,13 @@ from pathlib import Path
 from unittest import mock
 
 from beverage_feed.collector import BenchmarkPack
-from beverage_feed.discovery import DiscoveryStore, write_mappings, write_rejections
+from beverage_feed.discovery import DiscoveryStore, load_mappings, write_mappings, write_rejections
 from beverage_feed.discovery_adapters import (
     Capability,
     CapabilityContract,
     DiscoveryAdapter,
     DiscoveryResult,
+    DunnesDiscoveryAdapter,
     RequestEvent,
     normalize_listing,
 )
@@ -289,3 +290,76 @@ class DiscoveryCliMainTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DietCokeAcceptanceTests(unittest.TestCase):
+    """Ticket 12 acceptance, end to end and hermetic: the curated Brand Alias
+    translation layer plus the junk gate, exercised through the real Dunnes
+    discovery adapter and decision pipeline."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name)
+        self.store = DiscoveryStore(self.root / "discovery.sqlite")
+        self.mapping_path = self.root / "mappings.json"
+        write_mappings(self.mapping_path, {"dunnes": []})
+
+    def diet_pack(self) -> BenchmarkPack:
+        # The catalog's coca-diet-330-single entry.
+        return BenchmarkPack(
+            catalog_id="coca-diet-330-single",
+            name="Coca-Cola Diet 330ml Can",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+
+    @staticmethod
+    def dunnes_payload() -> dict:
+        # The envelope DunnesClient builds from the storefront gateway: the
+        # exact can plus the junk a loose retail search drags in.
+        def product(name, reference, price):
+            return {
+                "productName": name,
+                "productReference": reference,
+                "items": [{"itemId": reference, "sellers": [
+                    {"commertialOffer": {"Price": price}}]}],
+            }
+
+        return {"data": {"productSearch": {"products": [
+            product("Diet Coke 330ml Can", "100298012", "1.35"),
+            product("POWERCUT Zip Hoodie Navy", "pc-hoodie", "24.00"),
+            product("LED Desk Lamp 5W", "led-lamp", "9.00"),
+        ]}}}
+
+    def test_diet_coke_can_auto_approves_onto_its_cell_and_junk_does_not_attach(self):
+        adapter = DunnesDiscoveryAdapter(lambda _: self.dunnes_payload())
+        summary = run_discovery(
+            [self.diet_pack()], {"dunnes": adapter}, self.store,
+            mapping_path=self.mapping_path,
+        )
+
+        self.assertEqual(summary["status"], "complete")
+        self.assertEqual(summary["auto_approved"], 1)
+        state = self.store.connection().execute(
+            "SELECT state FROM discovery_cells").fetchone()
+        self.assertEqual(state, ("approved",))
+        mappings = load_mappings(self.mapping_path)
+        row = mappings["dunnes"][0]
+        self.assertEqual(row["catalog_id"], "coca-diet-330-single")
+        self.assertEqual(row["matched_source_identity"], "100298012:100298012")
+        self.assertEqual(row["status"], "approved")
+
+        # Junk gate: POWERCUT/LED-lamp listings stay canonical candidates but
+        # never attach to the drink cell — no association, no evidence.
+        associations = self.store.connection().execute(
+            "SELECT candidate_id FROM discovery_candidate_cells").fetchall()
+        self.assertEqual(associations, [("dunnes:100298012:100298012",)])
+        evidence = self.store.connection().execute(
+            "SELECT candidate_id FROM discovery_candidate_evidence").fetchall()
+        self.assertEqual(evidence, [("dunnes:100298012:100298012",)])

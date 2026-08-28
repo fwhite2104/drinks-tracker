@@ -11,7 +11,7 @@ import argparse
 import os
 from contextlib import closing
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Iterable, Mapping
 
 from .collector import (
     AldiClient,
@@ -25,8 +25,9 @@ from .collector import (
 from .discovery import (
     DiscoveryStore, candidate_id_for, load_rejections, reconcile_json_decisions,
 )
-from .discovery_adapters import DiscoveryAdapter, DiscoveryResult
+from .discovery_adapters import DiscoveryAdapter, DiscoveryResult, NormalizedListing
 from .discovery_decisions import exact_match, decide_cell
+from .matching import is_relevant_candidate
 
 TERMINAL_STATES = {"approved", "rejected", "do_not_map", "unmapped"}
 SKIPPED_STATES = TERMINAL_STATES | {"review"}
@@ -175,7 +176,7 @@ def run_discovery(
             exact = _record_candidates(
                 store, summary, retailer_name, pack, result, pack.search_term, suppressed,
             )
-            cell_listings = [l for l in result.listings if candidate_id_for(retailer_name, l.source_identity) not in suppressed]
+            cell_listings = _attached_listings(pack, result.listings, suppressed, retailer_name)
 
             if not exact and result.complete is True:
                 fallback_term = f"{pack.brand} {pack.variant}"
@@ -210,8 +211,7 @@ def run_discovery(
                     store, summary, retailer_name, pack, fallback, fallback_term, suppressed,
                 )
                 cell_listings.extend(
-                    l for l in fallback.listings
-                    if candidate_id_for(retailer_name, l.source_identity) not in suppressed
+                    _attached_listings(pack, fallback.listings, suppressed, retailer_name),
                 )
                 result = fallback
 
@@ -281,6 +281,26 @@ def _search(
     return result, False
 
 
+def _attached_listings(
+    pack: BenchmarkPack,
+    listings: Iterable[NormalizedListing],
+    suppressed: set[str],
+    retailer_name: str,
+) -> list[NormalizedListing]:
+    """Listings that may attach to the cell: unsuppressed and junk-gated.
+
+    Universal junk gate (CONTEXT.md: Catalog Mapping Discovery): a candidate
+    attaches to a cell only when its name shares at least one brand/identity
+    token with the search term or pack, so POWERCUT/LED-lamp-class listings
+    surfaced by loose retailer searches never become cell evidence.
+    """
+    return [
+        listing for listing in listings
+        if candidate_id_for(retailer_name, listing.source_identity) not in suppressed
+        and is_relevant_candidate(listing.name, pack)
+    ]
+
+
 def _record_candidates(
     store: DiscoveryStore,
     summary: dict[str, Any],
@@ -290,12 +310,16 @@ def _record_candidates(
     search_term: str,
     suppressed: set[str],
 ) -> dict[str, Any]:
-    """Persist canonical candidates and evidence; return exact matches."""
+    """Persist canonical candidates and evidence; return exact matches.
+
+    Every surfaced listing is upserted as a canonical candidate (candidate
+    identity is cell-independent), but only junk-gated, unsuppressed listings
+    attach to the cell (association + evidence).
+    """
     exact: dict[str, Any] = {}
+    attached = _attached_listings(pack, result.listings, suppressed, retailer_name)
     for listing in result.listings:
         candidate_id = candidate_id_for(retailer_name, listing.source_identity)
-        if candidate_id in suppressed:
-            continue
         reference, _, item = listing.source_identity.partition(":")
         store.upsert_candidate(
             candidate_id,
@@ -311,6 +335,8 @@ def _record_candidates(
                 str(listing.price.raw_value) if listing.price.status == "valid" else None
             ),
         )
+        if listing not in attached:
+            continue
         store.associate_candidate(candidate_id, pack.catalog_id, search_term, retailer=retailer_name)
         store.record_evidence(
             candidate_id, pack.catalog_id,
