@@ -40,6 +40,8 @@ from beverage_feed.collector import (
     _decimal_text,
     _dunnes_drs_deposit,
     _lidl_drs_deposit,
+    _absence_status,
+    _page_completeness,
     _RunLock,
     _load_mappings,
     _record_diagnostic,
@@ -238,7 +240,11 @@ class CollectionCommandTests(unittest.TestCase):
                         }
                     ]
                 }
-            }
+            },
+            # The real Dunnes client always embeds its bounded page-size
+            # evidence; mirror that so a short page proves completeness.
+            "items": [{"name": "Mystery Cola 330ml"}],
+            "pagination": {"pageSize": 50},
         }
 
         with tempfile.TemporaryDirectory() as directory:
@@ -470,7 +476,10 @@ class CollectionCommandTests(unittest.TestCase):
         )
         with tempfile.TemporaryDirectory() as directory:
             summary = collect_tesco_one(
-                self.pack, mapping, lambda _: {"products": []},
+                self.pack, mapping,
+                # Mirror the client envelope for a below-capacity page: the
+                # search provably covered every match.
+                lambda _: {"products": [], "items": [], "pagination": {"pageSize": 10}},
                 Path(directory) / "feed.sqlite"
             )
         self.assertEqual(summary["status"], "not_found")
@@ -725,7 +734,10 @@ class CollectionCommandTests(unittest.TestCase):
                 return responses.pop(0)
 
         client = SuperValuClient("store 123", opener=Opener())
-        self.assertEqual(client("Coca-Cola"), {"items": []})
+        self.assertEqual(
+            client("Coca-Cola"),
+            {"items": [], "pagination": {"pageSize": 50}},
+        )
         self.assertEqual(
             urls,
             [
@@ -1144,7 +1156,11 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertIn("unmapped=0", output.getvalue())
 
     def test_run_summary_separates_unmapped_coverage_from_failures(self):
-        empty_payload = {"data": {"productSearch": {"products": []}}}
+        empty_payload = {
+            "data": {"productSearch": {"products": []}},
+            "items": [],
+            "pagination": {"pageSize": 50},
+        }
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             summary = collect_run(
@@ -1207,7 +1223,11 @@ class CollectionCommandTests(unittest.TestCase):
 
     def test_targeted_run_only_attempts_requested_retailer_and_pack(self):
         calls = []
-        payload = {"data": {"productSearch": {"products": []}}}
+        payload = {
+            "data": {"productSearch": {"products": []}},
+            "items": [],
+            "pagination": {"pageSize": 50},
+        }
         with tempfile.TemporaryDirectory() as directory:
             summary = collect_run(
                 [self.pack],
@@ -2091,20 +2111,24 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(result, ("source_error",))
         self.assertEqual(observations, 0)
 
-    def test_dunnes_completeness_is_unknown_without_pagination_metadata(self):
+    def test_dunnes_absence_without_completeness_evidence_is_inconclusive(self):
+        # A Dunnes response carrying no completeness evidence at all cannot
+        # prove the page covered every match, so the absence is inconclusive.
+        # (The real client always embeds page-size evidence; this guards the
+        # classifier against evidence-less envelopes.)
         payload = {"data": {"productSearch": {"products": []}}}
 
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
 
-            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["status"], "inconclusive")
             self.assertEqual(summary["complete"], "unknown")
             with closing(sqlite3.connect(database)) as connection:
                 result = connection.execute(
                     "SELECT status, complete FROM collection_results"
                 ).fetchone()
-        self.assertEqual(result, ("not_found", "unknown"))
+        self.assertEqual(result, ("inconclusive", "unknown"))
 
     def test_truncated_lidl_page_is_inconclusive_not_found(self):
         mapping = LidlMapping(
@@ -2216,6 +2240,272 @@ class CollectionCommandTests(unittest.TestCase):
                 ).fetchone()[0]
         self.assertEqual(result, ("inconclusive", "false"))
         self.assertEqual(observations, 0)
+
+    # --- audit-06: truncated pages on evidence-less sources must never
+    # record a false absence (unknown-completeness retailers).
+
+    def test_page_completeness_reads_page_size_and_count_evidence(self):
+        # Bounded page size: fewer results than the requested page size
+        # proves the source exhausted its matches; a page at capacity may
+        # have been truncated.
+        self.assertEqual(_page_completeness({"items": [], "pagination": {"pageSize": 50}}), "true")
+        self.assertEqual(
+            _page_completeness({"items": [{"a": 1}] * 50, "pagination": {"pageSize": 50}}),
+            "false",
+        )
+        # The SuperValu gateway reports the match count beside ``items``.
+        self.assertEqual(_page_completeness({"items": [], "count": 0}), "true")
+        self.assertEqual(_page_completeness({"items": [{"a": 1}], "count": 12}), "false")
+        # A reported total wins over the bounded-page-size proxy: a page
+        # showing fewer results than the reported total is truncated.
+        self.assertEqual(
+            _page_completeness({"items": [], "pagination": {"total": 3, "pageSize": 50}}),
+            "false",
+        )
+        self.assertEqual(
+            _page_completeness(
+                {"items": [{"a": 1}] * 3, "pagination": {"total": 3, "pageSize": 50}},
+            ),
+            "true",
+        )
+
+    def test_absence_status_maps_unknown_evidence_per_call_site(self):
+        evidence_less = {"items": []}
+        self.assertEqual(_absence_status(evidence_less), "not_found")
+        self.assertEqual(
+            _absence_status(evidence_less, unknown_status="inconclusive"),
+            "inconclusive",
+        )
+        truncated = {"items": [], "pagination": {"total": 30, "offset": 0}}
+        self.assertEqual(_absence_status(truncated), "inconclusive")
+        proven = {"items": [], "pagination": {"total": 0, "offset": 0}}
+        self.assertEqual(_absence_status(proven), "not_found")
+
+    def test_dunnes_truncated_search_page_is_inconclusive(self):
+        # A page at capacity (50 == take) may have been cut off before the
+        # mapped product's position: absence is inconclusive, never not_found.
+        gateway_page = [
+            {"productId": f"HATA-{i}", "sku": f"HATA-{i}-SKU",
+             "name": "HATA Cola Drink", "priceNumeric": 1.5}
+            for i in range(50)
+        ]
+
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        class Opener:
+            def open(self, request, timeout):
+                return Response(json.dumps({"items": gateway_page}).encode())
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            client = DunnesClient(opener=Opener(), min_request_interval=0)
+            summary = collect_one(self.pack, self.mapping, client, database)
+
+            self.assertEqual(summary["status"], "inconclusive")
+            self.assertEqual(summary["complete"], "false")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+        self.assertEqual(result, ("inconclusive", "false"))
+        self.assertEqual(observations, 0)
+
+    def test_dunnes_page_below_capacity_missing_product_is_not_found(self):
+        # Fewer results than the bounded page size proves the gateway
+        # exhausted its matches, so the absence is genuine.
+        gateway_page = [{
+            "productId": "HATA-1", "sku": "HATA-1-SKU",
+            "name": "HATA Cola Drink", "priceNumeric": 1.5,
+        }]
+
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        class Opener:
+            def open(self, request, timeout):
+                return Response(json.dumps({"items": gateway_page}).encode())
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            client = DunnesClient(opener=Opener(), min_request_interval=0)
+            summary = collect_one(self.pack, self.mapping, client, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["complete"], "true")
+
+    def test_supervalu_truncated_search_page_is_inconclusive(self):
+        # The gateway page came back at capacity (50 == take) with no count:
+        # the client injects its page-size evidence, and a full page may have
+        # been truncated before the mapped product's position.
+        search_page = [
+            {"productId": f"HATA-{i}", "sku": f"HATA-{i}", "name": "HATA Cola Drink"}
+            for i in range(50)
+        ]
+
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        class Opener:
+            def open(self, request, timeout):
+                return responses.pop(0)
+
+        responses = [
+            Response(b"<html></html>"),
+            Response(json.dumps({"items": search_page}).encode()),
+        ]
+        mapping = SuperValuMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar Can (330 ml)",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            client = SuperValuClient("store 123", opener=Opener(), min_request_interval=0)
+            summary = collect_supervalu_one(self.pack, mapping, client, database)
+
+            self.assertEqual(summary["status"], "inconclusive")
+            self.assertEqual(summary["complete"], "false")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+        self.assertEqual(result, ("inconclusive", "false"))
+
+    def test_supervalu_full_count_page_missing_product_is_not_found(self):
+        # The gateway reported the match count and the page covered it all.
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        class Opener:
+            def open(self, request, timeout):
+                return responses.pop(0)
+
+        responses = [
+            Response(b"<html></html>"),
+            Response(json.dumps({
+                "count": 1,
+                "items": [{"productId": "HATA-1", "sku": "HATA-1", "name": "HATA Cola Drink"}],
+            }).encode()),
+        ]
+        mapping = SuperValuMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar Can (330 ml)",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            client = SuperValuClient("store 123", opener=Opener(), min_request_interval=0)
+            summary = collect_supervalu_one(self.pack, mapping, client, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["complete"], "true")
+
+    def test_tesco_truncated_search_page_is_inconclusive(self):
+        # The product query response reports the total match count; a first
+        # page of 10 results against a total of 400 is provably truncated.
+        search_results = [{"tpnb": 90000 + i} for i in range(10)]
+
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        class Opener:
+            def open(self, request, timeout):
+                return responses.pop(0)
+
+        responses = [
+            Response(json.dumps({
+                "ie": {"ghs": {"products": {"results": search_results, "total": 400}}},
+            }).encode()),
+            Response(json.dumps([{"data": {"product": None}}] * 10).encode()),
+        ]
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            client = TescoClient(api_key="test-key", opener=Opener(), min_request_interval=0)
+            summary = collect_tesco_one(self.pack, mapping, client, database)
+
+            self.assertEqual(summary["status"], "inconclusive")
+            self.assertEqual(summary["complete"], "false")
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+        self.assertEqual(result, ("inconclusive", "false"))
+
+    def test_tesco_full_page_missing_product_is_not_found(self):
+        # The search page covered every reported match, so the absence is
+        # genuine.
+        search_results = [{"tpnb": 90000 + i} for i in range(3)]
+
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        class Opener:
+            def open(self, request, timeout):
+                return responses.pop(0)
+
+        responses = [
+            Response(json.dumps({
+                "ie": {"ghs": {"products": {"results": search_results, "total": 3}}},
+            }).encode()),
+            Response(json.dumps([{"data": {"product": None}}] * 3).encode()),
+        ]
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            client = TescoClient(api_key="test-key", opener=Opener(), min_request_interval=0)
+            summary = collect_tesco_one(self.pack, mapping, client, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["complete"], "true")
 
     def test_run_summary_counts_inconclusive_separately(self):
         truncated_payload = {
@@ -2698,13 +2988,20 @@ class ResilientSourceRequestTests(unittest.TestCase):
 
     @staticmethod
     def _payload():
-        return {"data": {"productSearch": {"products": [{
-            "productName": "Coca-Cola Zero Sugar 330ml",
-            "productReference": "COKE-ZERO-330",
-            "items": [{"itemId": "COKE-ZERO-330-EA", "sellers": [
-                {"commertialOffer": {"Price": "2.49"}},
-            ]}],
-        }]}}}
+        return {
+            "data": {"productSearch": {"products": [{
+                "productName": "Coca-Cola Zero Sugar 330ml",
+                "productReference": "COKE-ZERO-330",
+                "items": [{"itemId": "COKE-ZERO-330-EA", "sellers": [
+                    {"commertialOffer": {"Price": "2.49"}},
+                ]}],
+            }]}},
+            # The real Dunnes client embeds page-size evidence; mirror it so
+            # non-matching packs record a provable not_found (circuit tests
+            # rely on it resetting the breaker).
+            "items": [{"name": "Coca-Cola Zero Sugar 330ml"}],
+            "pagination": {"pageSize": 50},
+        }
 
     def _matrix(self, count):
         """`count` distinct packs with Dunnes mappings for circuit tests."""

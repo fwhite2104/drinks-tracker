@@ -203,9 +203,16 @@ class RunCanaryTests(unittest.TestCase):
         self.assertIn("productSearch", dunnes.error)
 
     def test_absent_listing_is_reported_separately_from_drift(self):
+        # Mirror the real Dunnes client envelope for a below-capacity page:
+        # the embedded page-size evidence proves the search covered every
+        # match, so the absence is not_found (canary: absent, not drift).
         clients = self._clients({
             "dunnes": _StubClient(
-                payload={"data": {"productSearch": {"products": []}}},
+                payload={
+                    "data": {"productSearch": {"products": []}},
+                    "items": [],
+                    "pagination": {"pageSize": 50},
+                },
             ),
         })
 

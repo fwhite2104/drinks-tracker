@@ -27,6 +27,7 @@ from . import source_http
 
 DUNNES_ENDPOINT = "https://storefrontgateway.dunnesstoresgrocery.com/api/stores"
 DUNNES_STORE_ID = os.environ.get("DUNNES_STORE_ID", "258")
+DUNNES_PAGE_SIZE = 50  # the ``take`` bound requested from the gateway
 
 logger = logging.getLogger("beverage_feed.collector")
 
@@ -95,11 +96,14 @@ class DunnesClient:
     the ``productSearch.products`` envelope the collector expects.
     """
 
-    def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID, min_request_interval: float = 1.0):
+    def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID, opener: urllib.request.OpenerDirector | None = None, min_request_interval: float = 1.0):
         if min_request_interval < 0:
             raise ValueError("Dunnes request interval must not be negative")
         self.endpoint = endpoint.rstrip("/")
         self.store_id = store_id
+        # When no opener is injected the module-level urllib.request.urlopen
+        # stays the transport (tests intercept it as the network seam).
+        self.opener = opener
         self.min_request_interval = min_request_interval
         self._last_request_at: float | None = None
 
@@ -115,7 +119,7 @@ class DunnesClient:
         url = "{}/{}/search?{}".format(
             self.endpoint,
             self.store_id,
-            urllib.parse.urlencode({"q": search_term, "take": 50}),
+            urllib.parse.urlencode({"q": search_term, "take": DUNNES_PAGE_SIZE}),
         )
         request = urllib.request.Request(
             url,
@@ -126,7 +130,12 @@ class DunnesClient:
         )
         self._throttle()
         try:
-            with urllib.request.urlopen(request, timeout=30) as response:
+            context = (
+                self.opener.open(request, timeout=30)
+                if self.opener is not None
+                else urllib.request.urlopen(request, timeout=30)
+            )
+            with context as response:
                 if response.status >= 400:
                     raise source_http.status_error(
                         "Dunnes", response.status,
@@ -171,7 +180,16 @@ class DunnesClient:
                     ],
                 }
             )
-        return {"data": {"productSearch": {"products": products}}}
+        return {
+            "data": {"productSearch": {"products": products}},
+            # Completeness evidence: the raw gateway page plus the bounded
+            # page size requested. Fewer items than the page size proves the
+            # gateway exhausted its matches; a page at capacity may have
+            # been truncated, so absence from it must not be recorded as
+            # not_found.
+            "items": items,
+            "pagination": {"pageSize": DUNNES_PAGE_SIZE},
+        }
 
 
 SCHEMA = """
@@ -316,36 +334,59 @@ def _decimal_text(value: Decimal, places: str = "0.01") -> str:
 def _page_completeness(payload: Mapping[str, Any] | None) -> str:
     """Classify a retailer response page as complete, truncated, or unknown.
 
-    Retailer clients that normalize pagination metadata (``items`` plus
-    ``pagination.total``/``pagination.offset``) let collection prove a page
-    covered every match — the same completeness evidence discovery records
-    per search. Sources without that evidence stay ``unknown`` rather than
-    claiming a complete absence.
+    Retailer clients normalize completeness evidence into the envelope so
+    collection can prove a page covered every match — the same evidence
+    discovery records per search. Three evidence shapes are recognised, in
+    priority order:
+
+    * ``pagination.total`` (+ optional ``pagination.offset``) — the source
+      reports the total match count (Lidl, Aldi, Tesco search).
+    * ``pagination.pageSize`` — the client requested a bounded page and
+      compares the returned count against it: fewer results than the page
+      size proves the source exhausted its matches; a page at capacity may
+      have been truncated (Dunnes, SuperValu, Tesco fallback).
+    * a top-level ``count`` — the SuperValu gateway reports the match count
+      beside ``items``.
+
+    Sources without that evidence stay ``unknown`` rather than claiming a
+    complete absence.
     """
     if not isinstance(payload, Mapping):
         return "unknown"
-    pagination = payload.get("pagination")
-    if not isinstance(pagination, Mapping):
-        return "unknown"
-    total = pagination.get("total")
-    if not isinstance(total, int) or isinstance(total, bool):
-        return "unknown"
-    offset = pagination.get("offset", 0)
-    if not isinstance(offset, int) or isinstance(offset, bool):
-        offset = 0
     items = payload.get("items")
     seen = len(items) if isinstance(items, list) else 0
-    return "true" if offset + seen >= total else "false"
+    pagination = payload.get("pagination")
+    if isinstance(pagination, Mapping):
+        total = pagination.get("total")
+        if isinstance(total, int) and not isinstance(total, bool):
+            offset = pagination.get("offset", 0)
+            if not isinstance(offset, int) or isinstance(offset, bool):
+                offset = 0
+            return "true" if offset + seen >= total else "false"
+        page_size = pagination.get("pageSize")
+        if isinstance(page_size, int) and not isinstance(page_size, bool):
+            return "true" if seen < page_size else "false"
+    count = payload.get("count")
+    if isinstance(count, int) and not isinstance(count, bool):
+        return "true" if seen >= count else "false"
+    return "unknown"
 
 
-def _absence_status(payload: Mapping[str, Any] | None) -> str:
+def _absence_status(payload: Mapping[str, Any] | None, *, unknown_status: str = "not_found") -> str:
     """Distinguish a proven ``not_found`` from an ``inconclusive`` page.
 
     A mapped product absent from a page that provably covered every match is
-    genuinely not_found; absence from a truncated page is inconclusive and
-    must never be recorded as a false absence.
+    genuinely not_found; absence from a truncated page — or from a page with
+    no completeness evidence at all, where the search-path caller passes
+    ``unknown_status="inconclusive"`` — is inconclusive and must never be
+    recorded as a false absence.
     """
-    return "inconclusive" if _page_completeness(payload) == "false" else "not_found"
+    completeness = _page_completeness(payload)
+    if completeness == "false":
+        return "inconclusive"
+    if completeness == "unknown":
+        return unknown_status
+    return "not_found"
 
 
 _GENERIC_PACKAGE_TOKENS = {"can", "cans", "bottle", "bottles", "carton", "cartons", "pouch", "pouches"}
@@ -1035,7 +1076,9 @@ def collect_one(
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = _absence_status(payload)
+            # Dunnes has no direct-hydration path: every response is a search
+            # page, so absence without completeness evidence is inconclusive.
+            status = _absence_status(payload, unknown_status="inconclusive")
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -1250,6 +1293,7 @@ def collect_catalog(
 
 SUPERVALU_HOME = "https://shop.supervalu.ie/"
 SUPERVALU_ENDPOINT = "https://storefrontgateway.supervalu.ie/api/stores/{store_id}/search"
+SUPERVALU_PAGE_SIZE = 50  # the ``take`` bound requested from the gateway
 SUPERVALU_PRODUCT_ENDPOINT = "https://storefrontgateway.supervalu.ie/api/stores/{store_id}/products/{product_id}"
 
 
@@ -1283,10 +1327,16 @@ class SuperValuClient:
             self._get(SUPERVALU_HOME, parse_json=False)
             self._session_ready = True
         url = self.endpoint.format(store_id=urllib.parse.quote(self.store_id, safe=""))
-        url += "?" + urllib.parse.urlencode({"q": search_term, "take": 50})
+        url += "?" + urllib.parse.urlencode({"q": search_term, "take": SUPERVALU_PAGE_SIZE})
         payload = self._get(url)
         if not isinstance(payload, dict):
             raise RuntimeError("SuperValu response was not a JSON object")
+        if not isinstance(payload.get("pagination"), Mapping) and payload.get("count") is None:
+            # The gateway gave no completeness signal of its own: inject the
+            # bounded page size requested so _page_completeness can compare
+            # the returned count against it. A gateway-reported ``count`` is
+            # left untouched — it is the stronger evidence.
+            payload["pagination"] = {"pageSize": SUPERVALU_PAGE_SIZE}
         return payload
 
     def fetch_product(self, product_id: str) -> dict[str, Any]:
@@ -1434,6 +1484,7 @@ def collect_supervalu_one(
     item: dict[str, Any] | None = None
     payload: Mapping[str, Any] | None = None
     complete = "unknown"
+    hydrated = False
 
     if mapping.status != "approved":
         status = "unmapped"
@@ -1444,6 +1495,7 @@ def collect_supervalu_one(
             if mapping.source_product_id:
                 hydrate = hydrator or getattr(fetcher, "fetch_product", None)
                 if hydrate is not None and callable(hydrate):
+                    hydrated = True
                     payload = hydrate(str(mapping.source_product_id))
                     complete = _page_completeness(payload)
                     items = payload.get("items")
@@ -1466,7 +1518,13 @@ def collect_supervalu_one(
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = _absence_status(payload)
+            # Search pages can be truncated, so absence without completeness
+            # evidence is inconclusive. Direct hydration answers for exactly
+            # one known product — no page window to truncate — so its absence
+            # stays a definitive not_found.
+            status = _absence_status(
+                payload, unknown_status="not_found" if hydrated else "inconclusive",
+            )
             error = str(exc)
         except Exception as exc:
             status = "source_error"
@@ -1629,6 +1687,7 @@ def collect_supervalu_one(
 
 
 TESCO_SEARCH_ENDPOINT = "https://search.api.tesco.com/search"
+TESCO_SEARCH_PAGE_SIZE = 10  # the ``count`` bound requested from the search API
 TESCO_GRAPHQL_ENDPOINT = "https://xapi.tesco.com/"
 TESCO_PRODUCT_QUERY = """
 query GetProductByTpnb($tpnb: String) {
@@ -1686,7 +1745,7 @@ class TescoClient:
         if not search_term.strip():
             raise ValueError("Tesco search term must not be empty")
         search_url = self.search_endpoint + "?" + urllib.parse.urlencode(
-            {"distchannel": "ghs", "query": search_term, "count": 10, "geo": "ie"}
+            {"distchannel": "ghs", "query": search_term, "count": TESCO_SEARCH_PAGE_SIZE, "geo": "ie"}
         )
         search_payload = self._request_json(
             urllib.request.Request(
@@ -1699,15 +1758,35 @@ class TescoClient:
             )
         )
         try:
-            results = search_payload["ie"]["ghs"]["products"]["results"]
+            products_node = search_payload["ie"]["ghs"]["products"]
+            results = products_node["results"]
             tpnbs = [str(result["tpnb"]) for result in results if result.get("tpnb")]
         except (KeyError, TypeError, AttributeError) as exc:
             raise RuntimeError("Tesco search response has no product results") from exc
         if not isinstance(results, list):
             raise RuntimeError("Tesco search response has no product results")
+        # Completeness evidence for _page_completeness: the raw search page
+        # plus the total match count the response reports. When the total is
+        # absent the bounded page size is the fallback proxy — fewer results
+        # than the page size proves the source exhausted its matches; a page
+        # at capacity may have been truncated.
+        pagination: dict[str, Any] = {"pageSize": TESCO_SEARCH_PAGE_SIZE}
+        total = products_node.get("total") if isinstance(products_node, dict) else None
+        if isinstance(total, int) and not isinstance(total, bool):
+            pagination["total"] = total
         if not tpnbs:
-            return {"products": [], "search": search_payload}
-        return {"products": self._hydrate_tpnbs(tpnbs), "search": search_payload}
+            return {
+                "products": [],
+                "search": search_payload,
+                "items": results,
+                "pagination": pagination,
+            }
+        return {
+            "products": self._hydrate_tpnbs(tpnbs),
+            "search": search_payload,
+            "items": results,
+            "pagination": pagination,
+        }
 
     def fetch_product(self, tpnb: str) -> dict[str, Any]:
         """Hydrate one known Tesco product without repeating product search."""
@@ -1933,6 +2012,7 @@ def collect_tesco_one(
                 # mapping, so the search fallback is recorded once the run row
                 # exists (after the persistence block below).
                 fallback_diagnostic = True
+            hydrated = bool(mapping.source_tpnb and callable(direct_fetcher))
             payload = (
                 direct_fetcher(mapping.source_tpnb)
                 if mapping.source_tpnb and callable(direct_fetcher)
@@ -1945,7 +2025,13 @@ def collect_tesco_one(
                 status = "source_error"
                 error = f"stale source identifier: {reason}"
         except LookupError as exc:
-            status = _absence_status(payload)
+            # Search pages can be truncated, so absence without completeness
+            # evidence is inconclusive. Direct TPNB hydration answers for
+            # exactly one known product — no page window to truncate — so
+            # its absence stays a definitive not_found.
+            status = _absence_status(
+                payload, unknown_status="not_found" if hydrated else "inconclusive",
+            )
             error = str(exc)
         except Exception as exc:
             status = "source_error"
