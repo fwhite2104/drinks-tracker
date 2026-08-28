@@ -1315,6 +1315,68 @@ def raw_candidates(
         ]
 
 
+SPRINT_BUCKETS = (
+    "observed",
+    "mapped_not_observed",
+    "excluded",
+    "in_review",
+    "untouched",
+)
+
+
+def sprint_progress(snapshot: WorkspaceSnapshot) -> dict[str, Any]:
+    """Review-sprint progress against the strict catalog × retailer cell bar.
+
+    Buckets every retailer–pack cell by its current decision state:
+
+    - ``observed`` — approved mapping with a current-feed Price Observation.
+    - ``mapped_not_observed`` — approved (or dormant) mapping, no current
+      observation.
+    - ``excluded`` — an explicit do_not_map / rejected Review Decision.
+    - ``in_review`` — pending, review, or challenge cells awaiting an
+      operator.
+    - ``untouched`` — unmapped cells no discovery evidence has reached.
+
+    A missing or unreadable database simply means nothing is observed yet;
+    counts stay truthful and never fabricate state.
+    """
+    matrix = coverage_matrix(snapshot)
+    feed = _current_feed_index(snapshot)
+    buckets = {name: 0 for name in SPRINT_BUCKETS}
+    per_retailer: dict[str, dict[str, int]] = {
+        slug: {name: 0 for name in SPRINT_BUCKETS} for slug in RETAILER_SLUGS
+    }
+    for pack in matrix["packs"]:
+        for slug, cell in pack["cells"].items():
+            state = cell["mapping_state"]
+            if state == "approved":
+                bucket = (
+                    "observed"
+                    if (slug, pack["catalog_id"]) in feed
+                    else "mapped_not_observed"
+                )
+            elif state in {"do_not_map", "rejected"}:
+                bucket = "excluded"
+            elif state in {"pending", "review", "challenge"}:
+                bucket = "in_review"
+            elif state == "dormant":
+                bucket = "mapped_not_observed"
+            else:
+                bucket = "untouched"
+            buckets[bucket] += 1
+            per_retailer[slug][bucket] += 1
+    return {
+        "total_cells": len(matrix["packs"]) * len(RETAILER_SLUGS),
+        "catalog_packs": len(matrix["packs"]),
+        "retailer_count": len(RETAILER_SLUGS),
+        "buckets": buckets,
+        "per_retailer": [
+            {"retailer": slug, "display_name": _RETAILER_NAMES[slug], **counts}
+            for slug, counts in per_retailer.items()
+        ],
+    }
+
+
 def iter_readonly_connections(
     snapshot: WorkspaceSnapshot,
 ) -> Iterator[sqlite3.Connection]:

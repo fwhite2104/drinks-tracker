@@ -25,6 +25,7 @@ from beverage_feed.dashboard_read import (
     load_workspace,
     overview_stats,
     pack_detail,
+    sprint_progress,
 )
 from beverage_feed.discovery import ensure_discovery_schema
 
@@ -559,6 +560,59 @@ class UnreadableDatabaseTests(unittest.TestCase):
             pack = next(p for p in preview["packs"] if p["catalog_id"] == PACK.catalog_id)
             aldi = next(c for c in pack["retailers"] if c["retailer"] == "aldi")
             self.assertEqual(aldi["state"], "awaiting_price")
+
+
+class SprintProgressTests(unittest.TestCase):
+    """Ticket 05: sprint progress buckets over the catalog × retailer bar."""
+
+    def setUp(self) -> None:
+        self._tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self._tmp.name)
+        _workspace_tree(self.root)
+
+    def tearDown(self) -> None:
+        self._tmp.cleanup()
+
+    def test_buckets_sum_to_total_cells_and_classify_states(self) -> None:
+        rejections = {
+            "listings": [],
+            "cells": [
+                {
+                    "retailer": "dunnes",
+                    "catalog_id": PACK.catalog_id,
+                    "cell": PACK.catalog_id,
+                    "rejected_at": "2026-01-01T00:00:00Z",
+                    "decided_by": "test",
+                    "reason": "never stocked",
+                    "state": "do_not_map",
+                }
+            ],
+        }
+        _workspace_tree(self.root, rejections=rejections)
+        snapshot = load_workspace(self.root)
+        progress = sprint_progress(snapshot)
+        buckets = progress["buckets"]
+        # 2 packs × 5 retailers: 2 approved (no observations yet → mapped),
+        # 1 excluded, 7 untouched.
+        self.assertEqual(progress["total_cells"], 10)
+        self.assertEqual(
+            sum(buckets.values()), progress["total_cells"]
+        )
+        self.assertEqual(buckets["observed"], 0)
+        self.assertEqual(buckets["mapped_not_observed"], 2)
+        self.assertEqual(buckets["excluded"], 1)
+        self.assertEqual(buckets["untouched"], 7)
+        dunnes = next(
+            r for r in progress["per_retailer"] if r["retailer"] == "dunnes"
+        )
+        self.assertEqual(dunnes["excluded"], 1)
+
+    def test_empty_workspace_is_all_untouched(self) -> None:
+        _workspace_tree(self.root, mappings={}, rejections={"listings": [], "cells": []})
+        snapshot = load_workspace(self.root)
+        progress = sprint_progress(snapshot)
+        self.assertEqual(progress["buckets"]["untouched"], 10)
+        self.assertEqual(progress["buckets"]["mapped_not_observed"], 0)
 
 
 if __name__ == "__main__":
