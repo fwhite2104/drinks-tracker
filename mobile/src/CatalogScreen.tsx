@@ -6,8 +6,13 @@
  * of ~24 packs on scroll. Search switches to flat filtered results across
  * name/brand. Visual language: prototype variant C "Bottle green".
  * No category grid, no curated subset, no accounts/favourites.
+ *
+ * Feed access follows spec §5 (useFeed): the cached last-successful fetch
+ * renders immediately labelled "as of <fetch date>", a background refresh
+ * runs on launch, a failed refresh shows a non-blocking banner over the
+ * cached data, and a never-fetched failure shows the honest error screen.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -27,61 +32,27 @@ import {
   buildSearchSections,
   cheapestPrice,
   CHUNK_SIZE,
-  fetchConsumerFeed,
+  formatDate,
   packMeta,
-  type ConsumerFeed,
   type FeedPack,
 } from './feed';
 import type { RootStackParamList } from './navigation';
-
-type FeedStatus =
-  | { kind: 'loading' }
-  | { kind: 'loaded'; feed: ConsumerFeed }
-  | { kind: 'error'; message: string };
+import { useFeed } from './useFeed';
 
 export default function CatalogScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [status, setStatus] = useState<FeedStatus>({ kind: 'loading' });
-  const [attempt, setAttempt] = useState(0);
+  const { state: status, refresh } = useFeed();
   const [query, setQuery] = useState('');
   const [visibleCount, setVisibleCount] = useState(CHUNK_SIZE);
 
-  // Same shape as the scaffold stub: one fetch per attempt, newest wins,
-  // honest error state with retry. Pull-to-refresh re-runs the same load.
-  useEffect(() => {
-    let alive = true;
-
-    fetchConsumerFeed()
-      .then((feed) => {
-        if (alive) setStatus({ kind: 'loaded', feed });
-      })
-      .catch((error: unknown) => {
-        if (alive) {
-          setStatus({
-            kind: 'error',
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [attempt]);
-
-  const refresh = useCallback(() => {
-    setStatus({ kind: 'loading' });
-    setAttempt((n) => n + 1);
-  }, []);
-
   const searching = query.trim().length > 0;
   const packs = useMemo(
-    () => (status.kind === 'loaded' ? status.feed.packs : []),
+    () => (status.kind === 'ready' ? status.feed.packs : []),
     [status]
   );
 
   const { sections, hasMore } = useMemo(() => {
-    if (status.kind !== 'loaded') return { sections: [], hasMore: false };
+    if (status.kind !== 'ready') return { sections: [], hasMore: false };
     return searching
       ? buildSearchSections(packs, query, visibleCount)
       : buildBrowseSections(packs, visibleCount);
@@ -153,7 +124,7 @@ export default function CatalogScreen() {
         </View>
       )}
 
-      {status.kind === 'loaded' && (
+      {status.kind === 'ready' && (
         <>
           {/* Deep green hero — "Find the cheaper bottle." */}
           <View style={styles.hero}>
@@ -164,6 +135,9 @@ export default function CatalogScreen() {
               Every shelf price across Ireland&apos;s five big grocers — one exact pack
               at a time.
             </Text>
+            {/* Spec §5: the payload on screen is always the last successful
+                fetch, so it is always labelled with its fetch date. */}
+            <Text style={styles.heroAsOf}>as of {formatDate(status.asOf)}</Text>
           </View>
 
           {/* Search bar first — overlaps the hero's rounded bottom edge. */}
@@ -179,6 +153,14 @@ export default function CatalogScreen() {
             autoCorrect={false}
             autoCapitalize="none"
           />
+
+          {/* Spec §5: failed refresh with cache present — non-blocking;
+              the cached data below stays untouched. */}
+          {status.banner != null && (
+            <View style={styles.staleBanner}>
+              <Text style={styles.staleBannerText}>{status.banner}</Text>
+            </View>
+          )}
 
           <SectionList
             sections={sections}
@@ -206,7 +188,7 @@ export default function CatalogScreen() {
             }
             refreshControl={
               <RefreshControl
-                refreshing={false}
+                refreshing={status.refreshing}
                 onRefresh={refresh}
                 tintColor="#0B3D2E"
                 colors={['#0B3D2E']}
@@ -246,6 +228,25 @@ const styles = StyleSheet.create({
     color: '#9DBFAD',
     fontSize: 12,
     marginTop: 5,
+  },
+  heroAsOf: {
+    color: '#FFD166',
+    fontSize: 11,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  staleBanner: {
+    backgroundColor: '#FFD166',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  staleBannerText: {
+    color: '#0B3D2E',
+    fontSize: 12,
+    fontWeight: '700',
   },
   search: {
     backgroundColor: '#FFFFFF',

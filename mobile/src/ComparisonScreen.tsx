@@ -9,8 +9,13 @@
  * Ordering is by Displayed Price only; Clubcard never affects it. DRS
  * deposit is always its own ♻ line. Visual language: prototype variant C
  * "Bottle green".
+ *
+ * Feed access follows spec §5 (useFeed): cached last-successful fetch
+ * renders immediately labelled "as of <fetch date>", background refresh on
+ * mount, failed refresh → non-blocking banner over cached data,
+ * never-fetched failure → honest error screen with retry.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -24,12 +29,10 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import {
-  fetchConsumerFeed,
   formatDate,
   isStale,
   orderedCells,
   packMeta,
-  type ConsumerFeed,
   type FeedPack,
   type RetailerCell,
 } from './feed';
@@ -37,39 +40,13 @@ import type { RootStackParamList } from './navigation';
 import {
   statePreviewPack,
 } from './statePreview';
-
-type FeedStatus =
-  | { kind: 'loading' }
-  | { kind: 'loaded'; feed: ConsumerFeed }
-  | { kind: 'error'; message: string };
+import { useFeed } from './useFeed';
 
 export default function ComparisonScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<{ key: string; name: 'Comparison'; params?: RootStackParamList['Comparison'] }>();
-  const [status, setStatus] = useState<FeedStatus>({ kind: 'loading' });
-  const [attempt, setAttempt] = useState(0);
+  const { state: status, refresh } = useFeed();
   const [previewing, setPreviewing] = useState(false);
-
-  useEffect(() => {
-    let alive = true;
-
-    fetchConsumerFeed()
-      .then((feed) => {
-        if (alive) setStatus({ kind: 'loaded', feed });
-      })
-      .catch((error: unknown) => {
-        if (alive) {
-          setStatus({
-            kind: 'error',
-            message: error instanceof Error ? error.message : String(error),
-          });
-        }
-      });
-
-    return () => {
-      alive = false;
-    };
-  }, [attempt]);
 
   const catalogId = route.params?.catalog_id;
   // Dev-only §4 state preview (ticket 13 acceptance): the fixture replaces
@@ -78,7 +55,7 @@ export default function ComparisonScreen() {
 
   const pack: FeedPack | null = useMemo(() => {
     if (previewing && previewPack) return previewPack;
-    if (status.kind !== 'loaded') return null;
+    if (status.kind !== 'ready') return null;
     return (
       status.feed.packs.find((candidate) => candidate.catalog_id === catalogId) ??
       null
@@ -89,11 +66,6 @@ export default function ComparisonScreen() {
     () => (pack ? orderedCells(pack) : []),
     [pack]
   );
-
-  const refresh = useCallback(() => {
-    setStatus({ kind: 'loading' });
-    setAttempt((n) => n + 1);
-  }, []);
 
   return (
     <View style={styles.screen}>
@@ -116,7 +88,7 @@ export default function ComparisonScreen() {
         </View>
       )}
 
-      {status.kind === 'loaded' && !pack && (
+      {status.kind === 'ready' && !pack && (
         <View style={[styles.centered, styles.fill]}>
           <Text style={styles.errorTitle}>Pack not in the feed</Text>
           <Text style={styles.muted}>
@@ -125,8 +97,16 @@ export default function ComparisonScreen() {
         </View>
       )}
 
-      {status.kind === 'loaded' && pack && (
+      {status.kind === 'ready' && pack && (
         <ScrollView contentContainerStyle={styles.content}>
+          {/* Spec §5: failed refresh with cache present — non-blocking
+              banner; the cached cells below stay untouched. */}
+          {status.banner != null && (
+            <View style={styles.staleBanner}>
+              <Text style={styles.staleBannerText}>{status.banner}</Text>
+            </View>
+          )}
+
           <Pressable style={styles.back} onPress={() => navigation.goBack()}>
             <Text style={styles.backLabel}>‹ All packs</Text>
           </Pressable>
@@ -134,6 +114,8 @@ export default function ComparisonScreen() {
           {/* Header: pack name + meta. */}
           <Text style={styles.title}>{pack.name}</Text>
           <Text style={styles.subtitle}>{packMeta(pack)}</Text>
+          {/* Spec §5: the payload on screen is the last successful fetch. */}
+          <Text style={styles.asOf}>as of {formatDate(status.asOf)}</Text>
 
           {cells[0]?.state === 'observed' ? (
             <HeroCard cell={cells[0]} />
@@ -317,6 +299,26 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginTop: 3,
     marginBottom: 2,
+  },
+  asOf: {
+    color: '#0B3D2E',
+    fontSize: 11,
+    fontWeight: '700',
+    marginHorizontal: 16,
+    marginTop: 4,
+  },
+  staleBanner: {
+    backgroundColor: '#FFD166',
+    borderRadius: 14,
+    marginHorizontal: 16,
+    marginTop: 56,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  staleBannerText: {
+    color: '#0B3D2E',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   /* Hero — cheapest observed retailer. */
