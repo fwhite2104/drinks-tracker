@@ -236,6 +236,93 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class DunnesAliasInclusiveSearchTests(unittest.TestCase):
+    """Dunnes' grocery gateway returns different result sets per phrasing, so
+    each cell searches its search_term *and* curated aliases — one request per
+    unique term, merged and de-duplicated by source identity."""
+
+    ALIASED_PACK = BenchmarkPack(
+        catalog_id="coca-original-330-single",
+        name="Coca-Cola Original Taste 330ml Can",
+        brand="Coca-Cola",
+        variant="Original Taste",
+        pack_count=1,
+        unit_size_ml=330,
+        package_type="can",
+        search_term="Coca-Cola Original Taste 330ml Can",
+        aliases=("Coke Original",),
+    )
+
+    @staticmethod
+    def payload(reference, name):
+        return {"data": {"productSearch": {"products": [{
+            "productName": name,
+            "productReference": reference,
+            "items": [{"itemId": reference, "sellers": [
+                {"commertialOffer": {"Price": "1.55"}}]}],
+        }]}}}
+
+    def test_searches_the_term_and_each_alias_and_merges_listings(self):
+        calls = []
+
+        def client(term):
+            calls.append(term)
+            if term == "Coke Original":
+                # The alias phrasing surfaces the single can the full term misses.
+                return self.payload("100298009", "Coke Original 330ml")
+            return self.payload("100298010", "Coca-Cola Original Taste 330ml Cans x6")
+
+        result = DunnesDiscoveryAdapter(client).search(self.ALIASED_PACK)
+
+        self.assertEqual(calls, ["Coca-Cola Original Taste 330ml Can", "Coke Original"])
+        self.assertEqual(
+            sorted(listing.source_identity for listing in result.listings),
+            ["100298009:100298009", "100298010:100298010"],
+        )
+        self.assertEqual(result.request_counts["search"], 2)
+        self.assertEqual(adapter_budget(DunnesDiscoveryAdapter), 3)
+
+    def test_duplicate_terms_issue_one_request(self):
+        # The catalog's Diet packs use "Diet Coke" as both term and alias.
+        pack = BenchmarkPack(
+            catalog_id="coca-diet-330-single",
+            name="Coca-Cola Diet 330ml Can",
+            brand="Coca-Cola",
+            variant="Diet",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Diet Coke",
+            aliases=("Diet Coke",),
+        )
+        calls = []
+
+        def client(term):
+            calls.append(term)
+            return self.payload("100298012", "Diet Coke 330ml")
+
+        result = DunnesDiscoveryAdapter(client).search(pack)
+
+        self.assertEqual(calls, ["Diet Coke"])
+        self.assertEqual(result.request_counts["search"], 1)
+        self.assertEqual([l.source_identity for l in result.listings], ["100298012:100298012"])
+
+    def test_merged_completeness_is_the_conservative_conjunction(self):
+        def client(term):
+            if term == "Coke Original":
+                return {"data": {"productSearch": {"products": []}},
+                        "pagination": {"hasMore": True}}
+            return {"data": {"productSearch": {"products": []}}}
+
+        result = DunnesDiscoveryAdapter(client).search(self.ALIASED_PACK)
+
+        self.assertIs(result.complete, False)
+
+
+def adapter_budget(cls):
+    return cls.max_requests_per_search
+
+
 class CategoryScopeTests(unittest.TestCase):
     """Adapter-level category filters where the retailer API offers them:
     clients expose scoped_search(term, category); the adapter passes its

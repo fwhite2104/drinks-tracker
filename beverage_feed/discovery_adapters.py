@@ -496,6 +496,10 @@ class DiscoveryAdapter:
 
 class DunnesDiscoveryAdapter(DiscoveryAdapter):
     retailer = "dunnes"
+    # Alias-inclusive search: the gateway returns different result sets per
+    # phrasing, so each cell searches its search_term and curated aliases —
+    # one request per unique term. Catalog packs carry at most two aliases.
+    max_requests_per_search = 3
     capabilities = CapabilityContract({
         "composite": Capability("composite", True, "search + mapped item collection", "tested productReference:itemId collection path"),
     })
@@ -506,9 +510,60 @@ class DunnesDiscoveryAdapter(DiscoveryAdapter):
             client = DunnesClient()
         super().__init__(client, limit=50)
 
+    @staticmethod
+    def _search_terms(pack: BenchmarkPack) -> list[str]:
+        """The cell's search_term plus curated aliases, unique, in order."""
+        terms: list[str] = []
+        seen: set[str] = set()
+        for term in (pack.search_term, *pack.aliases):
+            stripped = term.strip()
+            key = stripped.lower()
+            if stripped and key not in seen:
+                seen.add(key)
+                terms.append(stripped)
+        return terms
+
     def search(self, pack: BenchmarkPack) -> DiscoveryResult:
-        payload = self._search_request(pack.search_term)
-        return self._result(payload, (RequestEvent("search"),))
+        """Alias-inclusive search: one request per unique term, merged.
+
+        Alias phrasings surface exact-pack candidates the plain search term
+        misses (e.g. "Coke Original" finds the single can that "Coca-Cola
+        Original Taste 330ml Can" does not), so both are searched and the
+        per-term results merge, de-duplicated by source identity.
+        """
+        results = [
+            self._result(self._search_request(term), (RequestEvent("search"),))
+            for term in self._search_terms(pack)
+        ]
+        return _merge_results(results)
+
+
+def _merge_results(results: Sequence[DiscoveryResult]) -> DiscoveryResult:
+    """Merge per-term results: listings de-duplicated by source identity.
+
+    Completeness is the conservative conjunction: any truncated term search
+    truncates the merge; the merge is only complete when every term search
+    was; otherwise completeness is unknown.
+    """
+    listings: dict[str, NormalizedListing] = {}
+    records: list[Any] = []
+    events: list[RequestEvent] = []
+    pagination: dict[str, Any] = {}
+    for result in results:
+        for listing in result.listings:
+            listings.setdefault(listing.source_identity, listing)
+        records.extend(result.raw_records)
+        events.extend(result.request_events)
+        pagination.update(result.pagination)
+    if any(result.complete is False for result in results):
+        complete: Completeness = False
+    elif all(result.complete is True for result in results):
+        complete = True
+    else:
+        complete = "unknown"
+    return DiscoveryResult(
+        tuple(listings.values()), complete, pagination, tuple(records), tuple(events),
+    )
 
 
 class SuperValuDiscoveryAdapter(DiscoveryAdapter):
