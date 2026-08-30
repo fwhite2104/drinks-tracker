@@ -564,7 +564,7 @@ def _render_shell(app: SprintApp) -> str:
         <div class="ref-row"><span class="keycap">a</span> approve</div>
         <div class="ref-row"><span class="keycap">r</span> reject</div>
         <div class="ref-row"><span class="keycap">x</span> exclude</div>
-        <div class="ref-row"><span class="keycap">s</span> select for batch</div>
+        <div class="ref-row"><span class="keycap">s</span> select · <span class="keycap">⇧j/k</span> range</div>
         <div class="ref-row"><span class="keycap">A/R/X</span> apply to selection</div>
         <div class="ref-row"><span class="keycap">p</span> refresh</div>
       </div>
@@ -677,6 +677,7 @@ let focus = 0;
 let selected = new Set();
 let done = new Set();
 let auditVisible = false;
+let focusAnchor = 0;  // shift-selection anchor: focus when last moved without shift
 
 function esc(v){ return String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function key(item){ return `${item.retailer}:${item.catalog_id}:${item.candidate_id || ''}`; }
@@ -840,8 +841,18 @@ addEventListener('keydown', ev => {
   if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return;
   if (!queue) return;
   const n = queue.items.length;
-  if (ev.key === 'j' || ev.key === 'ArrowDown') { focus = Math.min(focus + 1, n - 1); ev.preventDefault(); renderQueue(); }
-  else if (ev.key === 'k' || ev.key === 'ArrowUp') { focus = Math.max(focus - 1, 0); ev.preventDefault(); renderQueue(); }
+  if (ev.key === 'j' || ev.key === 'ArrowDown') {
+    focus = Math.min(focus + 1, n - 1); ev.preventDefault();
+    if (ev.shiftKey) { for (let i = Math.min(focusAnchor, focus); i <= Math.max(focusAnchor, focus); i++) selected.add(key(queue.items[i])); }
+    else focusAnchor = focus;
+    renderQueue();
+  }
+  else if (ev.key === 'k' || ev.key === 'ArrowUp') {
+    focus = Math.max(focus - 1, 0); ev.preventDefault();
+    if (ev.shiftKey) { for (let i = Math.min(focusAnchor, focus); i <= Math.max(focusAnchor, focus); i++) selected.add(key(queue.items[i])); }
+    else focusAnchor = focus;
+    renderQueue();
+  }
   else if (ev.key === 'a') decide('approve');
   else if (ev.key === 'r') decide('reject');
   else if (ev.key === 'x') decide('exclude');
