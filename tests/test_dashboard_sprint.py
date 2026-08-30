@@ -156,6 +156,30 @@ class SprintWorkspaceTests(unittest.TestCase):
             decided_by="sprint-tester",
         )
 
+    def _seed_challenger(self) -> None:
+        """Second clean candidate on the Class-A cell, for replace tests."""
+        self.store.upsert_candidate(
+            "dunnes:555:666",
+            retailer="dunnes",
+            identity_key="dunnes:555:666",
+            identity_basis="composite",
+            identity_tier="product",
+            source_product_name="Diet Coke 330ml Can (listing B)",
+            source_product_reference="555",
+            source_item_id="666",
+            raw_record=_dunnes_record("Diet Coke 330ml Can (listing B)", "555"),
+        )
+        self.store.associate_candidate(
+            "dunnes:555:666", "coca-diet-330", "Diet Coke", retailer="dunnes"
+        )
+        self.store.record_evidence(
+            "dunnes:555:666",
+            "coca-diet-330",
+            retailer="dunnes",
+            raw_price_value="2.50",
+            price_parse_status="valid",
+        )
+
     def _decide(self, **payload: object) -> tuple[int, str]:
         body = json.dumps(payload).encode()
         status, out, _ = handle_request(self.app, "POST", "/api/sprint/decide", {}, body)
@@ -232,6 +256,57 @@ class SprintWorkspaceTests(unittest.TestCase):
             ).fetchone()[0]
         self.assertEqual(state, "approved")
         self.assertIn("approved", body)
+
+    def test_approve_on_approved_cell_replaces_mapping(self) -> None:
+        self._seed_challenger()
+        status, _ = self._decide(
+            action="approve", retailer="dunnes", catalog_id="coca-diet-330",
+            candidate_id="dunnes:111:222", reason="clean class A",
+        )
+        self.assertEqual(status, 200)
+        status, body = self._decide(
+            action="approve", retailer="dunnes", catalog_id="coca-diet-330",
+            candidate_id="dunnes:555:666", reason="listing B is the real pack",
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("replaced", body)
+        mappings = json.loads((self.root / "data" / "mappings.json").read_text())
+        rows = mappings["dunnes"]
+        approved = [r for r in rows if r["status"] == "approved"]
+        superseded = [r for r in rows if r["status"] == "rejected"]
+        self.assertEqual([r["candidate_id"] for r in approved], ["dunnes:555:666"])
+        self.assertEqual([r["superseded_by"] for r in superseded], ["dunnes:555:666"])
+        with self.app.store().connection() as connection:
+            state = connection.execute(
+                "SELECT state, candidate_id FROM discovery_cells "
+                "WHERE retailer='dunnes' AND catalog_id='coca-diet-330'"
+            ).fetchone()
+        self.assertEqual(state, ("approved", "dunnes:555:666"))
+
+    def test_same_candidate_approve_is_idempotent_without_replace(self) -> None:
+        for _ in range(2):
+            status, body = self._decide(
+                action="approve", retailer="dunnes", catalog_id="coca-diet-330",
+                candidate_id="dunnes:111:222", reason="clean class A",
+            )
+            self.assertEqual(status, 200)
+        self.assertNotIn("replaced", body)
+        mappings = json.loads((self.root / "data" / "mappings.json").read_text())
+        approved = [r for r in mappings["dunnes"] if r["status"] == "approved"]
+        self.assertEqual(len(approved), 1)
+
+    def test_approve_still_errors_when_replacement_is_impossible(self) -> None:
+        status, _ = self._decide(
+            action="approve", retailer="dunnes", catalog_id="coca-diet-330",
+            candidate_id="dunnes:111:222",
+        )
+        self.assertEqual(status, 200)
+        # Unknown candidate must surface as an error, not become a replace.
+        status, body = self._decide(
+            action="approve", retailer="dunnes", catalog_id="coca-diet-330",
+            candidate_id="dunnes:does-not-exist",
+        )
+        self.assertEqual(status, 400)
 
     def test_reject_writes_rejections_json(self) -> None:
         status, _ = self._decide(

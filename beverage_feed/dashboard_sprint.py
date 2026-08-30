@@ -348,12 +348,26 @@ def sprint_decide(app: SprintApp, payload: dict[str, Any]) -> dict[str, Any]:
     reason = reason or None
     store = app.store()
     if action == "approve":
-        result = approve(
-            store, retailer=retailer, catalog_id=catalog_id,
-            candidate_id=_require(payload, "candidate_id"),
-            mapping_path=app.mappings_path, rejection_path=app.rejections_path,
-            decided_by=app.decided_by, reason=reason,
-        )
+        try:
+            result = approve(
+                store, retailer=retailer, catalog_id=catalog_id,
+                candidate_id=_require(payload, "candidate_id"),
+                mapping_path=app.mappings_path, rejection_path=app.rejections_path,
+                decided_by=app.decided_by, reason=reason,
+            )
+        except ValueError as exc:
+            # Sprint intent for `a` on an already-approved cell: this candidate
+            # becomes the mapping. Same-candidate approve is idempotent (no
+            # error), so this is always a different candidate → replace.
+            if "already has an approved mapping" not in str(exc):
+                raise
+            result = replace_mapping(
+                store, retailer=retailer, catalog_id=catalog_id,
+                candidate_id=_require(payload, "candidate_id"),
+                mapping_path=app.mappings_path, decided_by=app.decided_by,
+                reason=reason or "sprint: approve replaced previous mapping",
+            )
+            result = {**result, "replaced": True}
     elif action == "reject":
         result = reject_listing(
             store, retailer=retailer, catalog_id=catalog_id,
@@ -543,12 +557,24 @@ def _render_shell(app: SprintApp) -> str:
     <nav class="side-nav">
       <button type="button" class="active" id="nav-queue"><span>⌁</span>Review queue</button>
     </nav>
-    <div class="side-label">Keys</div>
-    <div class="side-foot sprint-help">
-      <span class="mono">j/k</span> focus · <span class="mono">a</span> approve<br>
-      <span class="mono">r</span> reject · <span class="mono">x</span> exclude<br>
-      <span class="mono">s</span> select · <span class="mono">A/R/X</span> batch<br>
-      <span class="mono">p</span> refresh
+    <div class="side-ref">
+      <div class="side-label">Keys</div>
+      <div class="ref-keys">
+        <div class="ref-row"><span class="keycap">j/k</span> focus</div>
+        <div class="ref-row"><span class="keycap">a</span> approve</div>
+        <div class="ref-row"><span class="keycap">r</span> reject</div>
+        <div class="ref-row"><span class="keycap">x</span> exclude</div>
+        <div class="ref-row"><span class="keycap">s</span> select for batch</div>
+        <div class="ref-row"><span class="keycap">A/R/X</span> apply to selection</div>
+        <div class="ref-row"><span class="keycap">p</span> refresh</div>
+      </div>
+      <div class="side-label">When to press what</div>
+      <div class="ref-rules">
+        <p><span class="keycap">a</span> every attribute matches — same brand, product, flavour/variant, pack count, bottle size, package type. This listing <em>is</em> the pack.</p>
+        <p><span class="keycap">r</span> the listing is a different product — Coke Cherry or No Caffeine vs Diet Coke, wrong size, wrong pack. The cell stays open for other candidates.</p>
+        <p><span class="keycap">x</span> this retailer doesn't sell this pack at all — nothing should ever map here.</p>
+        <p class="ref-note">No candidates at all? Just move on — no evidence yet isn't "not stocked". Reserve <span class="keycap">x</span> for packs the retailer genuinely doesn't sell.</p>
+      </div>
     </div>
   </aside>
   <main class="console-main">
@@ -558,6 +584,7 @@ def _render_shell(app: SprintApp) -> str:
     </header>
     <div class="console-body">
       <div class="status-banner" id="progress-banner"><span>Loading progress…</span></div>
+    <div class="status-banner" id="error-banner" style="display:none"></div>
       <div class="sprint-grid">
         <section class="card sprint-queue" id="queue">
           <div class="card-head"><div><h2>Queue</h2><div class="muted" style="margin-top:5px;font-size:12px">Class A batch first, then per-item</div></div>
@@ -587,6 +614,21 @@ def _render_shell(app: SprintApp) -> str:
 
 
 SPRINT_CSS = """
+.sidebar { display:flex; flex-direction:column; overflow-y:auto; }
+.side-ref { margin-top:auto; border-top:1px solid #426256; padding-top:6px; display:flex; flex-direction:column; flex:1 1 auto; min-height:0; }
+.ref-keys { display:grid; gap:1px; padding:0 11px 8px; }
+.ref-row { display:flex; align-items:center; gap:9px; padding:2px 0; font-size:12.5px; color:#b5c9bd; }
+.keycap { display:inline-grid; place-items:center; min-width:22px; height:20px; padding:0 6px; border:1px solid #426256; border-radius:6px; background:#2b5145; color:#fff; font:11px 'DM Mono',monospace; letter-spacing:.02em; flex:none; }
+.ref-rules { padding:0 11px 12px; overflow-y:auto; min-height:0; }
+.ref-rules p { margin:0; padding:8px 0; border-bottom:1px solid #24483c; font-size:12.5px; line-height:1.55; color:#b5c9bd; }
+.ref-rules::-webkit-scrollbar { width:8px; }
+.ref-rules::-webkit-scrollbar-thumb { background:#2b5145; border-radius:4px; }
+.ref-rules::-webkit-scrollbar-track { background:transparent; }
+.ref-rules p:last-child { border-bottom:0; }
+.ref-rules .keycap { margin-right:2px; }
+.ref-rules em { color:#fff; font-style:normal; font-weight:600; }
+.ref-note { color:#88a296; }
+.ref-note .keycap { background:transparent; color:#88a296; }
 .sprint-grid { display:grid; grid-template-columns:minmax(320px,5fr) minmax(420px,7fr); gap:14px; align-items:start; }
 .queue-list { display:grid; gap:4px; padding:10px; max-height:62vh; overflow:auto; }
 .queue-item { padding:10px 12px; border-radius:10px; border:1px solid transparent; cursor:pointer; display:grid; grid-template-columns:auto 1fr auto; gap:10px; align-items:start; }
@@ -647,6 +689,15 @@ async function api(path, opts) {
   return data;
 }
 function post(path, payload){ return api(path, {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)}); }
+let errorTimer = null;
+function showNote(msg, isError) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.color = isError ? '#ff8a8a' : '#9fe0b0';
+  clearTimeout(errorTimer);
+  errorTimer = setTimeout(() => { el.style.display = 'none'; }, isError ? 8000 : 4000);
+}
 
 async function refresh() {
   const [q, p] = await Promise.all([api('/api/sprint/queue'), api('/api/sprint/progress')]);
@@ -705,6 +756,7 @@ function renderQueue() {
     el.addEventListener('click', () => { focus = Number(el.dataset.i); renderQueue(); });
     el.addEventListener('dblclick', () => { focus = Number(el.dataset.i); decide('approve'); });
   });
+  list.querySelector('.queue-item.focused')?.scrollIntoView({ block: 'nearest' });
   renderCompare();
 }
 
@@ -744,11 +796,12 @@ async function decide(action) {
     const payload = {action, retailer: item.retailer, catalog_id: item.catalog_id};
     if (item.candidate_id && action !== 'exclude') payload.candidate_id = item.candidate_id;
     if (item.review_category === 'challenge' && action === 'approve') payload.action = 'challenge', payload.challenge_action = 'replace', payload.reason = 'sprint: replaced via challenge resolution';
-    await post('/api/sprint/decide', payload);
+    const res = await post('/api/sprint/decide', payload);
+    if (res.result && res.result.replaced) showNote('Approved — replaced the cell\'s previous mapping', false);
     done.add(key(item));
     focus = Math.min(focus + 1, queue.items.length - 1);
     await refresh();
-  } catch (err) { alert(err.message || err); }
+  } catch (err) { showNote(err.message || String(err), true); }
 }
 
 async function batch(action) {
@@ -761,8 +814,8 @@ async function batch(action) {
     items.forEach(i => done.add(key(i)));
     selected.clear();
     await refresh();
-    console.log('batch', res.applied, 'applied,', res.skipped, 'skipped');
-  } catch (err) { alert(err.message || err); }
+    showNote(`Batch ${action}: ${res.applied} applied, ${res.skipped} skipped`, res.skipped > 0);
+  } catch (err) { showNote(err.message || String(err), true); }
 }
 
 async function loadAudit() {
