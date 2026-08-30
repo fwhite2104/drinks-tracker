@@ -23,7 +23,16 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from . import source_http
+from .aldi import AldiDiscoveryClient as AldiClient
+from .lidl import LidlDiscoveryClient as LidlClient
+from .money import decimal_text as _decimal_text
 
+# Backward-compat re-exports: the inline Aldi/Lidl clients were relocated to
+# aldi.py/lidl.py (``AldiDiscoveryClient``/``LidlDiscoveryClient``) and are
+# re-exported here under their historical names because the discovery adapters
+# and the discovery CLI still import them from this module.  Collection runs
+# use the focused clients ``aldi.AldiClient``/``lidl.LidlClient`` instead
+# (see the registration branches in ``main``).
 
 DUNNES_ENDPOINT = "https://storefrontgateway.dunnesstoresgrocery.com/api/stores"
 DUNNES_STORE_ID = os.environ.get("DUNNES_STORE_ID", "258")
@@ -325,10 +334,6 @@ def _decimal_price(value: Any) -> Decimal:
     if price < 0:
         raise ValueError(f"Invalid negative source price: {value!r}")
     return price
-
-
-def _decimal_text(value: Decimal, places: str = "0.01") -> str:
-    return format(value.quantize(Decimal(places), rounding=ROUND_HALF_UP), "f")
 
 
 def _page_completeness(payload: Mapping[str, Any] | None) -> str:
@@ -2170,252 +2175,6 @@ def collect_tesco_one(
     return summary | ({"error": error} if error else {})
 
 
-LIDL_SEARCH_ENDPOINT = "https://www.lidl.ie/q/api/search"
-LIDL_BASE_URL = "https://www.lidl.ie"
-LIDL_SEARCH_ACCEPT = "application/mindshift.search+json"
-_LIDL_PDP_SCRIPT = re.compile(
-    r'<script type="application/json" data-nuxt-data="pdp-view"[^>]*>(.*?)</script>',
-    re.S,
-)
-
-
-def _lidl_price_record(price: Mapping[str, Any] | None) -> dict[str, Any]:
-    """Flatten one Lidl price block into retained source-evidence fields."""
-    price = price if isinstance(price, Mapping) else {}
-    record: dict[str, Any] = {"specialTaxes": price.get("specialTaxes") or []}
-    base_price = price.get("basePrice")
-    if isinstance(base_price, Mapping) and base_price.get("text") is not None:
-        record["basePriceText"] = base_price["text"]
-    if price.get("price") is not None:
-        record["price"] = price["price"]
-    if price.get("oldPrice"):
-        record["oldPrice"] = price["oldPrice"]
-    packaging = price.get("packaging")
-    if isinstance(packaging, Mapping) and packaging.get("text") is not None:
-        record["packSize"] = packaging["text"]
-    return record
-
-
-def _lidl_search_record(item: Mapping[str, Any]) -> dict[str, Any]:
-    """Normalize one search gridbox item into a flat listing record."""
-    gridbox = item.get("gridbox")
-    data = gridbox.get("data") if isinstance(gridbox, Mapping) else {}
-    if not isinstance(data, Mapping):
-        data = {}
-    keyfacts_raw = data.get("keyfacts")
-    keyfacts: Mapping[str, Any] = keyfacts_raw if isinstance(keyfacts_raw, Mapping) else {}
-    name = (
-        data.get("fullTitle") or keyfacts.get("fullTitle")
-        or data.get("title") or keyfacts.get("title") or ""
-    )
-    product_id = data.get("productId") or data.get("erpNumber") or item.get("code") or ""
-    record = _lidl_price_record(data.get("price"))
-    record["productId"] = str(product_id)
-    record["name"] = str(name)
-    if data.get("canonicalPath"):
-        record["url"] = data["canonicalPath"]
-    if data.get("multipack") is not None:
-        record["multipack"] = data["multipack"]
-    return record
-
-
-def _lidl_deref(elements: list[Any], index: Any, depth: int = 0) -> Any:
-    """Resolve one Nuxt ``__NUXT_DATA__`` reference against the payload array."""
-    if not isinstance(index, int) or depth > 50:
-        return index
-    if index < 0 or index >= len(elements):
-        return index
-    value = elements[index]
-    if isinstance(value, dict):
-        return {key: _lidl_deref(elements, item, depth + 1) for key, item in value.items()}
-    if isinstance(value, list):
-        return [_lidl_deref(elements, item, depth + 1) for item in value]
-    return value
-
-
-class LidlClient:
-    """Fetch Lidl Ireland search results and product pages.
-
-    Source limitations (validated against live responses): the documented
-    ``/p/api`` endpoints return 404; the working search API is
-    ``/q/api/search`` and requires ``Accept: application/mindshift.search+json``.
-    Each search returns one page of up to ``fetchsize`` items; the client does
-    not paginate beyond the first page.  Lidl Plus loyalty prices are not
-    exposed by this source, so ``clubcard_price`` stays ``None``.
-    """
-
-    def __init__(
-        self,
-        endpoint: str = LIDL_SEARCH_ENDPOINT,
-        base_url: str = LIDL_BASE_URL,
-        opener: urllib.request.OpenerDirector | None = None,
-        min_request_interval: float = 1.0,
-    ):
-        if min_request_interval < 0:
-            raise ValueError("Lidl request interval must not be negative")
-        self.endpoint = endpoint
-        self.base_url = base_url.rstrip("/")
-        self.opener = opener or urllib.request.build_opener()
-        self.min_request_interval = min_request_interval
-        self._last_request_at: float | None = None
-
-    def __call__(self, search_term: str) -> dict[str, Any]:
-        """Search Lidl Ireland products."""
-        if not search_term.strip():
-            raise ValueError("Lidl search term must not be empty")
-        payload = self._request_json(
-            self.endpoint + "?" + urllib.parse.urlencode({
-                "assortment": "IE",
-                "locale": "en_IE",
-                "q": search_term,
-                "version": "2.1.1",
-                "fetchsize": "100",
-            })
-        )
-        if not isinstance(payload, dict):
-            raise RuntimeError("Lidl search response was not a JSON object")
-        items = payload.get("items")
-        if items is None and payload.get("resultType") in {"empty", "redirect"}:
-            # Observed live: empty and redirect results carry no items list.
-            items = []
-        if not isinstance(items, list):
-            raise RuntimeError("Lidl search response has no items list")
-        records = [
-            _lidl_search_record(item)
-            for item in items
-            if isinstance(item, Mapping)
-        ]
-        total: Any = payload.get("numFound")
-        if total is None and payload.get("resultType") == "empty":
-            total = 0  # an empty result set is a complete result set
-        return {
-            "items": records,
-            "pagination": {"total": total, "offset": payload.get("offset", 0)},
-        }
-
-    def fetch_product(self, product_id: str) -> dict[str, Any]:
-        """Fetch one Lidl product where supported.
-
-        Lidl has no JSON product endpoint.  The product ID resolves through
-        the search API's redirect to a server-rendered product page whose
-        embedded Nuxt data carries the same price evidence.  Returns
-        ``{"items": []}`` when the ID does not resolve to that product's
-        own page.
-        """
-        identifier = str(product_id).strip()
-        if not identifier:
-            raise ValueError("Lidl product_id must not be empty")
-        redirect = self._request_json(
-            self.endpoint + "?" + urllib.parse.urlencode({
-                "assortment": "IE",
-                "locale": "en_IE",
-                "q": identifier,
-                "version": "2.1.1",
-            })
-        )
-        if not isinstance(redirect, dict):
-            raise RuntimeError("Lidl product lookup was not a JSON object")
-        path = redirect.get("redirectURL")
-        if not isinstance(path, str) or not path:
-            return {"items": []}
-        html = self._request_text(self.base_url + path)
-        record = self._record_from_product_page(identifier, html)
-        return {"items": [record]} if record else {"items": []}
-
-    def _record_from_product_page(
-        self, product_id: str, html: str
-    ) -> dict[str, Any] | None:
-        """Extract one listing record from a Lidl product page."""
-        match = _LIDL_PDP_SCRIPT.search(html)
-        if match is None:
-            raise RuntimeError("Lidl product page has no embedded product data")
-        try:
-            elements = json.loads(match.group(1))
-        except ValueError as exc:
-            raise RuntimeError(f"Lidl product page data is invalid JSON: {exc}") from exc
-        if not isinstance(elements, list):
-            raise RuntimeError("Lidl product page data has an unexpected shape")
-        product: dict[str, Any] = {}
-        price_block: dict[str, Any] | None = None
-        for element in elements:
-            if not isinstance(element, dict):
-                continue
-            if "erpNumber" in element and not product:
-                candidate_id = _lidl_deref(
-                    elements, element.get("productId", element.get("erpNumber"))
-                )
-                if str(candidate_id or "") == product_id:
-                    product = {
-                        key: _lidl_deref(elements, element[key])
-                        for key in ("keyfacts", "canonicalPath", "multipack")
-                        if key in element
-                    }
-            if "specialTaxes" in element and "price" in element:
-                resolved = {
-                    key: _lidl_deref(elements, value) for key, value in element.items()
-                }
-                if not isinstance(resolved.get("price"), (int, float)):
-                    continue
-                if "startDate" not in element:
-                    # The plain block is the current price; dated blocks are
-                    # campaign windows and only serve as a fallback.
-                    price_block = resolved
-                    break
-                price_block = price_block or resolved
-        if not product or price_block is None:
-            return None
-        keyfacts_raw = product.get("keyfacts")
-        keyfacts: Mapping[str, Any] = keyfacts_raw if isinstance(keyfacts_raw, Mapping) else {}
-        name = keyfacts.get("fullTitle") or keyfacts.get("title") or ""
-        record = _lidl_price_record(price_block)
-        record["productId"] = str(product_id)
-        record["name"] = str(name)
-        if product.get("canonicalPath"):
-            record["url"] = product["canonicalPath"]
-        if product.get("multipack") is not None:
-            record["multipack"] = product["multipack"]
-        return record
-
-    def _throttle(self) -> None:
-        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
-        if delay:
-            time.sleep(delay)
-
-    def _request_json(self, url: str) -> Any:
-        return json.loads(self._request_text(url, accept=LIDL_SEARCH_ACCEPT))
-
-    def _request_text(self, url: str, *, accept: str = "text/html") -> str:
-        self._throttle()
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": accept, "User-Agent": "drinks-tracker/0.1"},
-        )
-        try:
-            with self.opener.open(request, timeout=30) as response:
-                if getattr(response, "status", 200) >= 400:
-                    raise source_http.status_error(
-                        "Lidl", getattr(response, "status", 200),
-                        source_http.response_retry_after(response),
-                    )
-                body = response.read()
-        except source_http.SourceHTTPError:
-            raise
-        except urllib.error.HTTPError as exc:
-            raise source_http.status_error(
-                "Lidl", exc.code, exc.headers.get("Retry-After")
-            ) from exc
-        except source_http.TRANSPORT_ERRORS as exc:
-            raise source_http.transport_error("Lidl", exc) from exc
-        except Exception as exc:
-            raise RuntimeError(f"Lidl request failed: {exc}") from exc
-        finally:
-            self._last_request_at = time.monotonic()
-        try:
-            return body.decode("utf-8")
-        except UnicodeDecodeError as exc:
-            raise RuntimeError(f"Lidl response was not UTF-8: {exc}") from exc
-
-
 def _find_lidl_listing(
     payload: Mapping[str, Any], mapping: LidlMapping
 ) -> dict[str, Any]:
@@ -2629,166 +2388,6 @@ def collect_lidl_one(
             )
         connection.commit()
     return summary | ({"error": error} if error else {})
-
-
-ALDI_SEARCH_ENDPOINT = "https://asl.api.aldi.ie/commerce/v3/product-search"
-ALDI_PRODUCT_ENDPOINT = "https://asl.api.aldi.ie/commerce/v2/products"
-ALDI_SEARCH_LIMIT = 30  # the API rejects page sizes outside {12,16,24,30,32,48,60}
-
-
-def _aldi_record(item: Mapping[str, Any]) -> dict[str, Any]:
-    """Normalize one Aldi product into a flat listing record.
-
-    Source prices are integer cents; the euro display strings are retained
-    instead so no float conversion is ever needed.  The bottle deposit is
-    only retained when the source reports a positive amount, because ``0``
-    means the listing carries no deposit rather than a zero deposit.
-    """
-    price = item.get("price")
-    price = price if isinstance(price, Mapping) else {}
-    record: dict[str, Any] = {
-        "productId": str(item.get("sku") or ""),
-        "name": str(item.get("name") or ""),
-    }
-    if item.get("brandName"):
-        record["brand"] = item["brandName"]
-    if price.get("amountRelevantDisplay") is not None:
-        record["price"] = price["amountRelevantDisplay"]
-    elif price.get("amount") is not None:
-        record["price"] = "€{}".format(_decimal_text(Decimal(str(price["amount"])) / 100))
-    if price.get("wasPriceDisplay"):
-        record["oldPrice"] = price["wasPriceDisplay"]
-    if price.get("comparisonDisplay"):
-        record["unitPriceText"] = price["comparisonDisplay"]
-    if item.get("sellingSize") is not None:
-        # sellingSize is the total selling size (e.g. "1.98 L" for a 6-pack),
-        # so it feeds the total-volume evidence, not the unit-size evidence.
-        record["totalVolume"] = item["sellingSize"]
-    if price.get("bottleDeposit"):
-        record["bottleDepositText"] = (
-            price.get("bottleDepositDisplay")
-            or "€{}".format(_decimal_text(Decimal(str(price["bottleDeposit"])) / 100))
-        )
-    return record
-
-
-class AldiClient:
-    """Fetch Aldi Ireland grocery search results and product details.
-
-    Source limitations (validated against live responses): the storefront
-    pages at ``groceries.aldi.ie`` block non-browser clients (HTTP 403), but
-    the underlying ``asl.api.aldi.ie`` JSON endpoints answer directly.  Each
-    search returns one page of at most ``ALDI_SEARCH_LIMIT`` items and the
-    client does not paginate further.  No loyalty price is exposed by this
-    source, so ``clubcard_price`` stays ``None``.
-    """
-
-    def __init__(
-        self,
-        search_endpoint: str = ALDI_SEARCH_ENDPOINT,
-        product_endpoint: str = ALDI_PRODUCT_ENDPOINT,
-        opener: urllib.request.OpenerDirector | None = None,
-        min_request_interval: float = 1.0,
-    ):
-        if min_request_interval < 0:
-            raise ValueError("Aldi request interval must not be negative")
-        self.search_endpoint = search_endpoint
-        self.product_endpoint = product_endpoint
-        self.opener = opener or urllib.request.build_opener()
-        self.min_request_interval = min_request_interval
-        self._last_request_at: float | None = None
-
-    def __call__(self, search_term: str) -> dict[str, Any]:
-        """Search Aldi Ireland products."""
-        if not search_term.strip():
-            raise ValueError("Aldi search term must not be empty")
-        payload = self._request_json(
-            self.search_endpoint + "?" + urllib.parse.urlencode({
-                "currency": "EUR",
-                "serviceType": "walk-in",
-                "q": search_term,
-                "limit": str(ALDI_SEARCH_LIMIT),
-                "offset": "0",
-                "sort": "relevance",
-            })
-        )
-        if not isinstance(payload, dict):
-            raise RuntimeError("Aldi search response was not a JSON object")
-        items = payload.get("data")
-        if not isinstance(items, list):
-            raise RuntimeError("Aldi search response has no data list")
-        meta_raw = payload.get("meta")
-        meta: Mapping[str, Any] = meta_raw if isinstance(meta_raw, Mapping) else {}
-        pagination_raw = meta.get("pagination")
-        pagination: Mapping[str, Any] = (
-            pagination_raw if isinstance(pagination_raw, Mapping) else {}
-        )
-        return {
-            "items": [_aldi_record(item) for item in items if isinstance(item, Mapping)],
-            "pagination": {
-                "total": pagination.get("totalCount"),
-                "offset": pagination.get("offset", 0),
-            },
-        }
-
-    def fetch_product(self, product_id: str) -> dict[str, Any]:
-        """Fetch one Aldi product by its numeric SKU."""
-        identifier = str(product_id).strip()
-        if not identifier:
-            raise ValueError("Aldi product_id must not be empty")
-        payload = self._request_json(
-            self.product_endpoint + "?" + urllib.parse.urlencode({
-                "serviceType": "walk-in",
-                "skus": identifier,
-                "limit": str(ALDI_SEARCH_LIMIT),
-            })
-        )
-        if not isinstance(payload, dict):
-            raise RuntimeError("Aldi product response was not a JSON object")
-        items = payload.get("data")
-        records = [
-            _aldi_record(item)
-            for item in (items if isinstance(items, list) else [])
-            if isinstance(item, Mapping)
-        ]
-        matching = [r for r in records if r["productId"] == identifier]
-        return {"items": matching}
-
-    def _throttle(self) -> None:
-        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
-        if delay:
-            time.sleep(delay)
-
-    def _request_json(self, url: str) -> Any:
-        self._throttle()
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": "application/json", "User-Agent": "drinks-tracker/0.1"},
-        )
-        try:
-            with self.opener.open(request, timeout=30) as response:
-                if getattr(response, "status", 200) >= 400:
-                    raise source_http.status_error(
-                        "Aldi", getattr(response, "status", 200),
-                        source_http.response_retry_after(response),
-                    )
-                body = response.read()
-        except source_http.SourceHTTPError:
-            raise
-        except urllib.error.HTTPError as exc:
-            raise source_http.status_error(
-                "Aldi", exc.code, exc.headers.get("Retry-After")
-            ) from exc
-        except source_http.TRANSPORT_ERRORS as exc:
-            raise source_http.transport_error("Aldi", exc) from exc
-        except Exception as exc:
-            raise RuntimeError(f"Aldi request failed: {exc}") from exc
-        finally:
-            self._last_request_at = time.monotonic()
-        try:
-            return json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise RuntimeError(f"Aldi response was not valid JSON: {exc}") from exc
 
 
 def _find_aldi_listing(
@@ -3855,15 +3454,17 @@ def main(argv: list[str] | None = None) -> int:
                 adapters[retailer] = TescoClient()
             elif retailer == "lidl":
                 # Collection runs use the focused Lidl IE client from
-                # lidl.py (ticket 09); same fetcher contract as the inline
-                # stub above, plus the detail endpoint and title pack parsing.
+                # lidl.py (ticket 09); same fetcher contract as the
+                # discovery client in lidl.py, plus the detail endpoint and
+                # title pack parsing.
                 from .lidl import LidlClient as WorkingLidlClient
 
                 adapters[retailer] = WorkingLidlClient()
             elif retailer == "aldi":
                 # Collection runs use the focused Aldi Glue client from
-                # aldi.py (ticket 10); same fetcher contract as the inline
-                # stub above, plus servicePoint and sellingSize pack parsing.
+                # aldi.py (ticket 10); same fetcher contract as the
+                # discovery client in aldi.py, plus servicePoint and
+                # sellingSize pack parsing.
                 from .aldi import AldiClient as WorkingAldiClient
 
                 adapters[retailer] = WorkingAldiClient()

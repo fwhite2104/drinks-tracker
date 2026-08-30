@@ -1,3 +1,5 @@
+from .aldi import AldiClient
+from .lidl import LidlClient
 from .discovery import (
     DiscoveryStore,
     ensure_discovery_schema,
@@ -39,12 +41,10 @@ from .canary import (
 )
 from .collector import (
     SCHEMA_VERSION,
-    AldiClient,
     AldiMapping,
     BenchmarkPack,
     DunnesClient,
     DunnesMapping,
-    LidlClient,
     LidlMapping,
     SuperValuClient,
     SuperValuMapping,

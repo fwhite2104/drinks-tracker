@@ -32,10 +32,14 @@ from __future__ import annotations
 import json
 import re
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
 from typing import Any, Mapping
+
+from . import source_http
+from .money import euro_display
 
 LIDL_API_BASE = "https://www.lidl.ie"
 LIDL_SEARCH_ENDPOINT = LIDL_API_BASE + "/q/api/search"
@@ -104,7 +108,7 @@ def parse_title_pack(text: Any) -> tuple[int, int] | None:
 
 def _euro_price_display(value: Any) -> str:
     """Render a euro amount from the source (a JSON float) as a display string."""
-    return "€{}".format(Decimal(str(value)).quantize(Decimal("0.01"), ROUND_HALF_UP))
+    return euro_display(Decimal(str(value)))
 
 
 def _lidl_record(
@@ -274,3 +278,255 @@ class LidlClient:
             return json.loads(body.decode("utf-8"))
         except (UnicodeDecodeError, ValueError) as exc:
             raise RuntimeError(f"Lidl response was not valid JSON: {exc}") from exc
+
+
+# ---------------------------------------------------------------------------
+# Discovery-pipeline client (relocated verbatim from the inline stub in
+# collector.py).  Collection runs use ``LidlClient`` above; the discovery
+# adapters (``discovery_adapters.LidlDiscoveryAdapter``) still drive search +
+# product-page hydration through this first-generation client, whose behavior
+# is preserved unchanged.  ``collector`` re-exports it as ``LidlClient`` for
+# the existing ``from .collector import LidlClient`` importers.
+# ---------------------------------------------------------------------------
+
+_LIDL_PDP_SCRIPT = re.compile(
+    r'<script type="application/json" data-nuxt-data="pdp-view"[^>]*>(.*?)</script>',
+    re.S,
+)
+
+
+def _lidl_price_record(price: Mapping[str, Any] | None) -> dict[str, Any]:
+    """Flatten one Lidl price block into retained source-evidence fields."""
+    price = price if isinstance(price, Mapping) else {}
+    record: dict[str, Any] = {"specialTaxes": price.get("specialTaxes") or []}
+    base_price = price.get("basePrice")
+    if isinstance(base_price, Mapping) and base_price.get("text") is not None:
+        record["basePriceText"] = base_price["text"]
+    if price.get("price") is not None:
+        record["price"] = price["price"]
+    if price.get("oldPrice"):
+        record["oldPrice"] = price["oldPrice"]
+    packaging = price.get("packaging")
+    if isinstance(packaging, Mapping) and packaging.get("text") is not None:
+        record["packSize"] = packaging["text"]
+    return record
+
+
+def _lidl_search_record(item: Mapping[str, Any]) -> dict[str, Any]:
+    """Normalize one search gridbox item into a flat listing record."""
+    gridbox = item.get("gridbox")
+    data = gridbox.get("data") if isinstance(gridbox, Mapping) else {}
+    if not isinstance(data, Mapping):
+        data = {}
+    keyfacts_raw = data.get("keyfacts")
+    keyfacts: Mapping[str, Any] = keyfacts_raw if isinstance(keyfacts_raw, Mapping) else {}
+    name = (
+        data.get("fullTitle") or keyfacts.get("fullTitle")
+        or data.get("title") or keyfacts.get("title") or ""
+    )
+    product_id = data.get("productId") or data.get("erpNumber") or item.get("code") or ""
+    record = _lidl_price_record(data.get("price"))
+    record["productId"] = str(product_id)
+    record["name"] = str(name)
+    if data.get("canonicalPath"):
+        record["url"] = data["canonicalPath"]
+    if data.get("multipack") is not None:
+        record["multipack"] = data["multipack"]
+    return record
+
+
+def _lidl_deref(elements: list[Any], index: Any, depth: int = 0) -> Any:
+    """Resolve one Nuxt ``__NUXT_DATA__`` reference against the payload array."""
+    if not isinstance(index, int) or depth > 50:
+        return index
+    if index < 0 or index >= len(elements):
+        return index
+    value = elements[index]
+    if isinstance(value, dict):
+        return {key: _lidl_deref(elements, item, depth + 1) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_lidl_deref(elements, item, depth + 1) for item in value]
+    return value
+
+
+class LidlDiscoveryClient:
+    """Fetch Lidl Ireland search results and product pages.
+
+    Source limitations (validated against live responses): the documented
+    ``/p/api`` endpoints return 404; the working search API is
+    ``/q/api/search`` and requires ``Accept: application/mindshift.search+json``.
+    Each search returns one page of up to ``fetchsize`` items; the client does
+    not paginate beyond the first page.  Lidl Plus loyalty prices are not
+    exposed by this source, so ``clubcard_price`` stays ``None``.
+    """
+
+    def __init__(
+        self,
+        endpoint: str = LIDL_SEARCH_ENDPOINT,
+        base_url: str = LIDL_API_BASE,
+        opener: urllib.request.OpenerDirector | None = None,
+        min_request_interval: float = 1.0,
+    ):
+        if min_request_interval < 0:
+            raise ValueError("Lidl request interval must not be negative")
+        self.endpoint = endpoint
+        self.base_url = base_url.rstrip("/")
+        self.opener = opener or urllib.request.build_opener()
+        self.min_request_interval = min_request_interval
+        self._last_request_at: float | None = None
+
+    def __call__(self, search_term: str) -> dict[str, Any]:
+        """Search Lidl Ireland products."""
+        if not search_term.strip():
+            raise ValueError("Lidl search term must not be empty")
+        payload = self._request_json(
+            self.endpoint + "?" + urllib.parse.urlencode({
+                "assortment": "IE",
+                "locale": "en_IE",
+                "q": search_term,
+                "version": "2.1.1",
+                "fetchsize": "100",
+            })
+        )
+        if not isinstance(payload, dict):
+            raise RuntimeError("Lidl search response was not a JSON object")
+        items = payload.get("items")
+        if items is None and payload.get("resultType") in {"empty", "redirect"}:
+            # Observed live: empty and redirect results carry no items list.
+            items = []
+        if not isinstance(items, list):
+            raise RuntimeError("Lidl search response has no items list")
+        records = [
+            _lidl_search_record(item)
+            for item in items
+            if isinstance(item, Mapping)
+        ]
+        total: Any = payload.get("numFound")
+        if total is None and payload.get("resultType") == "empty":
+            total = 0  # an empty result set is a complete result set
+        return {
+            "items": records,
+            "pagination": {"total": total, "offset": payload.get("offset", 0)},
+        }
+
+    def fetch_product(self, product_id: str) -> dict[str, Any]:
+        """Fetch one Lidl product where supported.
+
+        Lidl has no JSON product endpoint.  The product ID resolves through
+        the search API's redirect to a server-rendered product page whose
+        embedded Nuxt data carries the same price evidence.  Returns
+        ``{"items": []}`` when the ID does not resolve to that product's
+        own page.
+        """
+        identifier = str(product_id).strip()
+        if not identifier:
+            raise ValueError("Lidl product_id must not be empty")
+        redirect = self._request_json(
+            self.endpoint + "?" + urllib.parse.urlencode({
+                "assortment": "IE",
+                "locale": "en_IE",
+                "q": identifier,
+                "version": "2.1.1",
+            })
+        )
+        if not isinstance(redirect, dict):
+            raise RuntimeError("Lidl product lookup was not a JSON object")
+        path = redirect.get("redirectURL")
+        if not isinstance(path, str) or not path:
+            return {"items": []}
+        html = self._request_text(self.base_url + path)
+        record = self._record_from_product_page(identifier, html)
+        return {"items": [record]} if record else {"items": []}
+
+    def _record_from_product_page(
+        self, product_id: str, html: str
+    ) -> dict[str, Any] | None:
+        """Extract one listing record from a Lidl product page."""
+        match = _LIDL_PDP_SCRIPT.search(html)
+        if match is None:
+            raise RuntimeError("Lidl product page has no embedded product data")
+        try:
+            elements = json.loads(match.group(1))
+        except ValueError as exc:
+            raise RuntimeError(f"Lidl product page data is invalid JSON: {exc}") from exc
+        if not isinstance(elements, list):
+            raise RuntimeError("Lidl product page data has an unexpected shape")
+        product: dict[str, Any] = {}
+        price_block: dict[str, Any] | None = None
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            if "erpNumber" in element and not product:
+                candidate_id = _lidl_deref(
+                    elements, element.get("productId", element.get("erpNumber"))
+                )
+                if str(candidate_id or "") == product_id:
+                    product = {
+                        key: _lidl_deref(elements, element[key])
+                        for key in ("keyfacts", "canonicalPath", "multipack")
+                        if key in element
+                    }
+            if "specialTaxes" in element and "price" in element:
+                resolved = {
+                    key: _lidl_deref(elements, value) for key, value in element.items()
+                }
+                if not isinstance(resolved.get("price"), (int, float)):
+                    continue
+                if "startDate" not in element:
+                    # The plain block is the current price; dated blocks are
+                    # campaign windows and only serve as a fallback.
+                    price_block = resolved
+                    break
+                price_block = price_block or resolved
+        if not product or price_block is None:
+            return None
+        keyfacts_raw = product.get("keyfacts")
+        keyfacts: Mapping[str, Any] = keyfacts_raw if isinstance(keyfacts_raw, Mapping) else {}
+        name = keyfacts.get("fullTitle") or keyfacts.get("title") or ""
+        record = _lidl_price_record(price_block)
+        record["productId"] = str(product_id)
+        record["name"] = str(name)
+        if product.get("canonicalPath"):
+            record["url"] = product["canonicalPath"]
+        if product.get("multipack") is not None:
+            record["multipack"] = product["multipack"]
+        return record
+
+    def _throttle(self) -> None:
+        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
+
+    def _request_json(self, url: str) -> Any:
+        return json.loads(self._request_text(url, accept=LIDL_SEARCH_ACCEPT))
+
+    def _request_text(self, url: str, *, accept: str = "text/html") -> str:
+        self._throttle()
+        request = urllib.request.Request(
+            url,
+            headers={"Accept": accept, "User-Agent": "drinks-tracker/0.1"},
+        )
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                if getattr(response, "status", 200) >= 400:
+                    raise source_http.status_error(
+                        "Lidl", getattr(response, "status", 200),
+                        source_http.response_retry_after(response),
+                    )
+                body = response.read()
+        except source_http.SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise source_http.status_error(
+                "Lidl", exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except source_http.TRANSPORT_ERRORS as exc:
+            raise source_http.transport_error("Lidl", exc) from exc
+        except Exception as exc:
+            raise RuntimeError(f"Lidl request failed: {exc}") from exc
+        finally:
+            self._last_request_at = time.monotonic()
+        try:
+            return body.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RuntimeError(f"Lidl response was not UTF-8: {exc}") from exc
