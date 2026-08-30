@@ -1,0 +1,100 @@
+# Term-expansion re-discovery pass for Tesco, inside GitHub Actions egress.
+#
+# Tesco discovery searches run only from CI cloud IPs (same Akamai IP-block
+# reasoning as collect.yml, ticket 11). The other retailers (dunnes,
+# supervalu, lidl, aldi) rediscover on any operator machine or the VM —
+# `discovery --rediscover`'s default retailer set excludes Tesco precisely
+# so it never leaves the egress environment. Operator-triggered ONLY:
+# workflow_dispatch with no schedule and no push/PR triggers, so it never
+# runs alongside the test suite.
+#
+# The CI SQLite is disposable; what ships is the `rediscovery-db` artifact
+# (the seeded database plus this pass's searches, decisions, and re-run
+# classification). A partial run (failures, request-cap exhaustion) is still
+# truthful evidence and is uploaded too. A fresh CI database has no
+# discovery state, so targets come up empty — seed it from a release
+# snapshot (see README, "Term-expansion rediscovery").
+# See .scratch/full-feed-coverage/issues/14-term-expansion-rediscovery.md
+name: rediscover-tesco
+
+on:
+  workflow_dispatch:
+    inputs:
+      list_only:
+        description: 'Preview only: upload the target-cell JSON and skip the rediscovery pass (zero retailer requests)'
+        required: false
+        default: false
+        type: boolean
+      max_formulations:
+        description: 'Maximum alternate search formulations per cell (--max-formulations)'
+        required: false
+        default: 4
+        type: number
+      request_cap:
+        description: 'Per-retailer outbound request cap for this run (--request-cap)'
+        required: false
+        default: 200
+        type: number
+      state_release_tag:
+        description: 'Optional release tag holding a feed.sqlite asset to seed the CI database (empty = fresh, stateless DB)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  rediscover-tesco:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install collection dependencies
+        run: python -m pip install -e '.[impersonation]'
+      - name: Optionally seed the CI database from a release snapshot
+        if: ${{ inputs.state_release_tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.state_release_tag }}
+        run: |
+          gh release download "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" --pattern 'feed.sqlite' \
+            --output data/ci-discovery.sqlite
+      - name: Preview rediscovery targets (zero retailer requests)
+        run: |
+          python -m beverage_feed discovery \
+            --list-targets --retailer tesco \
+            --database data/ci-discovery.sqlite > rediscovery-targets.json
+      - name: Run the Tesco rediscovery pass
+        id: rediscover
+        if: ${{ inputs.list_only != true }}
+        continue-on-error: true
+        env:
+          TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
+          MAX_FORMULATIONS: ${{ inputs.max_formulations }}
+          REQUEST_CAP: ${{ inputs.request_cap }}
+        run: |
+          python -m beverage_feed discovery \
+            --rediscover --retailer tesco \
+            --max-formulations "$MAX_FORMULATIONS" \
+            --request-cap "$REQUEST_CAP" \
+            --database data/ci-discovery.sqlite
+      - name: Upload the rediscovery database (also on failure — partial evidence is truthful)
+        if: ${{ !cancelled() && steps.rediscover.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rediscovery-db
+          path: data/ci-discovery.sqlite
+          retention-days: 7
+          if-no-files-found: error
+      - name: Upload the target preview
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rediscovery-targets
+          path: rediscovery-targets.json
+          retention-days: 7
+          if-no-files-found: error

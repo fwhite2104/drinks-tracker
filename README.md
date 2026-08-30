@@ -228,6 +228,30 @@ IP-blocked this network in August 2026. Consequences:
 - Before trusting a batch, run the live canary (see "Live canary & release
   gate" above) — manually, or from the manual-only `canary` workflow.
 
+### Term-expansion rediscovery
+
+Thin/Class-D catalog cells get a second discovery pass with alternate search
+formulations (ticket 14). Where each retailer's pass runs:
+
+- **Dunnes, SuperValu, Lidl, Aldi**: any machine with `data/feed.sqlite` —
+  the VM or an operator laptop (`python -m beverage_feed discovery
+  --rediscover`; its default retailer set excludes Tesco). No CI workflow,
+  by design.
+- **Tesco**: only through CI egress, via the manual-only
+  `rediscover-tesco` workflow (`.github/workflows/rediscover-tesco.yml`).
+  Dispatch from the Actions tab; inputs are `list_only` (upload the
+  target-cell JSON and stop — zero retailer requests), `max_formulations`
+  (default 4), `request_cap` (default 200), and `state_release_tag`. The CI
+  database is fresh and stateless, so with no seed the target preview comes
+  up empty: to rediscover the VM's thin cells, first attach the VM's
+  `data/feed.sqlite` as a release asset (`gh release create <tag>
+  data/feed.sqlite`) and pass the tag as `state_release_tag`. Artifacts:
+  `rediscovery-targets` (always) and `rediscovery-db` (when the pass ran —
+  the seeded DB plus this pass's searches, decisions, and re-classification).
+  Discovery tables have no batch ingest; to keep the evidence, download
+  `rediscovery-db` and swap it in as the VM's `data/feed.sqlite` (stop the
+  stack, replace, `make up`).
+
 `make up` rebuilds the images first. That is deliberate: containers run code
 copied at build time, so restarting without rebuilding silently executes stale
 code (this once kept the pack-alias fix out of live runs). After changing
