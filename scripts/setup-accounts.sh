@@ -3,9 +3,14 @@
 # .scratch/mobile-app/issues/15-human-setup-accounts-and-domain.md
 # (spec §7 items 3–4, §2 distribution decisions).
 #
-# Walks the operator through four account/domain steps, validating each value
+# Walks the operator through the account/domain steps, validating each value
 # as it is captured, and writes the results atomically to .env.local-accounts
 # (mode 600, git-ignored — NEVER commit real values).
+#
+# Immediate steps: domain, Expo account (free).
+# DEFERRED steps: Apple Developer Program + Google Play Console — per the
+# 2026-08-30 decision, store accounts wait until the app-code phase is done.
+# Pass --with-store to run them now.
 #
 # Idempotent: values already present in .env.local-accounts are shown and the
 # step is skipped. Delete the file to re-run everything.
@@ -119,7 +124,7 @@ step_domain() {
   skip_if_set DOMAIN "Step 1 · Domain" && return 0
   cat <<'EOF'
 
-━━━ Step 1 / 4 · Domain purchase (Cloudflare Registrar, ~€10/yr) ━━━━━━━━━━━━
+━━━ Step 1 / 2 · Domain purchase (Cloudflare Registrar, ~€10/yr) ━━━━━━━━━━━━
 Buy a domain and keep it on Cloudflare DNS (required for ticket 10's tunnel:
 the cloudflared DNS route creates api.<domain> directly, no third-party DNS).
 Picking something short and cheap is fine — e.g. <yourname>.ie/.dev/.app.
@@ -133,13 +138,15 @@ EOF
 }
 
 step_apple() {
-  skip_if_set APPLE_TEAM_ID "Step 2 · Apple Developer Team ID" && return 0
+  skip_if_set APPLE_TEAM_ID "Deferred step · Apple Developer Team ID" && return 0
   cat <<'EOF'
 
-━━━ Step 2 / 4 · Apple Developer Program ($99/yr) ━━━━━━━━━━━━━━━━━━━━━━━━━━
-⚠ Enrollment involves a multi-day review/approval lead time — start it NOW:
-  it sits on the critical path for every iOS build (tickets 11–14 and 16
-  all need a signing team before a TestFlight build can exist).
+━━━ Deferred step · Apple Developer Program ($99/yr) ━━━━━━━━━━━━━━━━━━━━━━━
+⚠ DEFERRED by decision (2026-08-30): store accounts wait until the app-code
+  phase is complete. Only run this now if that phase is genuinely done or
+  you are ~2 weeks from wanting a TestFlight build — enrollment involves a
+  multi-day review lead time, and iOS signing needs the Team ID before a
+  TestFlight build can exist (ticket 16).
 Once enrolled, find your Team ID: developer.apple.com/account → Membership
 details (a 10-character alphanumeric code).
 EOF
@@ -150,10 +157,13 @@ EOF
 }
 
 step_google() {
-  skip_if_set ANDROID_PACKAGE "Step 3 · Google Play / Android package" && return 0
+  skip_if_set ANDROID_PACKAGE "Deferred step · Google Play / Android package" && return 0
   cat <<'EOF'
 
-━━━ Step 3 / 4 · Google Play Console ($25 one-time) ━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ Deferred step · Google Play Console ($25 one-time) ━━━━━━━━━━━━━━━━━━━━━
+⚠ DEFERRED by decision (2026-08-30): run only when the app-code phase is
+  done and you are ready to put a build on the internal testing track
+  (ticket 16).
 Register the developer account, then reserve your app's Android package
 name. Convention: reverse-DNS of something you own, all lowercase, e.g.
   ie.<yourname>.drinkstracker
@@ -166,10 +176,10 @@ EOF
 }
 
 step_expo() {
-  skip_if_set EXPO_USERNAME "Step 4 · Expo account" && return 0
+  skip_if_set EXPO_USERNAME "Step 2 / 2 · Expo account" && return 0
   cat <<'EOF'
 
-━━━ Step 4 / 4 · Expo account (free) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+━━━ Step 2 / 2 · Expo account (free) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Create a free Expo account. Afterwards, inside mobile/ run:
   eas login            # with this account
   eas build:init       # one-time EAS project setup
@@ -225,32 +235,41 @@ summary() {
 ━━━ Summary ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Written to $OUT_FILE (mode 600, git-ignored — NEVER commit):
   CLOUDFLARE_DOMAIN  = $DOMAIN
-  APPLE_TEAM_ID      = $APPLE_TEAM_ID
-  ANDROID_PACKAGE    = $ANDROID_PACKAGE
   EXPO_USERNAME      = $EXPO_USERNAME
+  APPLE_TEAM_ID      = ${APPLE_TEAM_ID:-<deferred>}
+  ANDROID_PACKAGE    = ${ANDROID_PACKAGE:-<deferred>}
 
 Unblocks, in order:
-  • Ticket 15 → 16: all four values collected; ticket 16 can wire
-    android.package into mobile/app.json and the real values into eas.json.
   • Ticket 10 (Cloudflare deployment): deploy/README.md §3 + config.yml use
     api.$DOMAIN — the tunnel DNS route and Access apps need it.
-  • Tickets 11–14 (production criteria): eas login as $EXPO_USERNAME,
-    eas build:init, then one real EAS build with APPLE_TEAM_ID signing and
-    ANDROID_PACKAGE on the Android side.
+  • Tickets 11–14 (dev/LAN + EAS iteration): eas login as $EXPO_USERNAME,
+    then eas build:init inside mobile/.
+  • DEFERRED — store distribution (ticket 16) needs APPLE_TEAM_ID and
+    ANDROID_PACKAGE; empty above means not yet run. Re-run with
+    --with-store when the app-code phase is complete (2026-08-30 decision).
 EOF
 }
 
 main() {
+  local STORE_ACCOUNTS=0
+  [[ "${1:-}" == "--with-store" ]] && STORE_ACCOUNTS=1
   cat <<'EOF'
 Drinks Tracker — account & domain setup wizard (ticket 15)
 ==========================================================
-Four human-only steps: domain, Apple, Google Play, Expo.
+Immediate steps: domain, Expo account (free).
+Deferred steps (pass --with-store to run now): Apple Developer,
+Google Play — store accounts wait until the app-code phase is done
+(2026-08-30 decision).
 Each step shows what to do and offers to open the right URL.
 EOF
   load_saved
 
   local missing=0
-  [[ -z "$DOMAIN" || -z "$APPLE_TEAM_ID" || -z "$ANDROID_PACKAGE" || -z "$EXPO_USERNAME" ]] && missing=1
+  if (( STORE_ACCOUNTS )); then
+    [[ -z "$DOMAIN" || -z "$APPLE_TEAM_ID" || -z "$ANDROID_PACKAGE" || -z "$EXPO_USERNAME" ]] && missing=1
+  else
+    [[ -z "$DOMAIN" || -z "$EXPO_USERNAME" ]] && missing=1
+  fi
 
   if (( missing )) && ! [[ -t 0 ]]; then
     die "stdin is not a terminal and some steps are incomplete — run me interactively; nothing was written"
@@ -261,9 +280,15 @@ EOF
   fi
 
   step_domain
-  step_apple
-  step_google
   step_expo
+  if (( STORE_ACCOUNTS )); then
+    step_apple
+    step_google
+  else
+    printf '\n[defer] Apple Developer + Google Play steps skipped — store\n'
+    printf 'accounts wait until the app-code phase is done (2026-08-30 decision).\n'
+    printf 'Re-run with --with-store when ready.\n'
+  fi
   write_results
   summary
 }
