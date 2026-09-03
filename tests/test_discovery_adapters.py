@@ -43,7 +43,7 @@ class DiscoveryAdapterTests(unittest.TestCase):
         self.assertEqual(listing.price.status, "valid")
         self.assertTrue(adapter.supports("composite"))
         self.assertFalse(adapter.supports("item"))
-        self.assertEqual(result.request_counts["search"], 1)
+        self.assertEqual(result.request_counts["search"], 2)
 
     def test_dunnes_reports_explicitly_truncated_results(self):
         adapter = DunnesDiscoveryAdapter(lambda _: {
@@ -274,13 +274,13 @@ class DunnesAliasInclusiveSearchTests(unittest.TestCase):
 
         result = DunnesDiscoveryAdapter(client).search(self.ALIASED_PACK)
 
-        self.assertEqual(calls, ["Coca-Cola Original Taste 330ml Can", "Coke Original"])
+        self.assertEqual(calls, ["Coca-Cola Original Taste 330ml Can", "Coke Original", "Coca-Cola"])
         self.assertEqual(
             sorted(listing.source_identity for listing in result.listings),
             ["100298009:100298009", "100298010:100298010"],
         )
-        self.assertEqual(result.request_counts["search"], 2)
-        self.assertEqual(adapter_budget(DunnesDiscoveryAdapter), 3)
+        self.assertEqual(result.request_counts["search"], 3)
+        self.assertEqual(adapter_budget(DunnesDiscoveryAdapter), 4)
 
     def test_duplicate_terms_issue_one_request(self):
         # The catalog's Diet packs use "Diet Coke" as both term and alias.
@@ -303,8 +303,8 @@ class DunnesAliasInclusiveSearchTests(unittest.TestCase):
 
         result = DunnesDiscoveryAdapter(client).search(pack)
 
-        self.assertEqual(calls, ["Diet Coke"])
-        self.assertEqual(result.request_counts["search"], 1)
+        self.assertEqual(calls, ["Diet Coke", "Coca-Cola"])
+        self.assertEqual(result.request_counts["search"], 2)
         self.assertEqual([l.source_identity for l in result.listings], ["100298012:100298012"])
 
     def test_merged_completeness_is_the_conservative_conjunction(self):
@@ -367,4 +367,5 @@ class CategoryScopeTests(unittest.TestCase):
 
         DunnesDiscoveryAdapter(ScopedClient()).search(PACK)
 
-        self.assertEqual(calls, [PACK.search_term])
+        # PACK's search_term and brand are both unique terms (brand-backed search).
+        self.assertEqual(calls, [PACK.search_term, PACK.brand])

@@ -496,10 +496,11 @@ class DiscoveryAdapter:
 
 class DunnesDiscoveryAdapter(DiscoveryAdapter):
     retailer = "dunnes"
-    # Alias-inclusive search: the gateway returns different result sets per
-    # phrasing, so each cell searches its search_term and curated aliases —
-    # one request per unique term. Catalog packs carry at most two aliases.
-    max_requests_per_search = 3
+    # Alias-inclusive, brand-backed search: the gateway returns different result
+    # sets per phrasing and full pack names often return zero, so each cell
+    # searches its search_term, curated aliases, and bare brand — one request
+    # per unique term. Catalog packs carry at most two aliases.
+    max_requests_per_search = 4
     capabilities = CapabilityContract({
         "composite": Capability("composite", True, "search + mapped item collection", "tested productReference:itemId collection path"),
     })
@@ -512,10 +513,16 @@ class DunnesDiscoveryAdapter(DiscoveryAdapter):
 
     @staticmethod
     def _search_terms(pack: BenchmarkPack) -> list[str]:
-        """The cell's search_term plus curated aliases, unique, in order."""
+        """The cell's search_term plus curated aliases and brand, unique, in order.
+
+        The gateway's relevance is exact-substring: full pack names often return
+        zero results ("Coca-Cola Original Taste 1.5L Bottle" -> []), while the
+        bare brand ("Coca-Cola") returns the whole range. Searching the brand
+        guarantees the range is surfaced; per-listing review filters variants.
+        """
         terms: list[str] = []
         seen: set[str] = set()
-        for term in (pack.search_term, *pack.aliases):
+        for term in (pack.search_term, *pack.aliases, pack.brand):
             stripped = term.strip()
             key = stripped.lower()
             if stripped and key not in seen:
