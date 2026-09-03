@@ -1,7 +1,7 @@
 # Choose the scheduler for multi-site collection
 
 Type: grilling
-Status: claimed
+Status: resolved
 Blocked by: 01, 02, 03
 
 ## Question
@@ -49,3 +49,21 @@ Draft implementation slice for the automation ticket (08): convert `collect.yml`
 2. **Where do alerts land?** GitHub failure emails only? Or a real channel — ntfy/Telegram/Slack/Uptime-Kuma — and does the VM-side staleness watchdog ("freshest Tesco observation > 12h old") page the same place? This is the one piece that doesn't exist at all today.
 3. **What freshness does each retailer actually need?** Same 4h cadence for all five, or e.g. Tesco 4h / Lidl+Aldi daily? (Lidl's thin online Drinks category may not reward 4-hourly polling, and fewer runs is also cheaper on Akamai's radar.)
 4. **Formal close-out of the n8n pick**: happy for me to annotate the data-collection-stack map + ticket 06 as superseded-by-06-here, and archive `.scratch/data-collection-stack/prototype-n8n/`?
+
+### 2026-08-30 — Feilim's rulings (agent)
+
+1. **Repo is public** → GitHub Actions minutes effectively unlimited; no
+   cadence economizing needed.
+2. **Cadence: each retailer scraped once daily** (Feilim's explicit choice,
+   simpler than per-retailer tiers).
+3. **n8n: formally closed out** — superseded by this ticket's CI pick; keep the
+   prototype in mind as a future tool (annotated in data-collection-stack map;
+   prototype dir retained, not archived/deleted).
+4. **Alerts: NONE (hobby project).** Feilim doesn't want notification spam.
+   No alerting/watchdog will be built. Freshness and run status are checked
+   passively via the operator dashboard / feed staleness when Feilim looks.
+   GitHub's default failure emails land in the repo owner's inbox anyway and
+   can be ignored or filtered — nothing further to set up.
+
+Resolved: GH Actions scheduler, public repo, daily cadence, no alerting,
+n8n closed.
