@@ -1,5 +1,384 @@
 {
-  "cells": [],
+  "cells": [
+    {
+      "catalog_id": "7up-free-330",
+      "cell": "7up-free-330",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (only Zero Sugar variants; no 7UP Free)",
+      "rejected_at": "2026-09-03T21:20:04Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "arizona-green-tea-500",
+      "cell": "arizona-green-tea-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Arizona candidates in list)",
+      "rejected_at": "2026-09-03T21:20:04Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "ballygowan-sport-750",
+      "cell": "ballygowan-sport-750",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Sport 750ml absent; plain Still differs)",
+      "rejected_at": "2026-09-03T21:20:04Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "boost-500",
+      "cell": "boost-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Boost energy candidates)",
+      "rejected_at": "2026-09-03T21:20:04Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "cawston-apple-1l",
+      "cell": "cawston-apple-1l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Cawston Press candidates)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "cawston-elderflower-1l",
+      "cell": "cawston-elderflower-1l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Cawston Press candidates)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "cawston-rhubarb-1l",
+      "cell": "cawston-rhubarb-1l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Cawston Press candidates)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (only 1.75L bottles and cans; no 2L)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Diet Coke 1.5L present)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Diet Coke only in 1/4/12/24 packs)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-original-330-6",
+      "cell": "coca-original-330-6",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Original Taste only in 1/4/12/24 packs)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Zero Sugar only in 0.33-2L, no 1.5L)",
+      "rejected_at": "2026-09-03T21:20:05Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Zero Sugar only in 1/4/12/24 packs)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "dr-pepper-330",
+      "cell": "dr-pepper-330",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Dr Pepper candidates)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "evian-1l",
+      "cell": "evian-1l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Evian only 1.5L and 6x500ml)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "evian-500",
+      "cell": "evian-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no single 500ml Evian bottle)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Fanta Orange only 1.75L; no 1.5L)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "fever-tree-ginger-500",
+      "cell": "fever-tree-ginger-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (only Ginger Beer 500ml and 4x200ml Ginger Ale stocked)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "gatorade-orange-500",
+      "cell": "gatorade-orange-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Gatorade in candidate range)",
+      "rejected_at": "2026-09-03T21:20:06Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (only flavoured kids smoothies 4x150ml, no plain orange)",
+      "rejected_at": "2026-09-03T21:20:07Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-smoothie-750",
+      "cell": "innocent-smoothie-750",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no plain berry smoothie; only flavoured/vitamin variants)",
+      "rejected_at": "2026-09-03T21:20:07Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "kombucha-ginger-330",
+      "cell": "kombucha-ginger-330",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Karma Ginger Kombucha only stocked in 500ml)",
+      "rejected_at": "2026-09-03T21:20:07Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "lipton-lemon-1500",
+      "cell": "lipton-lemon-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Lipton Lemon only stocked in 500ml)",
+      "rejected_at": "2026-09-03T21:20:07Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "lipton-peach-1500",
+      "cell": "lipton-peach-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Lipton Peach only stocked in 500ml)",
+      "rejected_at": "2026-09-03T21:20:07Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "lucozade-sport-berry-500",
+      "cell": "lucozade-sport-berry-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (only Orange/Raspberry Sport 500ml, no Berry)",
+      "rejected_at": "2026-09-03T21:20:07Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-paradise-500",
+      "cell": "monster-paradise-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Ultra Paradise in candidate range)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-ultra-white-12",
+      "cell": "monster-ultra-white-12",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Ultra White product or 12-pack stocked)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-ultra-white-4",
+      "cell": "monster-ultra-white-4",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Ultra White product stocked)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-ultra-white-500",
+      "cell": "monster-ultra-white-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no Ultra White single can stocked)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Pepsi Max bottles only 500ml-2L, no 1.5L)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (cans stocked in 1,4,8,12,18 but no 6-pack)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-1500",
+      "cell": "pepsi-original-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (no original Pepsi 1.5L bottle stocked)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-24",
+      "cell": "pepsi-original-24",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Pepsi 24-pack absent; singles/4/8/12/18 stocked)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-6",
+      "cell": "pepsi-original-6",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Pepsi 6-pack absent; other sizes stocked)",
+      "rejected_at": "2026-09-03T21:20:08Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "powerade-mountain-500",
+      "cell": "powerade-mountain-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Only Berry & Tropical Powerade stocked, no Mountain Blast)",
+      "rejected_at": "2026-09-03T21:20:09Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "ribena-blackcurrant-1l",
+      "cell": "ribena-blackcurrant-1l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Ribena blackcurrant only in 850/500/250ml, no 1L)",
+      "rejected_at": "2026-09-03T21:20:09Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "ribena-blackcurrant-500",
+      "cell": "ribena-blackcurrant-500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (500ml is No Added Sugar variant, not plain)",
+      "rejected_at": "2026-09-03T21:20:09Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "schweppes-lemonade-1l",
+      "cell": "schweppes-lemonade-1l",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (No Schweppes Lemonade among Schweppes range)",
+      "rejected_at": "2026-09-03T21:20:09Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-grapefruit-900",
+      "cell": "tropicana-grapefruit-900",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Pink grapefruit only 850ml, no 900ml)",
+      "rejected_at": "2026-09-03T21:20:10Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Only Smooth/with Bits variants, no Pure Premium)",
+      "rejected_at": "2026-09-03T21:20:10Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Only Smooth/with Bits variants, no Pure Premium)",
+      "rejected_at": "2026-09-03T21:20:10Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "volvic-touch-lemon-1500",
+      "cell": "volvic-touch-lemon-1500",
+      "decided_by": "operator",
+      "reason": "agent-range-sprint: not stocked at dunnes (Only Lemon & Lime variant, no plain Lemon)",
+      "rejected_at": "2026-09-03T21:20:10Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    }
+  ],
   "listings": [
     {
       "canonical_key": "dunnes:100298009:100298009",
@@ -9,7 +388,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:26Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298033:100298033",
@@ -19,7 +399,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:26Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298040:100298040",
@@ -29,7 +410,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:26Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298435:100298435",
@@ -39,7 +421,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:26Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298438:100298438",
@@ -49,7 +432,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:26Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335269:100335269",
@@ -59,7 +443,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:26Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4830968:289192",
@@ -69,7 +454,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4830972:289195",
@@ -79,7 +465,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5415166:182264",
@@ -89,7 +476,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270920:235543",
@@ -99,7 +487,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270920LIAC:283743",
@@ -109,7 +498,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270921LIAC:283422",
@@ -119,7 +509,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270922PURP:283744",
@@ -129,7 +520,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270923:246326",
@@ -139,7 +531,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270923PURP:283423",
@@ -149,7 +542,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270924:254424",
@@ -159,7 +553,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6342106:209034",
@@ -169,7 +564,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6342108:216500",
@@ -179,7 +575,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:27Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655163:237870",
@@ -189,7 +586,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655163:237872",
@@ -199,7 +597,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655163:237873",
@@ -209,7 +608,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655646:75105",
@@ -219,7 +619,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655657:272109",
@@ -229,7 +630,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655658:273682",
@@ -239,7 +641,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655660:272108",
@@ -249,7 +652,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7813129:45414",
@@ -259,7 +663,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818157:171694",
@@ -269,7 +674,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818157:171695",
@@ -279,7 +685,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818164:45435",
@@ -289,7 +696,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818164:45438",
@@ -299,7 +707,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818174:154701",
@@ -309,7 +718,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:28Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818174:154702",
@@ -319,7 +729,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818174:154703",
@@ -329,7 +740,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818189:169279",
@@ -339,7 +751,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818189:169280",
@@ -349,7 +762,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818190:162021",
@@ -359,7 +773,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818207:243994",
@@ -369,7 +784,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818207:256302",
@@ -379,7 +795,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818208:250965",
@@ -389,7 +806,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818208:250967",
@@ -399,7 +817,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818209:238790",
@@ -409,7 +828,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818209:238791",
@@ -419,7 +839,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818210:248994",
@@ -429,7 +850,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:29Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5415166:182264",
@@ -439,7 +861,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270920:235543",
@@ -449,7 +872,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270920LIAC:283743",
@@ -459,7 +883,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270921LIAC:283422",
@@ -469,7 +894,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270922PURP:283744",
@@ -479,7 +905,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270923:246326",
@@ -489,7 +916,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270923PURP:283423",
@@ -499,7 +927,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6270924:254424",
@@ -509,7 +938,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6342106:209034",
@@ -519,7 +949,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:6342108:216500",
@@ -529,7 +960,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655163:237870",
@@ -539,7 +971,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655163:237872",
@@ -549,7 +982,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655163:237873",
@@ -559,7 +993,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:30Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655646:75105",
@@ -569,7 +1004,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655657:272109",
@@ -579,7 +1015,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655658:273682",
@@ -589,7 +1026,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7655660:272108",
@@ -599,7 +1037,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7813129:45414",
@@ -609,7 +1048,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818157:171694",
@@ -619,7 +1059,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818157:171695",
@@ -629,7 +1070,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818164:45435",
@@ -639,7 +1081,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818164:45438",
@@ -649,7 +1092,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818174:154701",
@@ -659,7 +1103,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818174:154702",
@@ -669,7 +1114,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818174:154703",
@@ -679,7 +1125,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:31Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818189:169279",
@@ -689,7 +1136,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818189:169280",
@@ -699,7 +1147,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818190:162021",
@@ -709,7 +1158,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818207:243994",
@@ -719,7 +1169,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818207:256302",
@@ -729,7 +1180,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818208:250965",
@@ -739,7 +1191,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818208:250967",
@@ -749,7 +1202,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818209:238790",
@@ -759,7 +1213,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818209:238791",
@@ -769,7 +1224,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7818210:248994",
@@ -779,7 +1235,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7836108:75308",
@@ -789,7 +1246,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7837500:45607",
@@ -799,7 +1257,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7837500:45610",
@@ -809,7 +1268,8 @@
       "reason": "agent-sprint: non-beverage or wrong item entirely",
       "rejected_at": "2026-09-03T20:26:32Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298009:100298009",
@@ -819,7 +1279,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298033:100298033",
@@ -829,7 +1290,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298040:100298040",
@@ -839,7 +1301,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298435:100298435",
@@ -849,7 +1312,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298438:100298438",
@@ -859,7 +1323,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335269:100335269",
@@ -869,7 +1334,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100340883:100340883",
@@ -879,7 +1345,8 @@
       "reason": "agent-sprint: wrong pack count or format, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298028:100298028",
@@ -889,7 +1356,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298036:100298036",
@@ -899,7 +1367,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298064:100298064",
@@ -909,7 +1378,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298298:100298298",
@@ -919,7 +1389,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:33Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298364:100298364",
@@ -929,7 +1400,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321851:100321851",
@@ -939,7 +1411,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321852:100321852",
@@ -949,7 +1422,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335273:100335273",
@@ -959,7 +1433,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339228:100339228",
@@ -969,7 +1444,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339232:100339232",
@@ -979,7 +1455,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339577:100339577",
@@ -989,7 +1466,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8492",
@@ -999,7 +1477,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8496",
@@ -1009,7 +1488,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8499",
@@ -1019,7 +1499,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8503",
@@ -1029,7 +1510,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8508",
@@ -1039,7 +1521,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8513",
@@ -1049,7 +1532,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:34Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553138:8516",
@@ -1059,7 +1543,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198343",
@@ -1069,7 +1554,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198347",
@@ -1079,7 +1565,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198350",
@@ -1089,7 +1576,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198352",
@@ -1099,7 +1587,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198355",
@@ -1109,7 +1598,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198358",
@@ -1119,7 +1609,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553184:198361",
@@ -1129,7 +1620,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233532",
@@ -1139,7 +1631,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233535",
@@ -1149,7 +1642,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233538",
@@ -1159,7 +1653,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233541",
@@ -1169,7 +1664,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:35Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233544",
@@ -1179,7 +1675,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233549",
@@ -1189,7 +1686,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553186:233555",
@@ -1199,7 +1697,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233540",
@@ -1209,7 +1708,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233542",
@@ -1219,7 +1719,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233545",
@@ -1229,7 +1730,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233550",
@@ -1239,7 +1741,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233556",
@@ -1249,7 +1752,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233561",
@@ -1259,7 +1763,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553187:233566",
@@ -1269,7 +1774,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233543",
@@ -1279,7 +1785,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233546",
@@ -1289,7 +1796,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:36Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233552",
@@ -1299,7 +1807,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233557",
@@ -1309,7 +1818,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233562",
@@ -1319,7 +1829,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233567",
@@ -1329,7 +1840,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553188:233571",
@@ -1339,7 +1851,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233547",
@@ -1349,7 +1862,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233553",
@@ -1359,7 +1873,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233559",
@@ -1369,7 +1884,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233564",
@@ -1379,7 +1895,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233570",
@@ -1389,7 +1906,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233575",
@@ -1399,7 +1917,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553189:233579",
@@ -1409,7 +1928,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233590",
@@ -1419,7 +1939,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:37Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233595",
@@ -1429,7 +1950,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233601",
@@ -1439,7 +1961,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233606",
@@ -1449,7 +1972,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233611",
@@ -1459,7 +1983,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233616",
@@ -1469,7 +1994,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553196:233620",
@@ -1479,7 +2005,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233596",
@@ -1489,7 +2016,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233602",
@@ -1499,7 +2027,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233607",
@@ -1509,7 +2038,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233612",
@@ -1519,7 +2049,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233617",
@@ -1529,7 +2060,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233621",
@@ -1539,7 +2071,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:38Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553197:233624",
@@ -1549,7 +2082,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233615",
@@ -1559,7 +2093,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233619",
@@ -1569,7 +2104,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233623",
@@ -1579,7 +2115,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233627",
@@ -1589,7 +2126,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233630",
@@ -1599,7 +2137,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233633",
@@ -1609,7 +2148,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553198:233638",
@@ -1619,7 +2159,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233622",
@@ -1629,7 +2170,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233626",
@@ -1639,7 +2181,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233628",
@@ -1649,7 +2192,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233632",
@@ -1659,7 +2203,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233637",
@@ -1669,7 +2214,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:39Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233641",
@@ -1679,7 +2225,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553199:233645",
@@ -1689,7 +2236,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244342",
@@ -1699,7 +2247,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244347",
@@ -1709,7 +2258,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244355",
@@ -1719,7 +2269,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244360",
@@ -1729,7 +2280,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244365",
@@ -1739,7 +2291,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244369",
@@ -1749,7 +2302,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553204:244373",
@@ -1759,7 +2313,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255849",
@@ -1769,7 +2324,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255851",
@@ -1779,7 +2335,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255853",
@@ -1789,7 +2346,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:40Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255855",
@@ -1799,7 +2357,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255857",
@@ -1809,7 +2368,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255860",
@@ -1819,7 +2379,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553214:255863",
@@ -1829,7 +2390,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255867",
@@ -1839,7 +2401,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255871",
@@ -1849,7 +2412,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255876",
@@ -1859,7 +2423,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255882",
@@ -1869,7 +2434,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255888",
@@ -1879,7 +2445,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255893",
@@ -1889,7 +2456,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553219:255898",
@@ -1899,7 +2467,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255869",
@@ -1909,7 +2478,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:41Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255873",
@@ -1919,7 +2489,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255879",
@@ -1929,7 +2500,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255884",
@@ -1939,7 +2511,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255890",
@@ -1949,7 +2522,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255895",
@@ -1959,7 +2533,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553220:255899",
@@ -1969,7 +2544,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255875",
@@ -1979,7 +2555,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255881",
@@ -1989,7 +2566,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255887",
@@ -1999,7 +2577,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255892",
@@ -2009,7 +2588,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255897",
@@ -2019,7 +2599,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255901",
@@ -2029,7 +2610,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:42Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:1553221:255903",
@@ -2039,7 +2621,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:2054256:205380",
@@ -2049,7 +2632,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:3582200:183349",
@@ -2059,7 +2643,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:3582200:217674",
@@ -2069,7 +2654,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:191558",
@@ -2079,7 +2665,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:191559",
@@ -2089,7 +2676,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:191560",
@@ -2099,7 +2687,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:191561",
@@ -2109,7 +2698,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:191562",
@@ -2119,7 +2709,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:191563",
@@ -2129,7 +2720,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:195632",
@@ -2139,7 +2731,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523159:251727",
@@ -2149,7 +2742,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:43Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523160ORAN:282078",
@@ -2159,7 +2753,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523160ORAN:282083",
@@ -2169,7 +2764,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523160ORAN:282087",
@@ -2179,7 +2775,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523160ORAN:282090",
@@ -2189,7 +2786,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4523160ORAN:282093",
@@ -2199,7 +2797,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206809",
@@ -2209,7 +2808,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206812",
@@ -2219,7 +2819,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206814",
@@ -2229,7 +2830,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206816",
@@ -2239,7 +2841,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206817",
@@ -2249,7 +2852,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206818",
@@ -2259,7 +2863,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206820",
@@ -2269,7 +2874,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:44Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187:206822",
@@ -2279,7 +2885,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240822",
@@ -2289,7 +2896,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240823",
@@ -2299,7 +2907,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240824",
@@ -2309,7 +2918,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240825",
@@ -2319,7 +2929,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240827",
@@ -2329,7 +2940,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240829",
@@ -2339,7 +2951,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240831",
@@ -2349,7 +2962,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187KHAK:240833",
@@ -2359,7 +2973,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240826",
@@ -2369,7 +2984,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240828",
@@ -2379,7 +2995,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240830",
@@ -2389,7 +3006,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:45Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240832",
@@ -2399,7 +3017,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240834",
@@ -2409,7 +3028,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240835",
@@ -2419,7 +3039,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240836",
@@ -2429,7 +3050,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187ORAN:240839",
@@ -2439,7 +3061,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242611",
@@ -2449,7 +3072,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242612",
@@ -2459,7 +3083,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242613",
@@ -2469,7 +3094,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242614",
@@ -2479,7 +3105,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242615",
@@ -2489,7 +3116,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242616",
@@ -2499,7 +3127,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187PURP:242617",
@@ -2509,7 +3138,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:46Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242618",
@@ -2519,7 +3149,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242619",
@@ -2529,7 +3160,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242620",
@@ -2539,7 +3171,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242621",
@@ -2549,7 +3182,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242622",
@@ -2559,7 +3193,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242623",
@@ -2569,7 +3204,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242624",
@@ -2579,7 +3215,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RED:242625",
@@ -2589,7 +3226,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240837",
@@ -2599,7 +3237,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240840",
@@ -2609,7 +3248,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240842",
@@ -2619,7 +3259,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240844",
@@ -2629,7 +3270,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240846",
@@ -2639,7 +3281,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:47Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240848",
@@ -2649,7 +3292,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240850",
@@ -2659,7 +3303,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187RYBU:240852",
@@ -2669,7 +3314,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240838",
@@ -2679,7 +3325,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240841",
@@ -2689,7 +3336,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240843",
@@ -2699,7 +3347,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240845",
@@ -2709,7 +3358,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240847",
@@ -2719,7 +3369,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240849",
@@ -2729,7 +3380,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240851",
@@ -2739,7 +3391,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4524187TURQ:240853",
@@ -2749,7 +3402,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151598",
@@ -2759,7 +3413,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151600",
@@ -2769,7 +3424,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151601",
@@ -2779,7 +3435,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151603",
@@ -2789,7 +3446,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151604",
@@ -2799,7 +3457,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151606",
@@ -2809,7 +3468,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:4965457:151607",
@@ -2819,7 +3479,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5099010000624:5099010000624",
@@ -2829,7 +3490,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241924",
@@ -2839,7 +3501,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241925",
@@ -2849,7 +3512,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241926",
@@ -2859,7 +3523,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241927",
@@ -2869,7 +3534,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241928",
@@ -2879,7 +3545,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241929",
@@ -2889,7 +3556,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241930",
@@ -2899,7 +3567,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241931",
@@ -2909,7 +3578,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5201315:241932",
@@ -2919,7 +3589,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5420120:32348",
@@ -2929,7 +3600,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7432399:218115",
@@ -2939,7 +3611,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:7432399:218117",
@@ -2949,7 +3622,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:211360",
@@ -2959,7 +3633,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:211363",
@@ -2969,7 +3644,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:211366",
@@ -2979,7 +3655,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:50Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:211369",
@@ -2989,7 +3666,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:211372",
@@ -2999,7 +3677,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:211374",
@@ -3009,7 +3688,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:216317",
@@ -3019,7 +3699,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:216318",
@@ -3029,7 +3710,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:216319",
@@ -3039,7 +3721,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:216320",
@@ -3049,7 +3732,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:216321",
@@ -3059,7 +3743,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620996:216322",
@@ -3069,7 +3754,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620997:204314",
@@ -3079,7 +3765,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620997:204315",
@@ -3089,7 +3776,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620997:204316",
@@ -3099,7 +3787,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:51Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620997:204317",
@@ -3109,7 +3798,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620997:204318",
@@ -3119,7 +3809,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9620997:204319",
@@ -3129,7 +3820,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9622998:219122",
@@ -3139,7 +3831,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9622998:219124",
@@ -3149,7 +3842,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9622998:219125",
@@ -3159,7 +3853,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:9622998:219126",
@@ -3169,7 +3864,8 @@
       "reason": "agent-sprint: wrong size, multipack, or non-beverage",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298012:100298012",
@@ -3179,7 +3875,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298036:100298036",
@@ -3189,7 +3886,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298064:100298064",
@@ -3199,7 +3897,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298298:100298298",
@@ -3209,7 +3908,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:52Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298364:100298364",
@@ -3219,7 +3919,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321851:100321851",
@@ -3229,7 +3930,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321852:100321852",
@@ -3239,7 +3941,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335273:100335273",
@@ -3249,7 +3952,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339228:100339228",
@@ -3259,7 +3963,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339232:100339232",
@@ -3269,7 +3974,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339577:100339577",
@@ -3279,7 +3985,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5099010000624:5099010000624",
@@ -3289,7 +3996,8 @@
       "reason": "agent-sprint: wrong category",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298012:100298012",
@@ -3299,7 +4007,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298028:100298028",
@@ -3309,7 +4018,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298064:100298064",
@@ -3319,7 +4029,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:53Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298298:100298298",
@@ -3329,7 +4040,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298364:100298364",
@@ -3339,7 +4051,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321851:100321851",
@@ -3349,7 +4062,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321852:100321852",
@@ -3359,7 +4073,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335273:100335273",
@@ -3369,7 +4084,8 @@
       "reason": "agent-sprint: wrong size or multipack",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339228:100339228",
@@ -3379,7 +4095,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339232:100339232",
@@ -3389,7 +4106,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339577:100339577",
@@ -3399,7 +4117,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5099010000624:5099010000624",
@@ -3409,7 +4128,8 @@
       "reason": "agent-sprint: wrong category",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298012:100298012",
@@ -3419,7 +4139,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298028:100298028",
@@ -3429,7 +4150,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:54Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298036:100298036",
@@ -3439,7 +4161,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298064:100298064",
@@ -3449,7 +4172,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298298:100298298",
@@ -3459,7 +4183,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298364:100298364",
@@ -3469,7 +4194,8 @@
       "reason": "agent-sprint: 8-pack but 150ml mini cans not 330ml",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321851:100321851",
@@ -3479,7 +4205,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100321852:100321852",
@@ -3489,7 +4216,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335273:100335273",
@@ -3499,7 +4227,8 @@
       "reason": "agent-sprint: no 8x330ml Diet Coke multipack among candidates",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339228:100339228",
@@ -3509,7 +4238,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339232:100339232",
@@ -3519,7 +4249,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100339577:100339577",
@@ -3529,7 +4260,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:5099010000624:5099010000624",
@@ -3539,7 +4271,8 @@
       "reason": "agent-sprint: wrong category",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297880:100297880",
@@ -3549,7 +4282,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:55Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298010:100298010",
@@ -3559,7 +4293,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298027:100298027",
@@ -3569,7 +4304,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298062:100298062",
@@ -3579,7 +4315,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298282:100298282",
@@ -3589,7 +4326,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298285:100298285",
@@ -3599,7 +4337,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298297:100298297",
@@ -3609,7 +4348,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298300:100298300",
@@ -3619,7 +4359,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298302:100298302",
@@ -3629,7 +4370,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298321:100298321",
@@ -3639,7 +4381,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298365:100298365",
@@ -3649,7 +4392,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100335270:100335270",
@@ -3659,7 +4403,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100338792:100338792",
@@ -3669,7 +4414,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:56Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100340886:100340886",
@@ -3679,7 +4425,8 @@
       "reason": "agent-sprint: wrong pack count or unit size, need 8x330ml",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297924:100297924",
@@ -3689,7 +4436,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297930:100297930",
@@ -3699,7 +4447,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298324:100298324",
@@ -3709,7 +4458,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298345:100298345",
@@ -3719,7 +4469,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298346:100298346",
@@ -3729,7 +4480,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100318555:100318555",
@@ -3739,7 +4491,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100334949:100334949",
@@ -3749,7 +4502,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100334950:100334950",
@@ -3759,7 +4513,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297924:100297924",
@@ -3769,7 +4524,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:26:57Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298324:100298324",
@@ -3779,7 +4535,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298346:100298346",
@@ -3789,7 +4546,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100318555:100318555",
@@ -3799,7 +4557,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298326:100298326",
@@ -3809,7 +4568,8 @@
       "reason": "agent-sprint: multipack and/or wrong variant, need single original can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298334:100298334",
@@ -3819,7 +4579,8 @@
       "reason": "agent-sprint: multipack and/or wrong variant, need single original can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298359:100298359",
@@ -3829,7 +4590,8 @@
       "reason": "agent-sprint: multipack and/or wrong variant, need single original can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297882:100297882",
@@ -3839,7 +4601,8 @@
       "reason": "agent-sprint: multipack or Zero variant, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298041:100298041",
@@ -3849,7 +4612,8 @@
       "reason": "agent-sprint: multipack or Zero variant, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298067:100298067",
@@ -3859,7 +4623,8 @@
       "reason": "agent-sprint: multipack or Zero variant, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298328:100298328",
@@ -3869,7 +4634,8 @@
       "reason": "agent-sprint: multipack or Zero variant, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298342:100298342",
@@ -3879,7 +4645,8 @@
       "reason": "agent-sprint: multipack or Zero variant, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:48Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297925:100297925",
@@ -3889,7 +4656,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100297931:100297931",
@@ -3899,7 +4667,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298311:100298311",
@@ -3909,7 +4678,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298319:100298319",
@@ -3919,7 +4689,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298349:100298349",
@@ -3929,7 +4700,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100298357:100298357",
@@ -3939,7 +4711,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100316541:100316541",
@@ -3949,7 +4722,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100318548:100318548",
@@ -3959,7 +4733,8 @@
       "reason": "agent-sprint: multipack, need single 330ml can",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100318550:100318550",
@@ -3969,7 +4744,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "dunnes:100324574:100324574",
@@ -3979,7 +4755,8 @@
       "reason": "agent-sprint: wrong variant",
       "rejected_at": "2026-09-03T20:32:49Z",
       "retailer": "dunnes",
-      "state": "rejected"
+      "state": "superseded",
+      "superseded_at": "2026-09-03T21:00:46Z"
     },
     {
       "canonical_key": "lidl:10062229",

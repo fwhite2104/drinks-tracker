@@ -112,3 +112,25 @@ cron is still 4-hourly vs. the once-daily ruling (ff-06 implementation slice).
 - Fix: DunnesDiscoveryAdapter now searches brand + term + aliases
   (max_requests_per_search 3→4). Tests updated, 547 pass.
 - Honest exclusion noted: Dunnes does not stock Coca-Cola 1.5L (1L/2L only).
+
+### 2026-09-03 — capture pipeline rebuilt: dunnes end-to-end proof
+
+Session verdict (Feilim granted open mandate): fix product capture, agent
+may classify. Results:
+
+- Discovery now brand-range-first: brand-backed terms (earlier commit) +
+  gateway `total` passed through to the envelope, so dunnes completeness is
+  provable. 81 cells re-evaluated locally (299 requests, zero failures).
+- Gateway search is exact-substring: full pack names often return 0; bare
+  brand returns the whole clean range. Cell searches dedupe brand terms.
+- Agent range sprint (3 workers, 1215 candidate refs, 81 cells): 28
+  approves (spot-checked), 43 not_stocked exclusions, 7 uncertain, 2
+  conflicts — applied via review approve / do-not-map.
+- Collection had the same search-term bug: fetch by full pack name →
+  not_found for 21 mapped packs. Fixed with brand-term fallback after a
+  provably complete page; staleness guard now checks brand tokens only.
+- Local dunnes collection: 38/38 mapped packs observed, 0 failed.
+
+State: dunnes 38 approved / 42 exclusions / 10 inconclusive; overall 56
+approved. Remaining: supervalu/tesco/lidl/aldi same treatment (lid/aldi
+need CI egress or category-scoped search), 10 uncertain cells for Feilim.
