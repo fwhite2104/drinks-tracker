@@ -1,10 +1,8 @@
-# Term-expansion re-discovery pass for Tesco, inside GitHub Actions egress.
+# Term-expansion re-discovery pass, inside GitHub Actions egress.
 #
-# Tesco discovery searches run only from CI cloud IPs (same Akamai IP-block
-# reasoning as collect.yml, ticket 11). The other retailers (dunnes,
-# supervalu, lidl, aldi) rediscover on any operator machine or the VM —
-# `discovery --rediscover`'s default retailer set excludes Tesco precisely
-# so it never leaves the egress environment. Operator-triggered ONLY:
+# ALL discovery runs from CI cloud IPs (ticket 11 resolved Tesco egress;
+# Dunnes began 403-ing the home IP on 2026-08-30, so no retailer is safe
+# from home-IP reputation damage — see ff-07). Operator-triggered ONLY:
 # workflow_dispatch with no schedule and no push/PR triggers, so it never
 # runs alongside the test suite.
 #
@@ -14,12 +12,18 @@
 # truthful evidence and is uploaded too. A fresh CI database has no
 # discovery state, so targets come up empty — seed it from a release
 # snapshot (see README, "Term-expansion rediscovery").
-# See .scratch/full-feed-coverage/issues/14-term-expansion-rediscovery.md
-name: rediscover-tesco
+# See .scratch/full-feed-coverage/issues/07-coverage-grind.md
+name: rediscover
 
 on:
   workflow_dispatch:
     inputs:
+      retailer:
+        description: 'Retailer to rediscover'
+        required: true
+        default: 'tesco'
+        type: choice
+        options: [dunnes, supervalu, tesco, lidl, aldi]
       list_only:
         description: 'Preview only: upload the target-cell JSON and skip the rediscovery pass (zero retailer requests)'
         required: false
@@ -45,7 +49,7 @@ permissions:
   contents: read
 
 jobs:
-  rediscover-tesco:
+  rediscover:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,19 +70,20 @@ jobs:
       - name: Preview rediscovery targets (zero retailer requests)
         run: |
           python -m beverage_feed discovery \
-            --list-targets --retailer tesco \
+            --list-targets --retailer "${{ inputs.retailer }}" \
             --database data/ci-discovery.sqlite > rediscovery-targets.json
-      - name: Run the Tesco rediscovery pass
+      - name: Run the rediscovery pass
         id: rediscover
         if: ${{ inputs.list_only != true }}
         continue-on-error: true
         env:
           TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
+          SUPERVALU_STORE_ID: ${{ secrets.SUPERVALU_STORE_ID }}
           MAX_FORMULATIONS: ${{ inputs.max_formulations }}
           REQUEST_CAP: ${{ inputs.request_cap }}
         run: |
           python -m beverage_feed discovery \
-            --rediscover --retailer tesco \
+            --rediscover --retailer "${{ inputs.retailer }}" \
             --max-formulations "$MAX_FORMULATIONS" \
             --request-cap "$REQUEST_CAP" \
             --database data/ci-discovery.sqlite

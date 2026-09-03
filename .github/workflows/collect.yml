@@ -11,7 +11,7 @@ name: collect
 
 on:
   schedule:
-    - cron: '15 */4 * * *' # offset from the VM's pull cron
+    - cron: '15 4 * * *' # once daily (ff-06 ruling); VM pulls at :40
   workflow_dispatch: {} # manual trigger for the first run / retries
 
 permissions:
