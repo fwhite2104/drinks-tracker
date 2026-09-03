@@ -582,8 +582,11 @@ class DiscoveryStore:
         rejected_at = rejected_at or timestamp()
         canonical_key = candidate_id
         with closing(self.connection()) as connection:
+            # ponytail: OR IGNORE — canonical_key is the candidate identity, so a
+            # same-second re-reject (candidate in several cells) is a duplicate,
+            # not an error. Distinct-second rows still append as history.
             connection.execute(
-                "INSERT INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state) VALUES ('listings', ?, ?, ?, ?, ?, ?, ?)",
+                "INSERT OR IGNORE INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state) VALUES ('listings', ?, ?, ?, ?, ?, ?, ?)",
                 (canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state),
             )
             if state == "rejected":
@@ -603,7 +606,7 @@ class DiscoveryStore:
                 (retailer, weak_candidate_id, strong_candidate_id, rejected_at, reason),
             )
             connection.execute(
-                "INSERT INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state) VALUES ('listings', ?, ?, ?, ?, ?, ?, 'rejected')",
+                "INSERT OR IGNORE INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state) VALUES ('listings', ?, ?, ?, ?, ?, ?, 'rejected')",
                 (strong_candidate_id, retailer, catalog_id, rejected_at, decided_by, reason),
             )
             connection.execute(
@@ -758,7 +761,11 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                 cell = row.get("cell", row.get("catalog_id"))
                 key = row.get("canonical_key") or f"{row['retailer']}:{cell}"
                 connection.execute(
-                    "INSERT INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state, superseded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    # ponytail: OR IGNORE — the JSON file is the durable record and
+                    # may hold the same candidate rejected for several cells at the
+                    # same second; the PK (section, canonical_key, rejected_at)
+                    # collapses those. Reconciliation is idempotent by design.
+                    "INSERT OR IGNORE INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state, superseded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (section, key, row["retailer"], cell, row["rejected_at"], row["decided_by"], row.get("reason"), row["state"], row.get("superseded_at")),
                 )
                 if section == "listings" and row["state"] == "rejected":
