@@ -211,6 +211,7 @@ def apply_mapping_replacement(
         raise ValueError("no approved mapping to replace")
     candidate = store.validate_candidate_for_cell(
         candidate_id, retailer, catalog_id, require_evidence=True,
+        attach_if_unassociated=True,
     )
     if existing.get("candidate_id") == candidate_id:
         return {"status": "approved", "idempotent": True, "old": existing, "new": existing}

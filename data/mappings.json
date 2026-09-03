@@ -29,11 +29,6 @@
       "status": "approved"
     },
     {
-      "catalog_id": "coca-original-330-single",
-      "expected_product_name": "Coca-Cola Original Taste 330ml",
-      "status": "approved"
-    },
-    {
       "candidate_id": "dunnes:100298012:100298012",
       "catalog_id": "coca-diet-330-single",
       "decided_at": "2026-09-03T20:26:33Z",
@@ -493,6 +488,34 @@
       "matched_source_identity": "100298058:100298058",
       "source_item_id": "100298058",
       "source_product_reference": "100298058",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298009:100298009",
+      "catalog_id": "coca-original-330-single",
+      "decided_at": "2026-09-03T21:41:20Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-range-sprint: single 330ml can, multipacks excluded",
+      "expected_product_name": "Coca-Cola Original Taste 330ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298009:100298009",
+      "source_item_id": "100298009",
+      "source_product_reference": "100298009",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298017:100298017",
+      "catalog_id": "coca-original-500",
+      "decided_at": "2026-09-03T22:59:54Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "corrects agent-sprint rejection: exact brand/variant/size match, Coca-Cola Classic 500ml @ 2.55 agrees with tesco/supervalu observations",
+      "expected_product_name": "Coca-Cola Classic 500ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298017:100298017",
+      "source_item_id": "100298017",
+      "source_product_reference": "100298017",
       "status": "approved"
     }
   ],

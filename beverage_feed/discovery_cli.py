@@ -106,6 +106,7 @@ def approve(
     mappings = load_mappings(mapping_path)
     candidate = store.validate_candidate_for_cell(
         candidate_id, retailer, catalog_id, require_evidence=True,
+        attach_if_unassociated=True,
     )
     rejected = _rejected_listing_keys(
         load_rejections(rejection_path), retailer, catalog_id,

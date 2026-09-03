@@ -634,12 +634,18 @@ class DiscoveryStore:
         catalog_id: str,
         *,
         require_evidence: bool,
+        attach_if_unassociated: bool = False,
     ) -> dict[str, Any]:
         """Return the candidate row when it belongs to the requested cell.
 
         Raises ``ValueError`` when the candidate is unknown, belongs to another
         retailer, is not associated with the cell, or (when required) has no
         evidence for that cell.
+
+        With ``attach_if_unassociated`` (operator approve/replace), a canonical
+        candidate discovery never surfaced for this cell — e.g. one found only
+        under a sibling pack's search — is associated on the fly instead of
+        raising: the operator's choice outranks search provenance.
         """
         with closing(self.connection()) as connection:
             connection.row_factory = sqlite3.Row
@@ -660,10 +666,15 @@ class DiscoveryStore:
                 (candidate_id, retailer, catalog_id),
             ).fetchone()
             if associated is None:
-                raise ValueError(
-                    f"candidate {candidate_id} is not associated with {retailer}/{catalog_id}"
-                )
-            if require_evidence:
+                if attach_if_unassociated:
+                    self.associate_candidate(
+                        candidate_id, catalog_id, "operator decision", retailer=retailer,
+                    )
+                else:
+                    raise ValueError(
+                        f"candidate {candidate_id} is not associated with {retailer}/{catalog_id}"
+                    )
+            if require_evidence and not attach_if_unassociated:
                 evidence = connection.execute(
                     "SELECT 1 FROM discovery_candidate_evidence "
                     "WHERE candidate_id=? AND retailer=? AND catalog_id=? LIMIT 1",

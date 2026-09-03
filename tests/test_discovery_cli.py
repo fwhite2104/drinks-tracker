@@ -112,16 +112,29 @@ class ReviewCliTests(unittest.TestCase):
         self.assertEqual(len(load_mappings(self.mapping_path)["dunnes"]), 1)
 
     def test_decisions_require_the_candidate_to_belong_to_the_requested_cell(self):
-        with self.assertRaisesRegex(ValueError, "not associated"):
-            approve(
-                self.store, retailer="dunnes", catalog_id="pack-2",
-                candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
-                rejection_path=self.rejection_path, decided_by="alice",
-            )
+        # Approve may attach an unassociated candidate (operator override) —
+        # recorded as an "operator decision" association for the audit trail.
+        approve(
+            self.store, retailer="dunnes", catalog_id="pack-2",
+            candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+            rejection_path=self.rejection_path, decided_by="alice",
+        )
+        associated = self.store.connection().execute(
+            "SELECT search_terms FROM discovery_candidate_cells "
+            "WHERE candidate_id='dunnes:sku-1:item-1' AND catalog_id='pack-2'"
+        ).fetchone()
+        self.assertEqual(associated, ("[\"operator decision\"]",))
+        # Reject stays strict: rejecting a candidate never surfaced for the
+        # cell is a mistake, not a decision.
+        self.store.upsert_candidate(
+            "dunnes:sku-9:item-9", retailer="dunnes", identity_key="sku-9:item-9",
+            identity_basis="product_reference:item_id", identity_tier="composite",
+            source_product_name="Cola Zero 330ml Can",
+        )
         with self.assertRaisesRegex(ValueError, "not associated"):
             reject_listing(
                 self.store, retailer="dunnes", catalog_id="pack-2",
-                candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+                candidate_id="dunnes:sku-9:item-9", mapping_path=self.mapping_path,
                 rejection_path=self.rejection_path, decided_by="alice",
             )
 
@@ -139,14 +152,20 @@ class ReviewCliTests(unittest.TestCase):
                 rejection_path=self.rejection_path, decided_by="alice",
             )
 
-    def test_approve_requires_evidence_for_the_requested_cell(self):
+    def test_approve_overrides_missing_evidence_for_the_requested_cell(self):
+        # The operator may approve a candidate discovery never surfaced for
+        # this cell (no evidence) — e.g. it only ever appeared under a
+        # sibling pack's search. The decision outranks search provenance.
         self.store.associate_candidate("dunnes:sku-1:item-1", "pack-2", "Other Cola")
-        with self.assertRaisesRegex(ValueError, "no evidence"):
-            approve(
-                self.store, retailer="dunnes", catalog_id="pack-2",
-                candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
-                rejection_path=self.rejection_path, decided_by="alice",
-            )
+        result = approve(
+            self.store, retailer="dunnes", catalog_id="pack-2",
+            candidate_id="dunnes:sku-1:item-1", mapping_path=self.mapping_path,
+            rejection_path=self.rejection_path, decided_by="alice",
+        )
+        self.assertFalse(result["idempotent"])
+        self.assertEqual(
+            load_mappings(self.mapping_path)["dunnes"][0]["catalog_id"], "pack-2",
+        )
 
     def test_approve_resolves_competing_candidates_and_checks_retailer(self):
         self.store.associate_candidate("dunnes:sku-1:item-1", "pack-1", "Cola")
@@ -354,25 +373,21 @@ class ReviewCliTests(unittest.TestCase):
             inference_basis={"unit_size_ml": "name"}, attribute_diffs={},
             raw_price_value="1.20", price_parse_status="valid",
         )
-        with self.assertRaisesRegex(ValueError, "not associated"):
-            replace_mapping(
-                self.store, retailer="dunnes", catalog_id="pack-1",
-                candidate_id="dunnes:sku-3:item-3", mapping_path=self.mapping_path,
-                decided_by="bob", reason="wrong cell",
-            )
-        result = replace_mapping(
+        # Replace may pull any canonical candidate of the retailer, even one
+        # discovery never associated with this cell (operator override).
+        replace_mapping(
             self.store, retailer="dunnes", catalog_id="pack-1",
-            candidate_id="dunnes:sku-2:item-2", mapping_path=self.mapping_path,
-            decided_by="bob", reason="supplier relisted the pack",
+            candidate_id="dunnes:sku-3:item-3", mapping_path=self.mapping_path,
+            decided_by="bob", reason="wrong cell",
         )
         rows = load_mappings(self.mapping_path)["dunnes"]
         self.assertEqual(len(rows), 2)  # old mapping retained
         old, new = rows
         self.assertEqual(old["status"], "rejected")
-        self.assertEqual(old["superseded_by"], "dunnes:sku-2:item-2")
+        self.assertEqual(old["superseded_by"], "dunnes:sku-3:item-3")
         self.assertEqual(new["status"], "approved")
-        self.assertEqual(new["candidate_id"], "dunnes:sku-2:item-2")
-        self.assertEqual(result["old"]["matched_source_identity"], "sku-1:item-1")
+        self.assertEqual(new["candidate_id"], "dunnes:sku-3:item-3")
+        self.assertEqual(new["decision_reason"], "wrong cell")
 
         # JSON-first recovery: lose SQLite state, reconcile repairs it.
         with closing(self.store.connection()) as connection:
@@ -381,7 +396,7 @@ class ReviewCliTests(unittest.TestCase):
         reconcile_json_decisions(self.store.database, self.mapping_path, self.rejection_path)
         state = self.store.connection().execute(
             "SELECT state, candidate_id FROM discovery_cells").fetchone()
-        self.assertEqual(state, ("approved", "dunnes:sku-2:item-2"))
+        self.assertEqual(state, ("approved", "dunnes:sku-3:item-3"))
 
 
 class ChallengeListingTests(unittest.TestCase):
