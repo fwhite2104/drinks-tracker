@@ -1241,7 +1241,9 @@ class CollectionCommandTests(unittest.TestCase):
                 catalog_id=self.pack.catalog_id,
             )
 
-        self.assertEqual(calls, [("dunnes", self.pack.search_term)])
+        # The brand fallback fires when the full-name search page provably
+        # lacks the mapped item: two fetches, still a provable not_found.
+        self.assertEqual(calls, [("dunnes", self.pack.search_term), ("dunnes", "Coca-Cola")])
         self.assertEqual(summary["attempted_count"], 1)
         self.assertEqual(summary["not_found_count"], 1)
 
@@ -3320,8 +3322,9 @@ class ResilientSourceRequestTests(unittest.TestCase):
 
         # p1 fails, p2 succeeds (reset), p3+p4 fail (circuit opens), p5 skipped.
         # The generic payload is a not_found for the matrix packs, which is
-        # itself a non-error outcome that resets the breaker.
-        self.assertEqual(len(attempts), 4)
+        # itself a non-error outcome that resets the breaker. p2 also fires
+        # the brand-term fallback fetch after its provably complete page.
+        self.assertEqual(len(attempts), 5)
         self.assertEqual(summary["failed_count"], 4)
         self.assertEqual(
             statuses,
@@ -3375,8 +3378,9 @@ class ResilientSourceRequestTests(unittest.TestCase):
 
         # p1 fails; p2 is skipped while the circuit is open; p3 runs as the
         # half-open trial and completes without error (not_found), proving
-        # the breaker allowed and then reset the trial.
-        self.assertEqual(len(attempts), 2)
+        # the breaker allowed and then reset the trial. p3's lookup fires a
+        # brand-term fallback fetch after the provably complete page.
+        self.assertEqual(len(attempts), 3)
         self.assertEqual(summary["failed_count"], 2)
         skipped = [row for row in results if row[0] == "coke-zero-02"]
         self.assertIn("circuit open", skipped[0][2])

@@ -167,6 +167,7 @@ class DunnesClient:
         items = payload.get("items") if isinstance(payload, dict) else None
         if not isinstance(items, list):
             raise RuntimeError("Dunnes response has no items list")
+        raw_total = payload.get("total") if isinstance(payload, dict) else None
 
         products: list[dict[str, Any]] = []
         for item in items:
@@ -191,12 +192,13 @@ class DunnesClient:
             )
         return {
             "data": {"productSearch": {"products": products}},
-            # Completeness evidence: the raw gateway page plus the bounded
-            # page size requested. Fewer items than the page size proves the
-            # gateway exhausted its matches; a page at capacity may have
-            # been truncated, so absence from it must not be recorded as
-            # not_found.
+            # Completeness evidence: the gateway's own total (authoritative when
+            # present) plus the bounded page size requested. Fewer items than
+            # the page size proves the gateway exhausted its matches; a page at
+            # capacity may have been truncated, so absence from it must not be
+            # recorded as not_found.
             "items": items,
+            "total": raw_total if isinstance(raw_total, int) else len(items),
             "pagination": {"pageSize": DUNNES_PAGE_SIZE},
         }
 
@@ -479,11 +481,13 @@ def _validate_listing(name: str, pack: BenchmarkPack) -> str | None:
     or a short reason string when attributes have drifted.
     """
     name_tokens = _normalise_name(name)
-    # Validate only the core brand + variant tokens; unit-size tokens may
-    # normalise differently (e.g. "330ml" vs "330" + "ml"). Retailer titles
-    # may use a known pack alias instead (e.g. "Diet Coke" for a Coca-Cola
-    # Diet pack), mirroring matching.name_matches.
-    core = _normalise_name(pack.brand) | _normalise_name(pack.variant)
+    # Validate only the core brand tokens: the productReference identity was
+    # approved by review, so the guard's job is detecting the source reusing
+    # the reference for a different product line, not re-litigating variant
+    # phrasing ("Sugarfree" vs "Sugar Free", "Original" implied not stated).
+    # Retailer titles may use a known pack alias instead (e.g. "Diet Coke"
+    # for a Coca-Cola Diet pack), mirroring matching.name_matches.
+    core = _normalise_name(pack.brand)
     if not core or core.issubset(name_tokens):
         return None
     if any(
@@ -1075,7 +1079,18 @@ def collect_one(
         try:
             payload = fetcher(pack.search_term)
             complete = _page_completeness(payload)
-            product, item, offer = _find_listing(payload, mapping)
+            try:
+                product, item, offer = _find_listing(payload, mapping)
+            except LookupError:
+                # The gateway's relevance is exact-substring: full pack names
+                # often return zero results while the bare brand returns the
+                # whole range (which contains the mapped item). Retry once
+                # with the brand term before declaring absence.
+                if complete != "true":
+                    raise
+                payload = fetcher(pack.brand)
+                complete = _page_completeness(payload)
+                product, item, offer = _find_listing(payload, mapping)
             reason = _validate_listing(product.get("productName", ""), pack)
             if reason is not None:
                 status = "source_error"
