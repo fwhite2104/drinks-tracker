@@ -1,9 +1,9 @@
 [Desktop Entry]
 # Install: copy to ~/.local/share/applications/ and set Path= to this repo root.
-# Exec assumes .venv exists in Path= and run_dashboard.py is at the repo root.
+# Exec assumes .venv exists in Path= and the repo is at Path=.
 Name=Pourpoint Operator Dashboard
 Comment=Local read-only Admin Dashboard for the Irish beverage price feed
-Exec=sh -c 'exec .venv/bin/python run_dashboard.py'
+Exec=sh -c 'exec .venv/bin/python -m beverage_feed dashboard'
 Path=/path/to/drinks-tracker
 Icon=utilities-system-monitor
 Type=Application

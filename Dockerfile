@@ -8,15 +8,14 @@ RUN chmod +x /usr/local/bin/supercronic
 
 WORKDIR /app
 
-COPY pyproject.toml requirements-api.txt ./
+COPY pyproject.toml ./
 COPY beverage_feed ./beverage_feed
 COPY crontabs ./crontabs
 COPY data ./data
 COPY docker-entrypoint.sh ./
 
 # Editable install of the local package plus the read-only API dependencies.
-RUN pip install --no-cache-dir -e . \
-    && pip install --no-cache-dir -r requirements-api.txt \
+RUN pip install --no-cache-dir -e '.[api]' \
     && chmod +x /app/docker-entrypoint.sh
 
 ENV DRINKS_DATABASE=/data/feed.sqlite \

@@ -150,8 +150,6 @@ Includes a simple Consumer Feed Preview. Missing SQLite / empty runs show
 truthful empty states (no synthetic prices). Binds to `127.0.0.1:8765` only.
 
 ```sh
-.venv/bin/python run_dashboard.py
-# or:
 .venv/bin/python -m beverage_feed dashboard
 .venv/bin/python -m beverage_feed dashboard --no-browser   # agents/CI
 .venv/bin/python -m beverage_feed dashboard --port 8765
