@@ -41,8 +41,8 @@ class DiscoveryAdapterTests(unittest.TestCase):
         self.assertEqual(listing.attributes["pack_count"], 6)
         self.assertEqual(listing.attributes["total_volume_ml"], 1980)
         self.assertEqual(listing.price.status, "valid")
-        self.assertTrue(adapter.supports("composite"))
-        self.assertFalse(adapter.supports("item"))
+        self.assertTrue(adapter.capabilities.supports("composite"))
+        self.assertFalse(adapter.capabilities.supports("item"))
         self.assertEqual(result.request_counts["search"], 2)
 
     def test_dunnes_reports_explicitly_truncated_results(self):
@@ -88,7 +88,7 @@ class DiscoveryAdapterTests(unittest.TestCase):
         self.assertEqual(result.request_counts, {"bootstrap": 1, "hydration": 0, "pagination": 0, "search": 1})
         self.assertEqual(hydrated.request_counts["hydration"], 1)
         self.assertEqual(hydrated.listings[0].source_identity, "sv-6")
-        self.assertTrue(adapter.supports("product"))
+        self.assertTrue(adapter.capabilities.supports("product"))
         self.assertEqual(calls, [("search", PACK.search_term), ("hydrate", "sv-6")])
 
     def test_tesco_separates_search_and_hydration_batch_requests_and_uses_tpnb(self):
@@ -111,7 +111,7 @@ class DiscoveryAdapterTests(unittest.TestCase):
         self.assertEqual(result.request_events[1].batch_size, 2)
         self.assertEqual(result.request_events[1].kind, "hydration")
         self.assertEqual(hydrated.listings[0].identity_tier, "tpnb")
-        self.assertTrue(adapter.supports("tpnb"))
+        self.assertTrue(adapter.capabilities.supports("tpnb"))
 
     def test_normalization_retains_missing_and_conflicting_evidence(self):
         listing = normalize_listing("supervalu", {

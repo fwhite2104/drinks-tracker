@@ -487,12 +487,6 @@ class DiscoveryAdapter:
     def search(self, pack: BenchmarkPack) -> DiscoveryResult:
         raise NotImplementedError
 
-    def supports(self, identity_tier: str) -> bool:
-        return self.capabilities.supports(identity_tier)
-
-    def is_collectable(self, listing: NormalizedListing) -> bool:
-        return self.supports(listing.identity_tier)
-
 
 class DunnesDiscoveryAdapter(DiscoveryAdapter):
     retailer = "dunnes"

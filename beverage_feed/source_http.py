@@ -15,9 +15,11 @@ of this module.
 from __future__ import annotations
 
 import http.client
+import json
 import random
 import time
 import urllib.error
+import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
 from typing import Any
@@ -28,6 +30,7 @@ __all__ = [
     "RETRYABLE_STATUSES",
     "TRANSPORT_ERRORS",
     "CircuitBreaker",
+    "RetailerTransport",
     "SourceHTTPError",
     "backoff_delay",
     "failure_metadata",
@@ -180,6 +183,72 @@ def spacing_delay(
     if last_request_at is None:
         return 0.0
     return max(0.0, min_request_interval - (time.monotonic() - last_request_at))
+
+
+class RetailerTransport:
+    """Throttled urllib fetcher shared by the Aldi/Lidl retailer clients.
+
+    One throttle and one error-mapping path: HTTP >= 400 becomes
+    ``status_error`` (carrying Retry-After evidence), transport-level outages
+    become ``transport_error``, anything else degrades to a plain
+    ``RuntimeError``.
+    """
+
+    def __init__(
+        self,
+        retailer: str,
+        *,
+        opener: urllib.request.OpenerDirector | None = None,
+        min_request_interval: float = 1.0,
+    ) -> None:
+        if min_request_interval < 0:
+            raise ValueError(f"{retailer} request interval must not be negative")
+        self.retailer = retailer
+        self.opener = opener or urllib.request.build_opener()
+        self.min_request_interval = min_request_interval
+        self._last_request_at: float | None = None
+
+    def _throttle(self) -> None:
+        delay = spacing_delay(self._last_request_at, self.min_request_interval)
+        if delay:
+            time.sleep(delay)
+
+    def text(self, url: str, *, accept: str = "application/json") -> str:
+        self._throttle()
+        request = urllib.request.Request(
+            url,
+            headers={"Accept": accept, "User-Agent": "drinks-tracker/0.1"},
+        )
+        try:
+            with self.opener.open(request, timeout=30) as response:
+                if getattr(response, "status", 200) >= 400:
+                    raise status_error(
+                        self.retailer, getattr(response, "status", 200),
+                        response_retry_after(response),
+                    )
+                body = response.read()
+        except SourceHTTPError:
+            raise
+        except urllib.error.HTTPError as exc:
+            raise status_error(
+                self.retailer, exc.code, exc.headers.get("Retry-After")
+            ) from exc
+        except TRANSPORT_ERRORS as exc:
+            raise transport_error(self.retailer, exc) from exc
+        except Exception as exc:
+            raise RuntimeError(f"{self.retailer} request failed: {exc}") from exc
+        finally:
+            self._last_request_at = time.monotonic()
+        try:
+            return body.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise RuntimeError(f"{self.retailer} response was not UTF-8: {exc}") from exc
+
+    def json(self, url: str, *, accept: str = "application/json") -> Any:
+        try:
+            return json.loads(self.text(url, accept=accept))
+        except ValueError as exc:
+            raise RuntimeError(f"{self.retailer} response was not valid JSON: {exc}") from exc
 
 
 class CircuitBreaker:

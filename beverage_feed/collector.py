@@ -434,6 +434,11 @@ def _normalise_name(value: str) -> set[str]:
     return set(re.findall(r"[a-z0-9]+", value.lower().replace("-", " ")))
 
 
+def _name_matches(expected_tokens: set[str], name: str) -> bool:
+    """Every expected catalog token appears in the normalised source name."""
+    return expected_tokens.issubset(_normalise_name(name))
+
+
 def _find_listing(
     payload: Mapping[str, Any], mapping: DunnesMapping
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
@@ -453,7 +458,7 @@ def _find_listing(
             continue
         if (
             not mapping.source_product_reference
-            and not expected_tokens.issubset(_normalise_name(product.get("productName", "")))
+            and not _name_matches(expected_tokens, product.get("productName", ""))
         ):
             continue
         items = product.get("items") or []
@@ -1029,7 +1034,7 @@ def _candidate_products(
         name = str(product.get("productName") or "")
         if mapping.source_product_reference and reference == mapping.source_product_reference:
             continue
-        if not mapping.source_product_reference and expected.issubset(_normalise_name(name)):
+        if not mapping.source_product_reference and not _name_matches(expected, name):
             continue
         for item in product.get("items") or []:
             item_id = str(item.get("itemId") or "")
@@ -1438,8 +1443,8 @@ def _find_supervalu_listing(
         product_id = str(item.get("productId") or item.get("sku") or "")
         if mapping.source_product_id and product_id != str(mapping.source_product_id):
             continue
-        if not mapping.source_product_id and not expected_tokens.issubset(
-            _normalise_name(str(item.get("name") or ""))
+        if not mapping.source_product_id and not _name_matches(
+            expected_tokens, str(item.get("name") or "")
         ):
             continue
         return item
@@ -1914,8 +1919,8 @@ def _find_tesco_listing(
         tpnb = str(product.get("tpnb") or "")
         if mapping.source_tpnb and tpnb != str(mapping.source_tpnb):
             continue
-        if not mapping.source_tpnb and not expected_tokens.issubset(
-            _normalise_name(str(product.get("title") or ""))
+        if not mapping.source_tpnb and not _name_matches(
+            expected_tokens, str(product.get("title") or "")
         ):
             continue
         return product
@@ -2203,8 +2208,8 @@ def _find_lidl_listing(
         product_id = str(item.get("productId") or "")
         if mapping.source_product_id and product_id != str(mapping.source_product_id):
             continue
-        if not mapping.source_product_id and not expected_tokens.issubset(
-            _normalise_name(str(item.get("name") or ""))
+        if not mapping.source_product_id and not _name_matches(
+            expected_tokens, str(item.get("name") or "")
         ):
             continue
         return item
@@ -2418,8 +2423,8 @@ def _find_aldi_listing(
         product_id = str(item.get("productId") or "")
         if mapping.source_product_id and product_id != str(mapping.source_product_id):
             continue
-        if not mapping.source_product_id and not expected_tokens.issubset(
-            _normalise_name(str(item.get("name") or ""))
+        if not mapping.source_product_id and not _name_matches(
+            expected_tokens, str(item.get("name") or "")
         ):
             continue
         return item

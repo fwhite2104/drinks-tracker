@@ -166,7 +166,7 @@ class DiscoveryRunTests(unittest.TestCase):
         write_mappings(mapping_path, {})
         write_rejections(rejection_path, {"listings": [], "cells": []})
         adapter = FakeAdapter({"coke": result([EXACT_RECORD])})
-        adapter.is_collectable = lambda _listing: False
+        adapter.capabilities = CapabilityContract({})
 
         run_discovery(
             [pack(search_term="coke")], {"dunnes": adapter}, self.store,

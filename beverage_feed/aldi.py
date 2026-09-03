@@ -27,10 +27,7 @@ are parsed into pack-count / unit-size evidence for exact-pack validation.
 
 from __future__ import annotations
 
-import json
 import re
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 from decimal import Decimal
@@ -156,15 +153,15 @@ class AldiClient:
         self.service_point = service_point
         self.search_endpoint = search_endpoint
         self.product_endpoint = product_endpoint
-        self.opener = opener or urllib.request.build_opener()
-        self.min_request_interval = min_request_interval
-        self._last_request_at: float | None = None
+        self._transport = source_http.RetailerTransport(
+            "Aldi", opener=opener, min_request_interval=min_request_interval
+        )
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         """Search Aldi Ireland products; returns priced normalized records."""
         if not search_term.strip():
             raise ValueError("Aldi search term must not be empty")
-        payload = self._request_json(
+        payload = self._transport.json(
             self.search_endpoint + "?" + urllib.parse.urlencode({
                 "currency": "EUR",
                 "serviceType": ALDI_SERVICE_TYPE,
@@ -199,7 +196,7 @@ class AldiClient:
         identifier = str(product_id).strip()
         if not identifier:
             raise ValueError("Aldi product_id must not be empty")
-        payload = self._request_json(
+        payload = self._transport.json(
             self.product_endpoint + "?" + urllib.parse.urlencode({
                 "serviceType": ALDI_SERVICE_TYPE,
                 "servicePoint": self.service_point,
@@ -217,34 +214,6 @@ class AldiClient:
         ]
         matching = [r for r in records if r["productId"] == identifier]
         return {"items": matching}
-
-    def _throttle(self) -> None:
-        if self._last_request_at is not None:
-            delay = self.min_request_interval - (time.monotonic() - self._last_request_at)
-            if delay > 0:
-                time.sleep(delay)
-
-    def _request_json(self, url: str) -> Any:
-        self._throttle()
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": "application/json", "User-Agent": "drinks-tracker/0.1"},
-        )
-        try:
-            with self.opener.open(request, timeout=30) as response:
-                if getattr(response, "status", 200) >= 400:
-                    raise RuntimeError(f"Aldi HTTP {response.status}")
-                body = response.read()
-        except Exception as exc:
-            if isinstance(exc, RuntimeError):
-                raise
-            raise RuntimeError(f"Aldi request failed: {exc}") from exc
-        finally:
-            self._last_request_at = time.monotonic()
-        try:
-            return json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise RuntimeError(f"Aldi response was not valid JSON: {exc}") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -315,15 +284,15 @@ class AldiDiscoveryClient:
             raise ValueError("Aldi request interval must not be negative")
         self.search_endpoint = search_endpoint
         self.product_endpoint = product_endpoint
-        self.opener = opener or urllib.request.build_opener()
-        self.min_request_interval = min_request_interval
-        self._last_request_at: float | None = None
+        self._transport = source_http.RetailerTransport(
+            "Aldi", opener=opener, min_request_interval=min_request_interval
+        )
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         """Search Aldi Ireland products."""
         if not search_term.strip():
             raise ValueError("Aldi search term must not be empty")
-        payload = self._request_json(
+        payload = self._transport.json(
             self.search_endpoint + "?" + urllib.parse.urlencode({
                 "currency": "EUR",
                 "serviceType": "walk-in",
@@ -361,7 +330,7 @@ class AldiDiscoveryClient:
         identifier = str(product_id).strip()
         if not identifier:
             raise ValueError("Aldi product_id must not be empty")
-        payload = self._request_json(
+        payload = self._transport.json(
             self.product_endpoint + "?" + urllib.parse.urlencode({
                 "serviceType": "walk-in",
                 "skus": identifier,
@@ -378,39 +347,3 @@ class AldiDiscoveryClient:
         ]
         matching = [r for r in records if r["productId"] == identifier]
         return {"items": matching}
-
-    def _throttle(self) -> None:
-        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
-        if delay:
-            time.sleep(delay)
-
-    def _request_json(self, url: str) -> Any:
-        self._throttle()
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": "application/json", "User-Agent": "drinks-tracker/0.1"},
-        )
-        try:
-            with self.opener.open(request, timeout=30) as response:
-                if getattr(response, "status", 200) >= 400:
-                    raise source_http.status_error(
-                        "Aldi", getattr(response, "status", 200),
-                        source_http.response_retry_after(response),
-                    )
-                body = response.read()
-        except source_http.SourceHTTPError:
-            raise
-        except urllib.error.HTTPError as exc:
-            raise source_http.status_error(
-                "Aldi", exc.code, exc.headers.get("Retry-After")
-            ) from exc
-        except source_http.TRANSPORT_ERRORS as exc:
-            raise source_http.transport_error("Aldi", exc) from exc
-        except Exception as exc:
-            raise RuntimeError(f"Aldi request failed: {exc}") from exc
-        finally:
-            self._last_request_at = time.monotonic()
-        try:
-            return json.loads(body.decode("utf-8"))
-        except (UnicodeDecodeError, ValueError) as exc:
-            raise RuntimeError(f"Aldi response was not valid JSON: {exc}") from exc

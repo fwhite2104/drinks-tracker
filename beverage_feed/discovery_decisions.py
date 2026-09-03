@@ -112,7 +112,7 @@ def decide_cell(
             for listing in exact
             if listing.source_identity != matched
         )[0]
-        if existing.get("identity_tier") and not adapter.supports(existing["identity_tier"]):
+        if existing.get("identity_tier") and not adapter.capabilities.supports(existing["identity_tier"]):
             # Fixture case: a capability downgrade never invalidates the mapping.
             store.diagnostic(
                 event="capability_downgrade", level="warning", run_id=run_id,
@@ -133,7 +133,8 @@ def decide_cell(
 
     collectable = [
         listing for listing in named
-        if listing.identity_tier in _STABLE_TIERS and adapter.is_collectable(listing)
+        if listing.identity_tier in _STABLE_TIERS
+        and adapter.capabilities.supports(listing.identity_tier)
     ]
     exact_collectable = [listing for listing in collectable if listing in exact]
     if len(exact_collectable) == 1 and len(collectable) == 1:
