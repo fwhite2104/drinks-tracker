@@ -99,3 +99,16 @@ cron is still 4-hourly vs. the once-daily ruling (ff-06 implementation slice).
 - Next: dispatch `rediscover.yml` per retailer (aldi/lidl first — 0% cell
   evidence), ingest artifacts, repeat sprints. Cell states now: approved 23,
   rejected 40, inconclusive 28, pending 1.
+
+### 2026-09-03 — dunnes search diagnosis (via Orca browser capture)
+
+- Discovery already hits the grocery gateway (dunnesstoresgrocery.com);
+  no wrong-site URL existed. Gateway returns 200 from home today — the
+  08-30 403 was transient, though CI egress stays the default.
+- Root cause of sprint noise: gateway relevance is exact-substring. Full
+  pack names often return 0 ("Coca-Cola Original Taste 1.5L Bottle" → []);
+  junk came from vague term-expansion formulations. Bare brand searches
+  are clean ("Coca-Cola" → 39 products).
+- Fix: DunnesDiscoveryAdapter now searches brand + term + aliases
+  (max_requests_per_search 3→4). Tests updated, 547 pass.
+- Honest exclusion noted: Dunnes does not stock Coca-Cola 1.5L (1L/2L only).

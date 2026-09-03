@@ -2,148 +2,204 @@
   "dunnes": [
     {
       "catalog_id": "club-orange-330",
-      "status": "approved",
       "expected_product_name": "Club Orange Can 330ml",
+      "source_item_id": "100297976",
       "source_product_reference": "100297976",
-      "source_item_id": "100297976"
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-2000",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar 2L",
+      "source_item_id": "100298297",
       "source_product_reference": "100298297",
-      "source_item_id": "100298297"
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-single",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar 330ml",
+      "source_item_id": "100298010",
       "source_product_reference": "100298010",
-      "source_item_id": "100298010"
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-500",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar 500ml",
+      "source_item_id": "100298027",
       "source_product_reference": "100298027",
-      "source_item_id": "100298027"
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-single",
       "expected_product_name": "Coca-Cola Original Taste 330ml",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298012:100298012",
+      "catalog_id": "coca-diet-330-single",
+      "decided_at": "2026-09-03T20:26:33Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Diet Coke 330ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298012:100298012",
+      "source_item_id": "100298012",
+      "source_product_reference": "100298012",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298028:100298028",
+      "catalog_id": "coca-diet-500",
+      "decided_at": "2026-09-03T20:26:52Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Diet Coke 500ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298028:100298028",
+      "source_item_id": "100298028",
+      "source_product_reference": "100298028",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298036:100298036",
+      "catalog_id": "coca-diet-2000",
+      "decided_at": "2026-09-03T20:26:53Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Diet Coke 2L",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298036:100298036",
+      "source_item_id": "100298036",
+      "source_product_reference": "100298036",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100316542:100316542",
+      "catalog_id": "pepsi-original-330",
+      "decided_at": "2026-09-03T20:26:57Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Pepsi Can 330ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100316542:100316542",
+      "source_item_id": "100316542",
+      "source_product_reference": "100316542",
       "status": "approved"
     }
   ],
   "supervalu": [
     {
       "catalog_id": "coca-diet-2000",
-      "status": "approved",
       "expected_product_name": "Diet Coke Bottle (2 L)",
-      "source_product_id": "1023917003"
+      "source_product_id": "1023917003",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-diet-330-8",
-      "status": "approved",
       "expected_product_name": "Diet Coke Cans 8 Pack (330 ml)",
-      "source_product_id": "1284232007"
+      "source_product_id": "1284232007",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-diet-330-single",
-      "status": "approved",
       "expected_product_name": "Diet Coke Can (330 ml)",
-      "source_product_id": "1009130003"
+      "source_product_id": "1009130003",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-diet-500",
-      "status": "approved",
       "expected_product_name": "Diet Coke Bottle (500 ml)",
-      "source_product_id": "1016995006"
+      "source_product_id": "1016995006",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-8",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Original Cans 8 Pack (330 ml)",
-      "source_product_id": "1023933011"
+      "source_product_id": "1023933011",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-500",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Original Bottle (500 ml)",
-      "source_product_id": "1016995007"
+      "source_product_id": "1016995007",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-2000",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar Bottle (2 L)",
-      "source_product_id": "1009004003"
+      "source_product_id": "1009004003",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-8",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar Cans 8 Pack (330 ml)",
-      "source_product_id": "1284236006"
+      "source_product_id": "1284236006",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-single",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar Can (330 ml)",
-      "source_product_id": "1222815001"
+      "source_product_id": "1222815001",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-500",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar Bottle (500 ml)",
-      "source_product_id": "1009005008"
+      "source_product_id": "1009005008",
+      "status": "approved"
     }
   ],
   "tesco": [
     {
       "catalog_id": "coca-diet-2000",
-      "status": "approved",
       "expected_product_name": "Diet Coke Soft Drink 2 Litre",
-      "source_tpnb": "92752847"
+      "source_tpnb": "92752847",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-diet-330-24",
-      "status": "approved",
       "expected_product_name": "Diet Coke Soft Drink 24x330ml",
-      "source_tpnb": "97280504"
+      "source_tpnb": "97280504",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-2000",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 2 Litre",
-      "source_tpnb": "92658527"
+      "source_tpnb": "92658527",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-24",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 24 x 330ml",
-      "source_tpnb": "98565875"
+      "source_tpnb": "98565875",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-single",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 330Ml",
-      "source_tpnb": "92864202"
+      "source_tpnb": "92864202",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-original-500",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 500Ml",
-      "source_tpnb": "92860379"
+      "source_tpnb": "92860379",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-2000",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar Soft Drink 2 Litre",
-      "source_tpnb": "92802259"
+      "source_tpnb": "92802259",
+      "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-24",
-      "status": "approved",
       "expected_product_name": "Coca-Cola Zero Sugar Soft Drink 24 x 330ml",
-      "source_tpnb": "96930642"
+      "source_tpnb": "96930642",
+      "status": "approved"
     }
   ]
 }
