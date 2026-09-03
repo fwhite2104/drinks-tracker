@@ -6,12 +6,16 @@ __pycache__/
 .coverage
 *.sqlite
 *.sqlite3
+*.sqlite.lock
 storage/*
 
 # Local credentials and environment files
 .env
 .env.*
 !.env.example
+
+# Local editor/tool config
+/opencode.json
 
 # Issue tracker and agent docs (local only, never pushed)
 .scratch/
