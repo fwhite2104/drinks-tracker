@@ -485,6 +485,51 @@
       "rejected_at": "2026-09-04T21:06:00Z",
       "retailer": "supervalu",
       "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "review-fix",
+      "reason": "ambiguous: 900ml Innocent Orange variants exist and were never judged for this cell (With Bits / Smooth); earlier rejections cited a noise 330ml/Tropical candidate. Catalog cannot disambiguate the benchmark pack; not a non-stock claim",
+      "rejected_at": "2026-09-04T21:28:19Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "review-fix",
+      "reason": "ambiguous: 900ml Tropicana Orange Smooth/Original candidates (1027074002/1027074003) were never judged for this cell; earlier rejection cited a noise 300ml candidate. Catalog cannot disambiguate the benchmark pack; not a non-stock claim",
+      "rejected_at": "2026-09-04T21:28:19Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "review-fix",
+      "reason": "ambiguous: cell closed citing a noise 300ml candidate while 900ml candidates were the real size evidence; no 1.5L candidate was ever found. Exhausted-with-evidence, not a non-stock claim",
+      "rejected_at": "2026-09-04T21:28:20Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "review-fix",
+      "reason": "ambiguous: 900ml Innocent Orange variants exist and were never judged for this cell (With Bits / Smooth); earlier rejections cited a noise 330ml/Tropical candidate. Catalog cannot disambiguate the benchmark pack; not a non-stock claim",
+      "rejected_at": "2026-09-04T21:28:20Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "review-fix",
+      "reason": "ambiguous: plausible candidate 100298372 (Schweppes Canada Dry Ginger Ale 1L) was never judged for this cell; the Pink Grapefruit Soda rejection was a noise candidate. Not a non-stock claim",
+      "rejected_at": "2026-09-04T21:28:20Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
     }
   ],
   "listings": [
@@ -11001,7 +11046,7 @@
       "catalog_id": "club-rock-shandy-2l",
       "cell": "club-rock-shandy-2l",
       "decided_by": "agent-sprint",
-      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "reason": "agent-sprint: wrong format and size (4x330ml can multipack, need 2L bottle)",
       "rejected_at": "2026-09-04T21:09:12Z",
       "retailer": "supervalu",
       "state": "rejected"

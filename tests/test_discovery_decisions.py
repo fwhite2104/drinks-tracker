@@ -313,6 +313,55 @@ class DecideCellTests(unittest.TestCase):
                 "SELECT state FROM discovery_cells WHERE catalog_id='pack-1'").fetchone()
         self.assertEqual(state, ("approved",))
 
+    def test_reconcile_rejecting_one_candidate_leaves_cell_with_live_candidates_unmapped(self):
+        """Rejecting the last *judged* candidate must not close a cell whose
+        other candidates are still unjudged: ambiguity stays unmapped, never
+        `rejected` (which asserts non-stock)."""
+        with closing(self.store.connection()) as connection:
+            for candidate in ("ref-1", "ref-2"):
+                connection.execute(
+                    "INSERT INTO catalog_candidates"
+                    "(candidate_id, retailer, source_product_reference, source_item_id, "
+                    "source_product_name, raw_record, status, first_seen_at) VALUES "
+                    "(?, 'dunnes', ?, ?, 'Coca-Cola 500ml Can', '{}', 'pending_review', '2026-09-04T21:00:00Z')",
+                    (f"dunnes:{candidate}", candidate, candidate),
+                )
+                connection.execute(
+                    "INSERT INTO discovery_candidate_cells VALUES "
+                    "(?, 'dunnes', 'pack-1', '2026-09-04T21:00:00Z', '2026-09-04T21:00:00Z', '[]')",
+                    (f"dunnes:{candidate}",),
+                )
+            connection.commit()
+
+        def rejection_row(candidate):
+            return {
+                "canonical_key": f"dunnes:{candidate}",
+                "retailer": "dunnes",
+                "catalog_id": "pack-1",
+                "cell": "pack-1",
+                "rejected_at": "2026-09-04T21:05:00Z",
+                "decided_by": "agent-sprint",
+                "reason": "wrong variant",
+                "state": "rejected",
+            }
+
+        write_rejections(self.rejection_path, {"listings": [rejection_row("ref-1")], "cells": []})
+        reconcile_json_decisions(self.store.database, self.mapping_path, self.rejection_path)
+
+        state = self.store.connection().execute(
+            "SELECT state FROM discovery_cells WHERE catalog_id='pack-1'").fetchone()
+        self.assertIsNone(state)  # cell stays unmapped, not 'rejected'
+
+        # Once the last live candidate is also rejected, the cell closes.
+        write_rejections(self.rejection_path, {"listings": [
+            rejection_row("ref-1"), rejection_row("ref-2"),
+        ], "cells": []})
+        reconcile_json_decisions(self.store.database, self.mapping_path, self.rejection_path)
+
+        state = self.store.connection().execute(
+            "SELECT state FROM discovery_cells WHERE catalog_id='pack-1'").fetchone()
+        self.assertEqual(state, ("rejected",))
+
     def _decide_supervalu(self, record, catalog_id="coca-diet-2000"):
         """Run decide_cell for a SuperValu listing via its product identity."""
         pack = BenchmarkPack(

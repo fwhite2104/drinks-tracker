@@ -865,6 +865,14 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                         "UPDATE catalog_candidates SET status='rejected' WHERE candidate_id=?",
                         (key,),
                     )
+                if connection.execute(
+                    # A rejection never overrides a decided cell: the mapping
+                    # loop above already set approved cells, and a cells-section
+                    # do_not_map row must not demote an approved cell either.
+                    "SELECT 1 FROM catalog_mappings WHERE retailer=? AND catalog_id=? AND status='approved'",
+                    (row["retailer"], cell),
+                ).fetchone():
+                    continue
                 if row["state"] == "do_not_map":
                     upsert_cell(
                         row["retailer"], cell, "do_not_map",
@@ -873,10 +881,15 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                         reason=row.get("reason"),
                     )
                 elif row["state"] == "rejected" and not connection.execute(
-                    # A listing rejection of a competing candidate must never
-                    # downgrade a cell that has an approved mapping — the
-                    # mapping loop above already set that cell to approved.
-                    "SELECT 1 FROM catalog_mappings WHERE retailer=? AND catalog_id=? AND status='approved'",
+                    # Rejecting the last *judged* candidate must not close a
+                    # cell whose other candidates are still unjudged: ambiguity
+                    # stays inconclusive (unmapped), never `rejected` (which
+                    # asserts non-stock). The cell closes once no live
+                    # candidate remains.
+                    "SELECT 1 FROM discovery_candidate_cells cc "
+                    "JOIN catalog_candidates k USING(candidate_id) "
+                    "WHERE cc.retailer=? AND cc.catalog_id=? "
+                    "AND k.status NOT IN ('rejected','resolved','approved')",
                     (row["retailer"], cell),
                 ).fetchone():
                     upsert_cell(

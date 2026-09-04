@@ -240,6 +240,10 @@ CREATE TABLE IF NOT EXISTS catalog_mappings (
     FOREIGN KEY (catalog_id) REFERENCES catalog_packs(catalog_id)
 );
 CREATE TABLE IF NOT EXISTS catalog_candidates (
+    -- status is "last event wins" (approve/reject/resolve set it globally);
+    -- per-cell truth lives in catalog_mappings/discovery_rejections and
+    -- discovery_cells, so a candidate approved for one cell can legitimately
+    -- read 'rejected' here (rejected as a competitor for a different cell).
     candidate_id TEXT PRIMARY KEY,
     retailer TEXT NOT NULL,
     source_product_reference TEXT NOT NULL,
