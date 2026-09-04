@@ -464,6 +464,7 @@ class AldiDrinksWalkTests(unittest.TestCase):
         self.assertEqual(listing.price.raw_value, "€2.49")
         water_result = by_name["Water"][1]
         self.assertEqual(len(water_result.listings), 1)
-        # One search request per subcategory, batch size = pool size.
+        # One search request per subcategory, batch size = pool size
+        # (floor of 1 for an empty pool, per RequestEvent's positive-size rule).
         self.assertEqual(soft_result.request_counts["search"], 1)
         self.assertEqual(soft_result.batch_sizes["search"], [2])

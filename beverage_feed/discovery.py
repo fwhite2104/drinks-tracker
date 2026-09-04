@@ -235,6 +235,14 @@ _MAPPING_SOURCE_KEYS = {
     "lidl": {"source_product_id"},
     "aldi": {"source_product_id"},
 }
+# Export writes the retailer's single source value under this key
+# (dunnes is handled separately: reference + item).
+_MAPPING_EXPORT_SOURCE_KEY = {
+    "supervalu": "source_product_id",
+    "tesco": "source_tpnb",
+    "lidl": "source_product_id",
+    "aldi": "source_product_id",
+}
 _REJECTION_LISTING_KEYS = {
     "canonical_key", "retailer", "catalog_id", "cell", "rejected_at", "decided_by", "reason",
     "state", "superseded_at",
@@ -384,15 +392,15 @@ def export_mappings(database: str | Path) -> dict[str, list[dict[str, Any]]]:
             if row[4]:
                 entry["source_item_id"] = row[4]
         else:
-            source_key = next(
-                key for key in _MAPPING_SOURCE_KEYS[retailer]
-                if key != "source_item_id"
-            )
             if row[3]:
-                entry[source_key] = row[3]
-        for index, key in enumerate(_MAPPING_EXPORT_DECISION_KEYS, start=6):
-            if row[index] is not None:
-                entry[key] = row[index]
+                entry[_MAPPING_EXPORT_SOURCE_KEY[retailer]] = row[3]
+        # Decision columns start at index 6, immediately after the fixed
+        # columns in the SELECT above; zip keeps them aligned with the keys.
+        entry.update(
+            (key, value)
+            for key, value in zip(_MAPPING_EXPORT_DECISION_KEYS, row[6:])
+            if value is not None
+        )
         mappings.setdefault(retailer, []).append(entry)
     return _validate_mapping_object(mappings)
 

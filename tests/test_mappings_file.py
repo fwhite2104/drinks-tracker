@@ -11,6 +11,7 @@ committed file must equal the export byte-for-byte — hand-editing either side
 now fails here.
 """
 
+import hashlib
 import sqlite3
 import tempfile
 import unittest
@@ -28,6 +29,11 @@ from beverage_feed.discovery import (
 REPO_ROOT = Path(__file__).resolve().parent.parent
 REPO_MAPPINGS = REPO_ROOT / "data" / "mappings.json"
 REPO_DATABASE = REPO_ROOT / "data" / "feed.sqlite"
+# Digest of the committed data/mappings.json. Bump only when a re-export is
+# intentional (python -m beverage_feed export-mappings) and note it in the
+# commit message. Keeps CI honest: the byte-for-byte SQLite pin below is
+# skipped wherever the 36 MB feed database is absent.
+MAPPINGS_SHA256 = "90a3ee05cd70492e68b496d89ef1a4f24c7dd6c50cf402d7c0150c4fad58f5c8"
 
 
 def _seed_database(database: str) -> None:
@@ -64,6 +70,14 @@ class MappingsFileTests(unittest.TestCase):
                 with self.subTest(retailer=retailer, catalog_id=row.get("catalog_id")):
                     self.assertIn(row["status"], _MAPPING_STATUSES)
                     self.assertTrue(row["expected_product_name"])
+
+    def test_committed_mappings_file_digest_unchanged(self):
+        self.assertEqual(
+            hashlib.sha256(REPO_MAPPINGS.read_bytes()).hexdigest(),
+            MAPPINGS_SHA256,
+            "data/mappings.json changed without bumping MAPPINGS_SHA256 — "
+            "intentional re-export? update the digest and say so in the commit",
+        )
 
     @unittest.skipUnless(REPO_DATABASE.exists(), "feed database not present")
     def test_committed_mappings_file_matches_sqlite_export_byte_for_byte(self):
