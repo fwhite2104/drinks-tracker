@@ -357,6 +357,36 @@ class LidlDiscoveryClient:
             }),
             accept=LIDL_SEARCH_ACCEPT,
         )
+        return self._normalize_search_payload(payload)
+
+    def fetch_category_page(self, offset: int, category_id: str) -> dict[str, Any]:
+        """Fetch one page of a category listing (list-only category walk).
+
+        Verified live shape (research ticket 02, ``research/lidl/NOTES.md``):
+        the search API accepts ``category.id`` with an empty ``q`` for pure
+        category browse, and ``offset`` pages through ``numFound``. Returns
+        the same client-normalized payload shape as search.
+        """
+        if offset < 0:
+            raise ValueError("Lidl category offset must not be negative")
+        if not category_id.strip():
+            raise ValueError("Lidl category_id must not be empty")
+        payload = self._transport.json(
+            self.endpoint + "?" + urllib.parse.urlencode({
+                "assortment": "IE",
+                "locale": "en_IE",
+                "q": "",
+                "category.id": category_id,
+                "version": "2.1.1",
+                "fetchsize": "100",
+                "offset": str(offset),
+            }),
+            accept=LIDL_SEARCH_ACCEPT,
+        )
+        return self._normalize_search_payload(payload)
+
+    def _normalize_search_payload(self, payload: Any) -> dict[str, Any]:
+        """Flatten a raw search/category payload into items + pagination."""
         if not isinstance(payload, dict):
             raise RuntimeError("Lidl search response was not a JSON object")
         items = payload.get("items")

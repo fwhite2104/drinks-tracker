@@ -7,6 +7,12 @@ Benchmark Catalog pack), see which Tier-1 retailer is cheapest right now via
 Exact-Pack Comparison. The app consumes the Price Feed and nothing else — it
 never collects, discovers, or mutates data.
 
+> **Scope amendment (2026-09-04):** automated discovery/collection focuses on
+> Dunnes, SuperValu and Tesco. Lidl and Aldi are deferred: their surfaces
+> offer no practical automated price-discovery path (brand-term search yields
+> only keyword noise; no category walk shipped). Explicit `--retailer` runs
+> remain possible if that changes.
+
 ## The user experience we want
 
 1. **Find a drink fast.** Cold open lands on a search-first catalog: one

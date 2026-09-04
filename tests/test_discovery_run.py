@@ -1,5 +1,6 @@
 import contextlib
 import io
+import json
 import os
 import tempfile
 import unittest
@@ -285,6 +286,53 @@ class DiscoveryCliMainTests(unittest.TestCase):
                     "--database", str(self.root / "feed.sqlite"),
                     "--retailer", "supervalu",
                 ])
+        self.assertEqual(ctx.exception.code, 2)
+
+    def test_walk_drinks_lists_the_pool_without_writing(self):
+        """--walk-drinks sizes the Lidl Drinks candidate pool in list_only
+        mode: JSON summary on stdout, no verdicts, no mappings written."""
+        listings = tuple(
+            normalize_listing("lidl", {
+                "productId": str(100 + index), "name": f"Lidl Drink {index}",
+                "price": "€1.39",
+            })
+            for index in range(3)
+        )
+        results = [(0, DiscoveryResult(listings, True, {}, (), ()))]
+        client = mock.Mock()
+        client.fetch_category_page.return_value = {"items": []}
+        adapter = mock.Mock()
+        adapter.walk_drinks.return_value = results
+        with mock.patch("beverage_feed.lidl.LidlDiscoveryClient", return_value=client) as client_cls, \
+                mock.patch("beverage_feed.discovery_adapters.LidlDiscoveryAdapter", return_value=adapter) as adapter_cls:
+            adapter_cls.LIDL_DRINKS_CATEGORY = "10071022"
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                code = discovery_run_main([
+                    "--catalog", str(self.catalog),
+                    "--database", str(self.root / "feed.sqlite"),
+                    "--retailer", "lidl",
+                    "--walk-drinks",
+                ])
+        self.assertEqual(code, 0)
+        summary = json.loads(stdout.getvalue())
+        self.assertEqual(summary["retailer"], "lidl")
+        self.assertEqual(summary["mode"], "list_only")
+        self.assertEqual(summary["category"], "10071022")
+        self.assertEqual(summary["listings"], 3)
+        client_cls.assert_called_once_with()
+        adapter_cls.assert_called_once_with(client)
+        adapter.walk_drinks.assert_called_once()
+        # Nothing durable: no mappings or rejections decisions were produced.
+        self.assertEqual(load_mappings(self.mapping_path), {"dunnes": []})
+
+    def test_walk_drinks_requires_the_lidl_retailer(self):
+        with self.assertRaises(SystemExit) as ctx:
+            discovery_run_main([
+                "--catalog", str(self.catalog),
+                "--database", str(self.root / "feed.sqlite"),
+                "--walk-drinks",
+            ])
         self.assertEqual(ctx.exception.code, 2)
 
 

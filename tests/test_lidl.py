@@ -26,6 +26,7 @@ from beverage_feed.lidl import (
     LIDL_LOCALE,
     LIDL_SEARCH_ENDPOINT,
     LidlClient,
+    LidlDiscoveryClient,
     parse_title_pack,
 )
 
@@ -394,3 +395,36 @@ class LidlCollectionIntegrationTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LidlClientCategoryPageTests(unittest.TestCase):
+    """List-only category-walk fetch (full-feed-coverage step 4): the verified
+    Drinks scope (10071022) browsed with an empty q and paged by offset."""
+
+    def test_fetches_category_page_with_offset_and_normalizes_records(self):
+        page_two = _drinks_search_page()
+        page_two["offset"] = 2
+        opener = _RecordingOpener([json.dumps(page_two)])
+        client = LidlDiscoveryClient(opener=opener, min_request_interval=0)
+
+        payload = client.fetch_category_page(2, "10071022")
+
+        self.assertEqual(payload["items"][0]["productId"], "11214651")
+        self.assertEqual(payload["pagination"], {"total": 8, "offset": 2})
+        url = opener.requests[0].full_url
+        self.assertIn("category.id=10071022", url)
+        self.assertIn("offset=2", url)
+        self.assertIn("q=", url)
+        self.assertIn(f"locale={LIDL_LOCALE}", url)
+        self.assertIn(f"assortment={LIDL_ASSORTMENT}", url)
+        self.assertIn("version=2.1.1", url)
+
+    def test_empty_category_id_is_rejected(self):
+        client = LidlDiscoveryClient(opener=_RecordingOpener([]), min_request_interval=0)
+        with self.assertRaises(ValueError):
+            client.fetch_category_page(0, "   ")
+
+    def test_negative_offset_is_rejected(self):
+        client = LidlDiscoveryClient(opener=_RecordingOpener([]), min_request_interval=0)
+        with self.assertRaises(ValueError):
+            client.fetch_category_page(-1, "10071022")

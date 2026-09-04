@@ -72,6 +72,10 @@ if argv and argv[0] == "freshness":
     from .freshness import main as freshness_main
 
     raise SystemExit(freshness_main(argv[1:]))
+if argv and argv[0] == "scorecard":
+    from .scorecard import main as scorecard_main
+
+    raise SystemExit(scorecard_main(argv[1:]))
 if argv and argv[0] == "canary":
     # Manual live retailer canary (audit-10) — never scheduled, never CI.
     from .canary import main as canary_main

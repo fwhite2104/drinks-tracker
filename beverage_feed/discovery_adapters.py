@@ -682,6 +682,42 @@ class LidlDiscoveryAdapter(DiscoveryAdapter):
         payload = self.hydrator(str(product_id))
         return self._result(payload, (RequestEvent("hydration"),))
 
+    def walk_drinks(
+        self,
+        fetch_page: Callable[[int], Mapping[str, Any]],
+        *,
+        max_pages: int = 20,
+    ) -> list[tuple[int, DiscoveryResult]]:
+        """List-only sizing walk over the Drinks category listing pages.
+
+        Category-walk seam (full-feed-coverage step 4): ``fetch_page(offset)``
+        returns one client-normalized category payload (``{items,
+        pagination}``, live source ``LidlDiscoveryClient.fetch_category_page``
+        with ``LIDL_DRINKS_CATEGORY``); the adapter paginates until the result
+        is complete and returns every listing as ``DiscoveryResult`` evidence.
+        No verdicts, no mappings, no store writes — list_only sizing only.
+        """
+        if max_pages < 1:
+            raise ValueError("max_pages must be at least 1")
+        results: list[tuple[int, DiscoveryResult]] = []
+        offset = 0
+        for _ in range(max_pages):
+            payload = fetch_page(offset)
+            # Page by the raw item count the API paginates on, not the
+            # normalized record count (a dropped item would lag the offset).
+            items = payload.get("items")
+            items = items if isinstance(items, list) else []
+            result = self._result(
+                payload, (RequestEvent("search", max(len(items), 1)),)
+            )
+            results.append((offset, result))
+            if result.complete is True or not items:
+                return results
+            offset += len(items)
+        raise RuntimeError(
+            "Lidl Drinks category walk exceeded max_pages without completing"
+        )
+
 
 class AldiDiscoveryAdapter(DiscoveryAdapter):
     """Search + optional SKU hydration for Aldi Ireland."""

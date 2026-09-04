@@ -34,6 +34,12 @@ on:
         required: false
         default: 4
         type: number
+      mode:
+        description: 'rediscover = term expansion over thin/unresolved cells; first_discovery = initial pass over all eligible unmapped cells'
+        required: false
+        default: 'rediscover'
+        type: choice
+        options: [rediscover, first_discovery]
       request_cap:
         description: 'Per-retailer outbound request cap for this run (--request-cap)'
         required: false
@@ -82,11 +88,18 @@ jobs:
           MAX_FORMULATIONS: ${{ inputs.max_formulations }}
           REQUEST_CAP: ${{ inputs.request_cap }}
         run: |
-          python -m beverage_feed discovery \
-            --rediscover --retailer "${{ inputs.retailer }}" \
-            --max-formulations "$MAX_FORMULATIONS" \
-            --request-cap "$REQUEST_CAP" \
-            --database data/ci-discovery.sqlite
+          if [ "${{ inputs.mode }}" = "first_discovery" ]; then
+            python -m beverage_feed discovery \
+              --retailer "${{ inputs.retailer }}" \
+              --request-cap "$REQUEST_CAP" \
+              --database data/ci-discovery.sqlite
+          else
+            python -m beverage_feed discovery \
+              --rediscover --retailer "${{ inputs.retailer }}" \
+              --max-formulations "$MAX_FORMULATIONS" \
+              --request-cap "$REQUEST_CAP" \
+              --database data/ci-discovery.sqlite
+          fi
       - name: Upload the rediscovery database (also on failure — partial evidence is truthful)
         if: ${{ !cancelled() && steps.rediscover.outcome != 'skipped' }}
         uses: actions/upload-artifact@v4

@@ -1,2 +1,5 @@
-# Catalog Mapping discovery, daily at 03:00 UTC.
-0 3 * * * python -m beverage_feed discovery
+# Discovery moved to GitHub Actions on 2026-09-04 (rediscover.yml,
+# mode=first_discovery|rediscover) so blocked-IP risk never touches the home
+# network — the home IP was 403'd by Dunnes (08-30) and Akamai-blocked by
+# Tesco (ticket 11). The VM must perform zero retailer egress.
+# Superseded:  0 3 * * * python -m beverage_feed discovery

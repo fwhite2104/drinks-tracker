@@ -468,3 +468,81 @@ class AldiDrinksWalkTests(unittest.TestCase):
         # (floor of 1 for an empty pool, per RequestEvent's positive-size rule).
         self.assertEqual(soft_result.request_counts["search"], 1)
         self.assertEqual(soft_result.batch_sizes["search"], [2])
+
+
+class LidlDrinksWalkTests(unittest.TestCase):
+    """List-only Lidl Drinks category walk (full-feed-coverage step 4): pages
+    the category listing into DiscoveryResults without writing any verdicts,
+    mappings or store rows. fetch_page is injected — no live HTTP."""
+
+    def setUp(self):
+        self.adapter = LidlDiscoveryAdapter(lambda _: {"items": []})
+
+    @staticmethod
+    def _page(records, offset, total):
+        return {"items": records, "pagination": {"total": total, "offset": offset}}
+
+    @staticmethod
+    def _record(product_id):
+        return {"productId": product_id, "name": f"Lidl Drink {product_id}", "price": "€1.39"}
+
+    def test_walk_paginates_until_complete_and_returns_listings(self):
+        pages = {
+            0: self._page([self._record("101"), self._record("102")], 0, 3),
+            2: self._page([self._record("103")], 2, 3),
+        }
+        requested = []
+
+        def fetch_page(offset):
+            requested.append(offset)
+            return pages[offset]
+
+        results = self.adapter.walk_drinks(fetch_page)
+
+        self.assertEqual(requested, [0, 2])
+        self.assertEqual([(offset, result.complete) for offset, result in results],
+                         [(0, False), (2, True)])
+        all_listings = [listing for _, result in results for listing in result.listings]
+        self.assertEqual([listing.source_identity for listing in all_listings],
+                         ["101", "102", "103"])
+        # One search request per page, batch size = records on that page.
+        self.assertEqual([result.request_counts["search"] for _, result in results], [1, 1])
+        self.assertEqual(results[0][1].batch_sizes["search"], [2])
+
+    def test_walk_stops_on_an_empty_first_page(self):
+        requested = []
+
+        def fetch_page(offset):
+            requested.append(offset)
+            return self._page([], 0, 0)
+
+        results = self.adapter.walk_drinks(fetch_page)
+
+        self.assertEqual(requested, [0])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0][1].listings, ())
+
+    def test_walk_returns_normalized_lidl_listings(self):
+        """The walk's only output is normalized listing evidence; the no-write
+        guarantee is structural (no store seam on the path) and pinned at the
+        CLI level (test_walk_drinks_lists_the_pool_without_writing)."""
+        def fetch_page(offset):
+            return self._page([self._record("101")], 0, 1)
+
+        results = self.adapter.walk_drinks(fetch_page)
+
+        for _, result in results:
+            for listing in result.listings:
+                self.assertEqual(listing.retailer, "lidl")
+                self.assertEqual(listing.price.raw_value, "€1.39")
+
+    def test_walk_without_completion_hits_the_page_bound(self):
+        def fetch_page(offset):
+            return self._page([self._record("101")], offset, 10**6)
+
+        with self.assertRaises(RuntimeError):
+            self.adapter.walk_drinks(lambda offset: fetch_page(offset), max_pages=3)
+
+    def test_max_pages_below_one_is_rejected(self):
+        with self.assertRaises(ValueError):
+            self.adapter.walk_drinks(lambda offset: self._page([], 0, 0), max_pages=0)

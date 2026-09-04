@@ -44,7 +44,12 @@ REDISCOVERY_UNRESOLVED_STATES = {"pending", "inconclusive", "unmapped"}
 # Politeness (ticket 11): Tesco discovery runs only via CI egress, so the
 # default --rediscover retailer set never includes it; pass --retailer tesco
 # explicitly from the CI workflow instead.
-REDISCOVERY_DEFAULT_RETAILERS = ("dunnes", "supervalu", "lidl", "aldi")
+REDISCOVERY_DEFAULT_RETAILERS = (
+    "dunnes",
+    "supervalu",
+)  # Tesco: CI egress only (ticket 11). Lidl/Aldi: deferred 2026-09-04 —
+# their surfaces don't support automated price discovery; run explicitly
+# with --retailer if that ever changes.
 REDISCOVERY_MAX_FORMULATIONS = 4
 
 _IDENTITY_BASIS = {
@@ -641,6 +646,7 @@ def _build_adapter(name: str, supervalu_store_id: str | None) -> DiscoveryAdapte
         SuperValuDiscoveryAdapter,
         TescoDiscoveryAdapter,
     )
+
     if name == "dunnes":
         return DunnesDiscoveryAdapter(DunnesClient())
     if name == "supervalu":
@@ -685,11 +691,49 @@ def main(argv: list[str] | None = None) -> int:
         help="print the rediscovery target cells as JSON and exit (no retailer requests)",
     )
     parser.add_argument(
+        "--walk-drinks", action="store_true",
+        help="list-only Drinks category walk (Lidl only): print the candidate pool "
+             "as JSON and exit; no verdicts, no mappings written, and bounded by "
+             "--request-cap pages",
+    )
+    parser.add_argument(
         "--supervalu-store-id",
         default=os.environ.get("SUPERVALU_STORE_ID"),
         help="configured SuperValu store identifier (or SUPERVALU_STORE_ID)",
     )
     args = parser.parse_args(argv)
+
+    if args.walk_drinks:
+        # List-only path: no catalog, store or schema write is touched — the
+        # walk prints evidence JSON and exits (review: nothing durable here).
+        if args.retailer != "lidl":
+            parser.error("--walk-drinks requires --retailer lidl")
+        from .discovery_adapters import LidlDiscoveryAdapter
+        from .lidl import LidlDiscoveryClient
+
+        client = LidlDiscoveryClient()
+        adapter = LidlDiscoveryAdapter(client)
+        category = LidlDiscoveryAdapter.LIDL_DRINKS_CATEGORY
+        # One outbound request per page, so the request cap bounds the walk.
+        pages = adapter.walk_drinks(
+            lambda offset: client.fetch_category_page(offset, category),
+            max_pages=args.request_cap,
+        )
+        print(json.dumps({
+            "retailer": "lidl",
+            "mode": "list_only",
+            "category": category,
+            "pages": [
+                {
+                    "offset": offset,
+                    "complete": result.complete,
+                    "listings": len(result.listings),
+                }
+                for offset, result in pages
+            ],
+            "listings": sum(len(result.listings) for _, result in pages),
+        }, indent=2))
+        return 0
 
     from .collector import load_catalog
 
@@ -750,7 +794,10 @@ def main(argv: list[str] | None = None) -> int:
         print(format_classification(summary["classification"]))
         return 0 if summary["status"] == "complete" else 1
 
-    retailers = [args.retailer] if args.retailer else ["dunnes", "supervalu", "tesco", "lidl", "aldi"]
+    retailers = [args.retailer] if args.retailer else ["dunnes", "supervalu"]
+    # Tesco: CI egress only (ticket 11 — home IP is Akamai-blocked).
+    # Lidl/Aldi: deferred 2026-09-04 (operator decision) — no easy price
+    # surface for automated discovery; explicit --retailer only.
     adapters = {}
     try:
         for name in retailers:

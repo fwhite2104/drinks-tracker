@@ -231,12 +231,17 @@ IP-blocked this network in August 2026. Consequences:
 Thin/Class-D catalog cells get a second discovery pass with alternate search
 formulations (ticket 14). Where each retailer's pass runs:
 
-- **Dunnes, SuperValu, Lidl, Aldi**: any machine with `data/feed.sqlite` —
-  the VM or an operator laptop (`python -m beverage_feed discovery
-  --rediscover`; its default retailer set excludes Tesco). No CI workflow,
-  by design.
+- **Dunnes, SuperValu**: the VM cron (`python -m beverage_feed discovery`,
+  default retailer set) or any machine with `data/feed.sqlite`.
 - **Tesco**: only through CI egress, via the manual-only
-  `rediscover-tesco` workflow (`.github/workflows/rediscover-tesco.yml`).
+  `rediscover` workflow (`.github/workflows/rediscover.yml`),
+  `--retailer tesco`. Dispatch from the Actions tab; inputs are `list_only`
+  (upload the target-cell JSON and stop — zero retailer requests),
+  `max_formulations` (default 4), `request_cap` (default 200), and
+  `state_release_tag`.
+- **Tesco**: only through CI egress, via the manual-only
+  `rediscover` workflow (`.github/workflows/rediscover.yml`),
+  `--retailer tesco`.
   Dispatch from the Actions tab; inputs are `list_only` (upload the
   target-cell JSON and stop — zero retailer requests), `max_formulations`
   (default 4), `request_cap` (default 200), and `state_release_tag`. The CI

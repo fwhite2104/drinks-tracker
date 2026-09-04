@@ -1,9 +1,11 @@
-# Collection runs on GitHub Actions (.github/workflows/collect.yml) on
-# rotating cloud egress — the home IP is Akamai-blocked for Tesco and CI
-# isolates every retailer from home-IP reputation damage. This crontab only
-# pulls the CI batch (whole-run idempotent; needs GITHUB_TOKEN in the
-# container env, actions:read PAT) 40 minutes after the CI cron.
+# The VM performs ZERO retailer egress: collection runs on GitHub Actions
+# (.github/workflows/collect.yml, rotating cloud egress — the home IP is
+# Akamai-blocked for Tesco and was 403'd by Dunnes on 08-30; ff-07) and
+# discovery runs in CI too (.github/workflows/rediscover.yml). This crontab
+# only pulls the CI batch (whole-run idempotent; needs GITHUB_TOKEN in the
+# container env, actions:read PAT) and runs the liveness signal.
 40 */4 * * * python -m beverage_feed pull-batch
 # R5 liveness signal: log freshest observation age per retailer once daily.
 # Passive (always exits 0, read-only); the line lands in supercronic logs.
+5 5 * * * python -m beverage_feed freshness
 5 5 * * * python -m beverage_feed freshness
