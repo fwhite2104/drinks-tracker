@@ -32,6 +32,10 @@ if argv and argv[0] == "discovery":
     from .discovery_run import main as discovery_main
 
     raise SystemExit(discovery_main(argv[1:]))
+if argv and argv[0] == "merge-discovery":
+    from .discovery_merge import main as merge_discovery_main
+
+    raise SystemExit(merge_discovery_main(argv[1:]))
 if argv and argv[0] == "review":
     from .discovery_cli import main as review_main
 
