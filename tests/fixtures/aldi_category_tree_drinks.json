@@ -1,0 +1,62 @@
+{
+  "data": [
+    {
+      "type": "category-trees",
+      "id": null,
+      "attributes": {
+        "categoryNodesStorage": [
+          {
+            "nodeId": 81,
+            "order": 15,
+            "name": "Drinks",
+            "url": "/en/drinks",
+            "children": [
+              {
+                "nodeId": 82,
+                "order": null,
+                "name": "Tea",
+                "url": "/en/drinks/tea",
+                "children": []
+              },
+              {
+                "nodeId": 83,
+                "order": null,
+                "name": "Coffee",
+                "url": "/en/drinks/coffee",
+                "children": []
+              },
+              {
+                "nodeId": 84,
+                "order": null,
+                "name": "Hot Chocolate & Malted Drinks",
+                "url": "/en/drinks/hot-chocolate-malted-drinks",
+                "children": []
+              },
+              {
+                "nodeId": 85,
+                "order": null,
+                "name": "Soft Drinks & Juices",
+                "url": "/en/drinks/soft-drinks-juices",
+                "children": []
+              },
+              {
+                "nodeId": 86,
+                "order": null,
+                "name": "Water",
+                "url": "/en/drinks/water",
+                "children": []
+              },
+              {
+                "nodeId": 87,
+                "order": null,
+                "name": "Tonic & Mixers",
+                "url": "/en/drinks/tonic-mixers",
+                "children": []
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

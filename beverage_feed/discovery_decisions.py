@@ -160,6 +160,10 @@ def decide_cell(
         }
         mappings.setdefault(retailer, [])
         mappings[retailer].append(row)
+        # ponytail: R4 writer-side conversion pending — discovery still commits
+        # mappings JSON-first + SQLite-second; once set_cell_state is the sole
+        # path and this JSON write is replaced by `export-mappings` in the
+        # daily cron, data/mappings.json becomes a pure export artifact.
         write_mappings(mapping_path, mappings)  # durable JSON first, SQLite second
         store.set_cell_state(
             retailer, pack.catalog_id, "approved",

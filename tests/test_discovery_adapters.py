@@ -1,12 +1,17 @@
+import json
 import unittest
+from pathlib import Path
 
 from beverage_feed.collector import BenchmarkPack
 from beverage_feed.discovery_adapters import (
+    AldiDiscoveryAdapter,
     DunnesDiscoveryAdapter,
     LidlDiscoveryAdapter,
     SuperValuDiscoveryAdapter,
     TescoDiscoveryAdapter,
     normalize_listing,
+    parse_aldi_category_key,
+    parse_aldi_drinks_categories,
 )
 
 
@@ -369,3 +374,96 @@ class CategoryScopeTests(unittest.TestCase):
 
         # PACK's search_term and brand are both unique terms (brand-backed search).
         self.assertEqual(calls, [PACK.search_term, PACK.brand])
+
+
+class AldiDrinksWalkTests(unittest.TestCase):
+    """R2 prototype: Aldi Drinks-category walk, dry-run on committed fixtures."""
+
+    def setUp(self) -> None:
+        fixture = (
+            Path(__file__).resolve().parent
+            / "fixtures"
+            / "aldi_category_tree_drinks.json"
+        )
+        self.tree = json.loads(fixture.read_text())
+        self.adapter = AldiDiscoveryAdapter(lambda _: {"items": []})
+
+    def test_parses_drinks_subcategories_from_tree_fixture(self) -> None:
+        categories = parse_aldi_drinks_categories(self.tree)
+        names = [category["name"] for category in categories]
+        self.assertEqual(
+            names,
+            [
+                "Tea",
+                "Coffee",
+                "Hot Chocolate & Malted Drinks",
+                "Soft Drinks & Juices",
+                "Water",
+                "Tonic & Mixers",
+            ],
+        )
+        self.assertEqual(
+            [(category["nodeId"], category["url"]) for category in categories][0],
+            (82, "/en/drinks/tea"),
+        )
+
+    def test_missing_drinks_node_raises(self) -> None:
+        with self.assertRaises(ValueError):
+            parse_aldi_drinks_categories({"data": []})
+
+    def test_category_key_is_extracted_from_node_payload_fixture(self) -> None:
+        node = {
+            "data": {
+                "type": "category-nodes",
+                "id": "85",
+                "attributes": {
+                    "name": "Soft Drinks & Juices",
+                    "categoryKey": "1588161416978079004",
+                },
+            }
+        }
+        self.assertEqual(
+            parse_aldi_category_key(node), "1588161416978079004"
+        )
+        with self.assertRaises(ValueError):
+            parse_aldi_category_key({"data": {"attributes": {}}})
+
+    def test_walk_lists_each_subcategory_pool_without_live_calls(self) -> None:
+        nodes: dict[int, dict] = {}
+        keys = {"Soft Drinks & Juices": "1588161416978079004", "Water": "1588161416978079005"}
+        for category in parse_aldi_drinks_categories(self.tree):
+            key = keys.get(category["name"], "key-unknown")
+            nodes[category["nodeId"]] = {
+                "data": {"attributes": {"name": category["name"], "categoryKey": key}}
+            }
+        pools: dict[str, list] = {
+            "Soft Drinks & Juices": [
+                {"productId": "1001", "name": "Coca-Cola Zero Sugar 330ml Can", "price": "€2.49"},
+                {"productId": "1002", "name": "Rockstar Energy Sugar Free 500ml", "price": "€1.99"},
+            ],
+            "Water": [
+                {"productId": "2001", "name": "Vitn Water 1L", "price": "€0.85"},
+            ],
+        }
+        fetch_node = lambda node_id: nodes[node_id]  # noqa: E731
+        fetch_category = lambda category: {
+            "items": pools.get(category["name"], []),
+            "pagination": {"total": len(pools.get(category["name"], [])), "offset": 0},
+        }
+
+        results = self.adapter.walk_drinks(self.tree, fetch_node, fetch_category)
+
+        self.assertEqual(len(results), 6)
+        by_name = {category["name"]: (category, result) for category, result in results}
+        soft, soft_result = by_name["Soft Drinks & Juices"]
+        self.assertEqual(soft["categoryKey"], "1588161416978079004")
+        self.assertEqual(len(soft_result.listings), 2)
+        self.assertEqual(soft_result.complete, True)
+        listing = soft_result.listings[0]
+        self.assertEqual(listing.source_identity, "1001")
+        self.assertEqual(listing.price.raw_value, "€2.49")
+        water_result = by_name["Water"][1]
+        self.assertEqual(len(water_result.listings), 1)
+        # One search request per subcategory, batch size = pool size.
+        self.assertEqual(soft_result.request_counts["search"], 1)
+        self.assertEqual(soft_result.batch_sizes["search"], [2])

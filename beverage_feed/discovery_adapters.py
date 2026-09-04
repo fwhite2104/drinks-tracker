@@ -717,10 +717,87 @@ class AldiDiscoveryAdapter(DiscoveryAdapter):
         payload = self.hydrator(str(product_id))
         return self._result(payload, (RequestEvent("hydration"),))
 
+    def walk_drinks(
+        self,
+        tree_payload: Mapping[str, Any],
+        fetch_node: Callable[[int], Mapping[str, Any]],
+        fetch_category: Callable[[Mapping[str, Any]], Mapping[str, Any]],
+    ) -> list[tuple[Mapping[str, Any], DiscoveryResult]]:
+        """Walk the Drinks category tree and list each subcategory's pool (R2).
+
+        Dry-run prototype for sizing the Aldi candidate pool: the tree's
+        subcategories carry no ``categoryKey``, so each one is resolved via
+        the verified ``category-nodes/{nodeId}`` Glue endpoint (``fetch_node``,
+        fixture: research/aldi/node85.json), then the subcategory's listing
+        payload is fetched by the injected ``fetch_category`` callable and
+        normalized through the standard discovery result path. This module
+        makes no live calls itself — the operator wires the (still unpinned,
+        see full-feed-coverage ticket 03) per-category product fetcher and
+        the category-trees GET when sprinting live.
+        """
+        results: list[tuple[Mapping[str, Any], DiscoveryResult]] = []
+        for category in parse_aldi_drinks_categories(tree_payload):
+            node_payload = fetch_node(category["nodeId"])
+            key = parse_aldi_category_key(node_payload)
+            listing_payload = fetch_category({**category, "categoryKey": key})
+            records = _records(listing_payload, self.retailer)
+            results.append(
+                (
+                    {**category, "categoryKey": key},
+                    self._result(
+                        listing_payload, (RequestEvent("search", max(len(records), 1)),)
+                    ),
+                )
+            )
+        return results
+
+
+def parse_aldi_drinks_categories(
+    tree_payload: Mapping[str, Any],
+) -> list[Mapping[str, Any]]:
+    """Flatten the Drinks subtree of an Aldi category-trees payload.
+
+    Returns the subcategory nodes (nodeId, name, url) under the ``Drinks``
+    node, in tree order. Raises ``ValueError`` when no Drinks node exists —
+    a silently empty pool would look like an empty range.
+    """
+    storage: list[Mapping[str, Any]] = []
+    for entry in tree_payload.get("data") or []:
+        attributes = entry.get("attributes") if isinstance(entry, Mapping) else None
+        nodes = attributes.get("categoryNodesStorage") if isinstance(attributes, Mapping) else None
+        if isinstance(nodes, list):
+            storage.extend(node for node in nodes if isinstance(node, Mapping))
+
+    def _find_drinks(nodes: list[Mapping[str, Any]]) -> Mapping[str, Any] | None:
+        for node in nodes:
+            if str(node.get("name", "")).strip().lower() == "drinks":
+                return node
+            found = _find_drinks(
+                [child for child in node.get("children") or [] if isinstance(child, Mapping)]
+            )
+            if found is not None:
+                return found
+        return None
+
+    drinks = _find_drinks(storage)
+    if drinks is None:
+        raise ValueError("Aldi category tree has no Drinks node")
+    return [node for node in drinks.get("children") or [] if isinstance(node, Mapping)]
+
+
+def parse_aldi_category_key(node_payload: Mapping[str, Any]) -> str:
+    """Extract the ``categoryKey`` from a ``category-nodes/{nodeId}`` payload."""
+    data = node_payload.get("data")
+    attributes = data.get("attributes") if isinstance(data, Mapping) else None
+    if not isinstance(attributes, Mapping) or not attributes.get("categoryKey"):
+        raise ValueError("Aldi category-nodes payload has no categoryKey")
+    return str(attributes["categoryKey"])
+
 
 __all__ = [
     "AldiDiscoveryAdapter", "Capability", "CapabilityContract", "DiscoveryAdapter",
     "DiscoveryResult", "DunnesDiscoveryAdapter", "LidlDiscoveryAdapter",
     "NormalizedListing", "PriceEvidence", "RequestEvent", "SuperValuDiscoveryAdapter",
-    "TescoDiscoveryAdapter", "normalize_listing",
+    "TescoDiscoveryAdapter", "normalize_listing", "parse_aldi_category_key",
+    "parse_aldi_drinks_categories",
 ]

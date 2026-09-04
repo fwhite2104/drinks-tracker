@@ -1,90 +1,6 @@
 {
   "dunnes": [
     {
-      "catalog_id": "club-orange-330",
-      "expected_product_name": "Club Orange Can 330ml",
-      "source_item_id": "100297976",
-      "source_product_reference": "100297976",
-      "status": "approved"
-    },
-    {
-      "catalog_id": "coca-zero-2000",
-      "expected_product_name": "Coca-Cola Zero Sugar 2L",
-      "source_item_id": "100298297",
-      "source_product_reference": "100298297",
-      "status": "approved"
-    },
-    {
-      "catalog_id": "coca-zero-330-single",
-      "expected_product_name": "Coca-Cola Zero Sugar 330ml",
-      "source_item_id": "100298010",
-      "source_product_reference": "100298010",
-      "status": "approved"
-    },
-    {
-      "catalog_id": "coca-zero-500",
-      "expected_product_name": "Coca-Cola Zero Sugar 500ml",
-      "source_item_id": "100298027",
-      "source_product_reference": "100298027",
-      "status": "approved"
-    },
-    {
-      "candidate_id": "dunnes:100298012:100298012",
-      "catalog_id": "coca-diet-330-single",
-      "decided_at": "2026-09-03T20:26:33Z",
-      "decided_by": "operator",
-      "decision_kind": "operator",
-      "decision_reason": "agent-sprint: exact brand variant size match",
-      "expected_product_name": "Diet Coke 330ml",
-      "identity_tier": "composite",
-      "matched_source_identity": "100298012:100298012",
-      "source_item_id": "100298012",
-      "source_product_reference": "100298012",
-      "status": "approved"
-    },
-    {
-      "candidate_id": "dunnes:100298028:100298028",
-      "catalog_id": "coca-diet-500",
-      "decided_at": "2026-09-03T20:26:52Z",
-      "decided_by": "operator",
-      "decision_kind": "operator",
-      "decision_reason": "agent-sprint: exact brand variant size match",
-      "expected_product_name": "Diet Coke 500ml",
-      "identity_tier": "composite",
-      "matched_source_identity": "100298028:100298028",
-      "source_item_id": "100298028",
-      "source_product_reference": "100298028",
-      "status": "approved"
-    },
-    {
-      "candidate_id": "dunnes:100298036:100298036",
-      "catalog_id": "coca-diet-2000",
-      "decided_at": "2026-09-03T20:26:53Z",
-      "decided_by": "operator",
-      "decision_kind": "operator",
-      "decision_reason": "agent-sprint: exact brand variant size match",
-      "expected_product_name": "Diet Coke 2L",
-      "identity_tier": "composite",
-      "matched_source_identity": "100298036:100298036",
-      "source_item_id": "100298036",
-      "source_product_reference": "100298036",
-      "status": "approved"
-    },
-    {
-      "candidate_id": "dunnes:100316542:100316542",
-      "catalog_id": "pepsi-original-330",
-      "decided_at": "2026-09-03T20:26:57Z",
-      "decided_by": "operator",
-      "decision_kind": "operator",
-      "decision_reason": "agent-sprint: exact brand variant size match",
-      "expected_product_name": "Pepsi Can 330ml",
-      "identity_tier": "composite",
-      "matched_source_identity": "100316542:100316542",
-      "source_item_id": "100316542",
-      "source_product_reference": "100316542",
-      "status": "approved"
-    },
-    {
       "candidate_id": "dunnes:100297967:100297967",
       "catalog_id": "ballygowan-sparkling-500",
       "decided_at": "2026-09-03T21:20:04Z",
@@ -169,6 +85,28 @@
       "status": "approved"
     },
     {
+      "catalog_id": "club-orange-330",
+      "expected_product_name": "Club Orange Can 330ml",
+      "matched_source_identity": "100297976:100297976",
+      "source_item_id": "100297976",
+      "source_product_reference": "100297976",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298036:100298036",
+      "catalog_id": "coca-diet-2000",
+      "decided_at": "2026-09-03T20:26:53Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Diet Coke 2L",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298036:100298036",
+      "source_item_id": "100298036",
+      "source_product_reference": "100298036",
+      "status": "approved"
+    },
+    {
       "candidate_id": "dunnes:100335273:100335273",
       "catalog_id": "coca-diet-330-24",
       "decided_at": "2026-09-03T21:20:05Z",
@@ -180,6 +118,34 @@
       "matched_source_identity": "100335273:100335273",
       "source_item_id": "100335273",
       "source_product_reference": "100335273",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298012:100298012",
+      "catalog_id": "coca-diet-330-single",
+      "decided_at": "2026-09-03T20:26:33Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Diet Coke 330ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298012:100298012",
+      "source_item_id": "100298012",
+      "source_product_reference": "100298012",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298028:100298028",
+      "catalog_id": "coca-diet-500",
+      "decided_at": "2026-09-03T20:26:52Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Diet Coke 500ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298028:100298028",
+      "source_item_id": "100298028",
+      "source_product_reference": "100298028",
       "status": "approved"
     },
     {
@@ -197,6 +163,42 @@
       "status": "approved"
     },
     {
+      "candidate_id": "dunnes:100298009:100298009",
+      "catalog_id": "coca-original-330-single",
+      "decided_at": "2026-09-03T21:41:20Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-range-sprint: single 330ml can, multipacks excluded",
+      "expected_product_name": "Coca-Cola Original Taste 330ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298009:100298009",
+      "source_item_id": "100298009",
+      "source_product_reference": "100298009",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "dunnes:100298017:100298017",
+      "catalog_id": "coca-original-500",
+      "decided_at": "2026-09-03T22:59:54Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "corrects agent-sprint rejection: exact brand/variant/size match, Coca-Cola Classic 500ml @ 2.55 agrees with tesco/supervalu observations",
+      "expected_product_name": "Coca-Cola Classic 500ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100298017:100298017",
+      "source_item_id": "100298017",
+      "source_product_reference": "100298017",
+      "status": "approved"
+    },
+    {
+      "catalog_id": "coca-zero-2000",
+      "expected_product_name": "Coca-Cola Zero Sugar 2L",
+      "matched_source_identity": "100298297:100298297",
+      "source_item_id": "100298297",
+      "source_product_reference": "100298297",
+      "status": "approved"
+    },
+    {
       "candidate_id": "dunnes:100335270:100335270",
       "catalog_id": "coca-zero-330-24",
       "decided_at": "2026-09-03T21:20:06Z",
@@ -208,6 +210,22 @@
       "matched_source_identity": "100335270:100335270",
       "source_item_id": "100335270",
       "source_product_reference": "100335270",
+      "status": "approved"
+    },
+    {
+      "catalog_id": "coca-zero-330-single",
+      "expected_product_name": "Coca-Cola Zero Sugar 330ml",
+      "matched_source_identity": "100298010:100298010",
+      "source_item_id": "100298010",
+      "source_product_reference": "100298010",
+      "status": "approved"
+    },
+    {
+      "catalog_id": "coca-zero-500",
+      "expected_product_name": "Coca-Cola Zero Sugar 500ml",
+      "matched_source_identity": "100298027:100298027",
+      "source_item_id": "100298027",
+      "source_product_reference": "100298027",
       "status": "approved"
     },
     {
@@ -351,6 +369,20 @@
       "status": "approved"
     },
     {
+      "candidate_id": "dunnes:100316542:100316542",
+      "catalog_id": "pepsi-original-330",
+      "decided_at": "2026-09-03T20:26:57Z",
+      "decided_by": "operator",
+      "decision_kind": "operator",
+      "decision_reason": "agent-sprint: exact brand variant size match",
+      "expected_product_name": "Pepsi Can 330ml",
+      "identity_tier": "composite",
+      "matched_source_identity": "100316542:100316542",
+      "source_item_id": "100316542",
+      "source_product_reference": "100316542",
+      "status": "approved"
+    },
+    {
       "candidate_id": "dunnes:100298450:100298450",
       "catalog_id": "redbull-250",
       "decided_at": "2026-09-03T21:20:09Z",
@@ -489,94 +521,76 @@
       "source_item_id": "100298058",
       "source_product_reference": "100298058",
       "status": "approved"
-    },
-    {
-      "candidate_id": "dunnes:100298009:100298009",
-      "catalog_id": "coca-original-330-single",
-      "decided_at": "2026-09-03T21:41:20Z",
-      "decided_by": "operator",
-      "decision_kind": "operator",
-      "decision_reason": "agent-range-sprint: single 330ml can, multipacks excluded",
-      "expected_product_name": "Coca-Cola Original Taste 330ml",
-      "identity_tier": "composite",
-      "matched_source_identity": "100298009:100298009",
-      "source_item_id": "100298009",
-      "source_product_reference": "100298009",
-      "status": "approved"
-    },
-    {
-      "candidate_id": "dunnes:100298017:100298017",
-      "catalog_id": "coca-original-500",
-      "decided_at": "2026-09-03T22:59:54Z",
-      "decided_by": "operator",
-      "decision_kind": "operator",
-      "decision_reason": "corrects agent-sprint rejection: exact brand/variant/size match, Coca-Cola Classic 500ml @ 2.55 agrees with tesco/supervalu observations",
-      "expected_product_name": "Coca-Cola Classic 500ml",
-      "identity_tier": "composite",
-      "matched_source_identity": "100298017:100298017",
-      "source_item_id": "100298017",
-      "source_product_reference": "100298017",
-      "status": "approved"
     }
   ],
   "supervalu": [
     {
       "catalog_id": "coca-diet-2000",
       "expected_product_name": "Diet Coke Bottle (2 L)",
+      "matched_source_identity": "1023917003",
       "source_product_id": "1023917003",
       "status": "approved"
     },
     {
       "catalog_id": "coca-diet-330-8",
       "expected_product_name": "Diet Coke Cans 8 Pack (330 ml)",
+      "matched_source_identity": "1284232007",
       "source_product_id": "1284232007",
       "status": "approved"
     },
     {
       "catalog_id": "coca-diet-330-single",
       "expected_product_name": "Diet Coke Can (330 ml)",
+      "matched_source_identity": "1009130003",
       "source_product_id": "1009130003",
       "status": "approved"
     },
     {
       "catalog_id": "coca-diet-500",
       "expected_product_name": "Diet Coke Bottle (500 ml)",
+      "matched_source_identity": "1016995006",
       "source_product_id": "1016995006",
       "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-8",
       "expected_product_name": "Coca-Cola Original Cans 8 Pack (330 ml)",
+      "matched_source_identity": "1023933011",
       "source_product_id": "1023933011",
       "status": "approved"
     },
     {
       "catalog_id": "coca-original-500",
       "expected_product_name": "Coca-Cola Original Bottle (500 ml)",
+      "matched_source_identity": "1016995007",
       "source_product_id": "1016995007",
       "status": "approved"
     },
     {
       "catalog_id": "coca-zero-2000",
       "expected_product_name": "Coca-Cola Zero Sugar Bottle (2 L)",
+      "matched_source_identity": "1009004003",
       "source_product_id": "1009004003",
       "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-8",
       "expected_product_name": "Coca-Cola Zero Sugar Cans 8 Pack (330 ml)",
+      "matched_source_identity": "1284236006",
       "source_product_id": "1284236006",
       "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-single",
       "expected_product_name": "Coca-Cola Zero Sugar Can (330 ml)",
+      "matched_source_identity": "1222815001",
       "source_product_id": "1222815001",
       "status": "approved"
     },
     {
       "catalog_id": "coca-zero-500",
       "expected_product_name": "Coca-Cola Zero Sugar Bottle (500 ml)",
+      "matched_source_identity": "1009005008",
       "source_product_id": "1009005008",
       "status": "approved"
     }
@@ -585,48 +599,56 @@
     {
       "catalog_id": "coca-diet-2000",
       "expected_product_name": "Diet Coke Soft Drink 2 Litre",
+      "matched_source_identity": "92752847",
       "source_tpnb": "92752847",
       "status": "approved"
     },
     {
       "catalog_id": "coca-diet-330-24",
       "expected_product_name": "Diet Coke Soft Drink 24x330ml",
+      "matched_source_identity": "97280504",
       "source_tpnb": "97280504",
       "status": "approved"
     },
     {
       "catalog_id": "coca-original-2000",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 2 Litre",
+      "matched_source_identity": "92658527",
       "source_tpnb": "92658527",
       "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-24",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 24 x 330ml",
+      "matched_source_identity": "98565875",
       "source_tpnb": "98565875",
       "status": "approved"
     },
     {
       "catalog_id": "coca-original-330-single",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 330Ml",
+      "matched_source_identity": "92864202",
       "source_tpnb": "92864202",
       "status": "approved"
     },
     {
       "catalog_id": "coca-original-500",
       "expected_product_name": "Coca-Cola Original Taste Soft Drink 500Ml",
+      "matched_source_identity": "92860379",
       "source_tpnb": "92860379",
       "status": "approved"
     },
     {
       "catalog_id": "coca-zero-2000",
       "expected_product_name": "Coca-Cola Zero Sugar Soft Drink 2 Litre",
+      "matched_source_identity": "92802259",
       "source_tpnb": "92802259",
       "status": "approved"
     },
     {
       "catalog_id": "coca-zero-330-24",
       "expected_product_name": "Coca-Cola Zero Sugar Soft Drink 24 x 330ml",
+      "matched_source_identity": "96930642",
       "source_tpnb": "96930642",
       "status": "approved"
     }

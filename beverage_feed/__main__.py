@@ -56,6 +56,10 @@ if argv and argv[0] == "ingest-batch":
     from .batch import ingest_main as ingest_batch_main
 
     raise SystemExit(ingest_batch_main(argv[1:]))
+if argv and argv[0] == "export-mappings":
+    from .discovery import export_mappings_main as export_mappings_main
+
+    raise SystemExit(export_mappings_main(argv[1:]))
 if argv and argv[0] == "pull-batch":
     from .batch import pull_main as pull_batch_main
 
@@ -64,6 +68,10 @@ if argv and argv[0] == "dashboard":
     from .dashboard import main as dashboard_main
 
     raise SystemExit(dashboard_main(argv[1:]))
+if argv and argv[0] == "freshness":
+    from .freshness import main as freshness_main
+
+    raise SystemExit(freshness_main(argv[1:]))
 if argv and argv[0] == "canary":
     # Manual live retailer canary (audit-10) — never scheduled, never CI.
     from .canary import main as canary_main

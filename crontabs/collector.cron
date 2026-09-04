@@ -4,3 +4,6 @@
 # pulls the CI batch (whole-run idempotent; needs GITHUB_TOKEN in the
 # container env, actions:read PAT) 40 minutes after the CI cron.
 40 */4 * * * python -m beverage_feed pull-batch
+# R5 liveness signal: log freshest observation age per retailer once daily.
+# Passive (always exits 0, read-only); the line lands in supercronic logs.
+5 5 * * * python -m beverage_feed freshness

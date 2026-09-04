@@ -1,4 +1,4 @@
-.PHONY: build up down collect canary discover review report serve test coverage ingest-basketwatch dashboard deploy-check
+.PHONY: build up down collect canary discover review report freshness serve test coverage ingest-basketwatch dashboard deploy-check
 
 build:
 	docker compose build
@@ -30,6 +30,11 @@ review:
 
 report:
 	docker compose run --rm discovery python -m beverage_feed report $(ARGS)
+
+# Passive liveness signal (audit R5) — freshest observation age per retailer.
+# Also run daily by collector.cron right after pull-batch; always exits 0.
+freshness:
+	docker compose run --rm collector python -m beverage_feed freshness
 
 serve:
 	docker compose up -d api

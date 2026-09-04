@@ -6,6 +6,7 @@ written by :mod:`beverage_feed.collector`, never by this module.
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import sqlite3
@@ -341,6 +342,78 @@ def _atomic_json_write(path: str | Path, value: Any) -> None:
 
 def write_mappings(path: str | Path, mappings: Mapping[str, Any]) -> None:
     _atomic_json_write(path, _validate_mapping_object(dict(mappings)))
+
+
+_MAPPING_EXPORT_DECISION_KEYS = (
+    "decision_kind", "decided_by", "decided_at", "discovery_run_id",
+    "matched_source_identity", "identity_tier", "candidate_id",
+    "decision_reason", "approved_at",
+)
+
+
+def export_mappings(database: str | Path) -> dict[str, list[dict[str, Any]]]:
+    """Regenerate the mappings artifact from SQLite (single writer: R4).
+
+    Reads ``catalog_mappings`` and serialises the mapping decisions into the
+    ``mappings.json`` shape, deterministically: retailers sorted, rows sorted
+    by catalog_id, volatile columns (challenge_pending, last_observed_at)
+    excluded, null decision metadata omitted. ``data/mappings.json`` is an
+    export artifact of this function — never hand-edited.
+    """
+    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as connection:
+        rows = connection.execute(
+            "SELECT retailer, catalog_id, expected_product_name,"
+            " source_product_reference, source_item_id, status,"
+            f" {', '.join(_MAPPING_EXPORT_DECISION_KEYS)} FROM catalog_mappings"
+            " ORDER BY retailer, catalog_id"
+        ).fetchall()
+    mappings: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        retailer = row[0]
+        entry = {
+            "catalog_id": row[1],
+            "expected_product_name": row[2],
+            "status": row[5],
+        }
+        # The table stores the retailer's source value in the two neutral
+        # columns; mappings.json keys it by retailer (dunnes: reference + item,
+        # supervalu/tesco/lidl/aldi: their single source key).
+        if retailer == "dunnes":
+            if row[3]:
+                entry["source_product_reference"] = row[3]
+            if row[4]:
+                entry["source_item_id"] = row[4]
+        else:
+            source_key = next(
+                key for key in _MAPPING_SOURCE_KEYS[retailer]
+                if key != "source_item_id"
+            )
+            if row[3]:
+                entry[source_key] = row[3]
+        for index, key in enumerate(_MAPPING_EXPORT_DECISION_KEYS, start=6):
+            if row[index] is not None:
+                entry[key] = row[index]
+        mappings.setdefault(retailer, []).append(entry)
+    return _validate_mapping_object(mappings)
+
+
+def export_mappings_main(argv: list[str] | None = None) -> int:
+    """CLI: regenerate ``data/mappings.json`` from the feed database."""
+    parser = argparse.ArgumentParser(
+        description="Export catalog_mappings from SQLite to the mappings JSON artifact"
+    )
+    parser.add_argument(
+        "--database", default=os.environ.get("DRINKS_DATABASE", "data/feed.sqlite")
+    )
+    parser.add_argument("--out", type=Path, default=Path("data/mappings.json"))
+    args = parser.parse_args(argv)
+    mappings = export_mappings(args.database)
+    write_mappings(args.out, mappings)
+    total = sum(len(rows) for rows in mappings.values())
+    print(
+        f"export-mappings wrote {args.out} retailers={len(mappings)} mappings={total}"
+    )
+    return 0
 
 
 def write_rejections(path: str | Path, rejections: Mapping[str, Any]) -> None:
