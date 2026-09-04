@@ -90,7 +90,27 @@ class DiscoveryMergeTests(unittest.TestCase):
                 "INSERT INTO discovery_rejections(section, canonical_key, retailer, rejected_at, decided_by, state) "
                 "VALUES ('junk', 'k-1', 'supervalu', '2026-09-04T19:31:00Z', 'agent-sprint', 'rejected')"
             )
+            con.execute(
+                "INSERT INTO catalog_candidates(candidate_id, retailer, source_product_reference, "
+                "source_item_id, source_product_name, displayed_price, raw_record, status, "
+                "first_seen_at) VALUES ('cand-1', 'supervalu', 'ref-9', 'item-9', "
+                "'Coca-Cola Zero 330ml', '1.55', '{}', 'discovered', '2026-09-04T19:31:00Z')"
+            )
+            # Source carries a candidate the target already has — target wins.
+            con.execute(
+                "INSERT INTO catalog_candidates(candidate_id, retailer, source_product_reference, "
+                "source_item_id, source_product_name, displayed_price, raw_record, status, "
+                "first_seen_at) VALUES ('cand-keep', 'supervalu', 'ref-8', 'item-8', "
+                "'Coca-Cola 330ml', '1.45', '{}', 'rejected', '2026-09-04T19:31:00Z')"
+            )
+            dst.execute(
+                "INSERT INTO catalog_candidates(candidate_id, retailer, source_product_reference, "
+                "source_item_id, source_product_name, displayed_price, raw_record, status, "
+                "first_seen_at) VALUES ('cand-keep', 'supervalu', 'ref-8', 'item-8', "
+                "'Coca-Cola 330ml (local rename)', '1.45', '{}', 'approved', '2026-09-04T19:31:00Z')"
+            )
             con.commit()
+            dst.commit()
 
     def _count(self, path: Path, table: str, where: str = "") -> int:
         with closing(sqlite3.connect(path)) as con:
@@ -107,9 +127,7 @@ class DiscoveryMergeTests(unittest.TestCase):
         self.assertEqual(counts["discovery_search_history"], 1)
         self.assertEqual(counts["discovery_state_transitions"], 1)
         self.assertEqual(counts["discovery_rejections"], 1)
-        self.assertEqual(
-            self._count(self.target, "discovery_cells", "WHERE retailer='supervalu'"), 2
-        )
+        self.assertEqual(counts["catalog_candidates"], 1)  # cand-1; cand-keep deduped
 
     def test_merge_reassigns_autoincrement_ids(self) -> None:
         merge_discovery_database(self.source, self.target)
@@ -137,6 +155,22 @@ class DiscoveryMergeTests(unittest.TestCase):
         merge_discovery_database(self.source, self.target)
         self.assertEqual(self._count(self.target, "price_observations"), before)
         self.assertEqual(before, 1)
+
+    def test_merge_copies_candidate_registry_without_overwriting(self) -> None:
+        """Approve/reject validate against catalog_candidates; a merge must
+        carry missing candidate rows while keeping the target's own rows."""
+        merge_discovery_database(self.source, self.target)
+        with closing(sqlite3.connect(self.target)) as con:
+            copied = con.execute(
+                "SELECT source_product_name, status FROM catalog_candidates "
+                "WHERE candidate_id='cand-1'"
+            ).fetchone()
+            kept = con.execute(
+                "SELECT source_product_name, status FROM catalog_candidates "
+                "WHERE candidate_id='cand-keep'"
+            ).fetchone()
+        self.assertEqual(copied, ("Coca-Cola Zero 330ml", "discovered"))
+        self.assertEqual(kept, ("Coca-Cola 330ml (local rename)", "approved"))
 
     def test_merge_rejects_missing_source(self) -> None:
         with self.assertRaises(ValueError):

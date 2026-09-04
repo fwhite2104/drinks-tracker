@@ -1,9 +1,11 @@
 """Surgical merge of a CI discovery database into a live feed database.
 
-Copies only ``discovery_*`` rows missing from the target, deduplicated by
-natural keys (run_id / attempt_id / candidate_id / retailer+catalog_id).
-Collection tables (observations, collection results, catalog mappings) are
-never touched, so a merge never loses fresher collection data.
+Copies only ``discovery_*`` rows plus ``catalog_candidates`` (the candidate
+registry review decisions validate against) missing from the target,
+deduplicated by natural keys (run_id / attempt_id / candidate_id /
+retailer+catalog_id).  Collection result tables (observations, collection
+results, catalog mappings) are never touched, so a merge never loses fresher
+collection data.
 """
 
 from __future__ import annotations
@@ -22,6 +24,7 @@ from .discovery import ensure_discovery_schema
 _NATURAL_KEYS: dict[str, tuple[str, ...]] = {
     "discovery_runs": ("run_id",),
     "discovery_attempts": ("attempt_id",),
+    "catalog_candidates": ("candidate_id",),
     "discovery_cells": ("retailer", "catalog_id"),
     "discovery_candidate_cells": ("candidate_id", "retailer", "catalog_id"),
     "discovery_candidate_search_terms": ("candidate_id", "retailer", "search_term"),
@@ -48,6 +51,10 @@ _NATURAL_KEYS: dict[str, tuple[str, ...]] = {
     # ponytail: discovery_diagnostics skipped — run telemetry with no natural
     # key; add a full-tuple key here if diagnostics ever become review evidence.
 }
+
+# Surrogate auto-increment columns per table, dropped on copy so the target
+# assigns fresh ids.  catalog_candidates carries none: candidate_id is the key.
+_SURROGATE_IDS = ("search_id", "evidence_id", "transition_id", "link_id")
 
 
 def merge_discovery_database(source: str | Path, target: str | Path) -> dict[str, int]:
@@ -87,8 +94,7 @@ def merge_discovery_database(source: str | Path, target: str | Path) -> dict[str
             if autoincrement:
                 # Drop the surrogate id; the target assigns its own.
                 columns = [
-                    column for column in columns
-                    if column not in ("search_id", "evidence_id", "transition_id", "link_id")
+                    column for column in columns if column not in _SURROGATE_IDS
                 ]
             copied = 0
             for row in src.execute(

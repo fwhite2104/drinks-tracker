@@ -377,6 +377,114 @@
       "rejected_at": "2026-09-03T21:20:10Z",
       "retailer": "dunnes",
       "state": "do_not_map"
+    },
+    {
+      "catalog_id": "powerade-orange-500",
+      "cell": "powerade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at dunnes (Powerade 500ml range is Berry & Tropical and Cherry; no Orange 500ml bottle)",
+      "rejected_at": "2026-09-04T21:05:18Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at dunnes (Sanpellegrino range is sparkling fruit beverages 330ml/6x330 cans; no Sparkling Water 6x500ml bottles)",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at dunnes (Sprite sold as 2L bottle, 500ml bottle and cans; no 1.5L)",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Diet Coke cans sold as single/4/8/12-pack; no 6-pack)",
+      "rejected_at": "2026-09-04T21:05:41Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Diet Coke cans sold as single/4/8/12-pack; no 24-pack)",
+      "rejected_at": "2026-09-04T21:05:42Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Diet Coke bottles sold as 500ml/1L/2L; no 1.5L)",
+      "rejected_at": "2026-09-04T21:05:43Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Pepsi Max cans sold as single/4/8/12/18-pack; no 6-pack)",
+      "rejected_at": "2026-09-04T21:05:50Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Pepsi Max bottles sold as 750ml/1.25L/2L; no 1.5L)",
+      "rejected_at": "2026-09-04T21:05:51Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Fanta Orange bottles sold as 500ml/1L/1.75L; no 1.5L)",
+      "rejected_at": "2026-09-04T21:05:53Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Zero Sugar cans sold as single/4/8/12-pack; no 6-pack)",
+      "rejected_at": "2026-09-04T21:05:55Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Zero Sugar cans sold as single/4/8/12-pack; no 24-pack)",
+      "rejected_at": "2026-09-04T21:05:57Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: not stocked at supervalu (Zero Sugar bottles sold as 500ml/1L/2L; no 1.5L)",
+      "rejected_at": "2026-09-04T21:06:00Z",
+      "retailer": "supervalu",
+      "state": "do_not_map"
     }
   ],
   "listings": [
@@ -8866,6 +8974,4626 @@
       "reason": "agent-sprint: cola-flavoured sweet/lolly, not Coca-Cola drink, wrong brand",
       "rejected_at": "2026-09-03T20:33:27Z",
       "retailer": "aldi",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100245586:100245586",
+      "catalog_id": "prime-ice-pop-500",
+      "cell": "prime-ice-pop-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Olay skincare moisturiser, non-beverage, keyword noise",
+      "rejected_at": "2026-09-04T21:05:09Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299802:100299802",
+      "catalog_id": "powerade-orange-500",
+      "cell": "powerade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Berry & Tropical), need Orange 500ml",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100338760:100338760",
+      "catalog_id": "powerade-orange-500",
+      "cell": "powerade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry), need Orange 500ml",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100245593:100245593",
+      "catalog_id": "prime-ice-pop-500",
+      "cell": "prime-ice-pop-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Olay skincare moisturiser, non-beverage, keyword noise",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299037:100299037",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: sparkling fruit beverage (Limonata) 6x330ml, wrong variant and size",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299039:100299039",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: sparkling fruit beverage (Blood Orange) 6x330ml, wrong variant and size",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299040:100299040",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: sparkling fruit beverage (Orange) 6x330ml, wrong variant and size",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299041:100299041",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 330ml sparkling fruit beverage, wrong variant and size",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299042:100299042",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 330ml sparkling fruit beverage, wrong variant and size",
+      "rejected_at": "2026-09-04T21:05:19Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298261:100298261",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar) and size 330ml",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298276:100298276",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (No Sugar) and size 500ml",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298289:100298289",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar) and size 1L",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298317:100298317",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, 2L not 1.5L",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298326:100298326",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (4x330ml)",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298334:100298334",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (6x330ml)",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298359:100298359",
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar) and pack count (12-pack)",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298367:100298367",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Pink Grapefruit & Blood Orange) and size 330ml",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298369:100298369",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant and pack count (4x330ml)",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298370:100298370",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Slimline Tonic Water)",
+      "rejected_at": "2026-09-04T21:05:20Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298373:100298373",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Soda Water)",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298374:100298374",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Indian Tonic Water)",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298377:100298377",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Slimline Elderflower Tonic)",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298380:100298380",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (8x150ml cans)",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298388:100298388",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 'Multipack Cans' category listing at \u00a35.75, size unstated; not the 1L bottle",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298389:100298389",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant and pack count (8x150ml cans)",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100338800:100338800",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Pink Grapefruit Soda), size unstated",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297936:100297936",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297937:100297937",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297938:100297938",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:21Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297939:100297939",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: duplicate listing of MiWadi Orange 1L; approved 100297935",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297940:100297940",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297941:100297941",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297942:100297942",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297943:100297943",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297944:100297944",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297945:100297945",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 2L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297946:100297946",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Blackcurrant) and size 2L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297947:100297947",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Summer Fruits with B&D Vitamins)",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297949:100297949",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297950:100297950",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:22Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297952:100297952",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297953:100297953",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100297955:100297955",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different MiWadi flavour), need Orange 1L",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100339612:100339612",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Apple & Pear) and size 500ml",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100844570:100844570",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Tropical 0% Sugar mini) and size 66ml",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100853093:100853093",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 66ml mini",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298113:100298113",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298115:100298115",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298120:100298120",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298130:100298130",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:23Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298133:100298133",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298142:100298142",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Pipeline Punch), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298143:100298143",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Mango Loco), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298146:100298146",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100298149:100298149",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Rosa), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299792:100299792",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100299797:100299797",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100300581:100300581",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100316583:100316583",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100321943:100321943",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Strawberry Dreams), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100324957:100324957",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:24Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100325995:100325995",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Lando Zero Sugar), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100326994:100326994",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100332753:100332753",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Ruby Red), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100334637:100334637",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Juiced Viking Berry), multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100334648:100334648",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Juiced Viking Berry)",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100338793:100338793",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100340888:100340888",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100340890:100340890",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (different Monster flavour), need Zero Sugar 500ml",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:5099011239429:5099011239429",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Monster plush toy, non-beverage",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100130767:100130767",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: smoothie 250ml, wrong product and size",
+      "rejected_at": "2026-09-04T21:05:25Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100171643:100171643",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Raspberry & Cherry Plus) and size 750ml",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100171646:100171646",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Apple & Pear Plus) and size 750ml",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100171647:100171647",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Guava & Lime Plus) and size 750ml",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100171648:100171648",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Orange & Carrot Plus) and size 750ml",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100203644:100203644",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100203645:100203645",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100203646:100203646",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100203647:100203647",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100203649:100203649",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100205007:100205007",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: super smoothie (Berry Energise), wrong product",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100205008:100205008",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: super smoothie (Green Energise), wrong product",
+      "rejected_at": "2026-09-04T21:05:26Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100205010:100205010",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: super smoothie (Tropical Focus), wrong product",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100221715:100221715",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100221718:100221718",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100304343:100304343",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Pineapple Strawberry & Apple pressed juice)",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100323679:100323679",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.75L",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100323687:100323687",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100330105:100330105",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong product (Fruit + Veg smoothie) and size 750ml",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100332390:100332390",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100336843:100336843",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: kids juicy water 3x200ml, wrong product/format",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100336845:100336845",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: kids juicy water 3x200ml, wrong product/format",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100336847:100336847",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: innocent Kids smoothie multipack, wrong format/variant",
+      "rejected_at": "2026-09-04T21:05:27Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100336848:100336848",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: coconut water, wrong product",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100336913:100336913",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: immunity shot 400ml, wrong product and size",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100336916:100336916",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: immunity shot 80ml, wrong product and size",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100779610:100779610",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Apple juice)",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100779611:100779611",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: smoothie (Mangoes Apples & Passion Fruits), wrong product",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100779612:100779612",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: smoothie (Strawberries Bananas & Apples), wrong product",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100779627:100779627",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 330ml",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100788814:100788814",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Tropical juice)",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100788821:100788821",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.35L",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100788826:100788826",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.35L",
+      "rejected_at": "2026-09-04T21:05:28Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100788828:100788828",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Apple) and size 1.35L",
+      "rejected_at": "2026-09-04T21:05:29Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100829687:100829687",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: coconut water 1L, wrong product",
+      "rejected_at": "2026-09-04T21:05:29Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "dunnes:100842252:100842252",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Tropical) and size 1.35L",
+      "rejected_at": "2026-09-04T21:05:29Z",
+      "retailer": "dunnes",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1865466007",
+      "catalog_id": "boost-500",
+      "cell": "boost-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need Boost Original 500ml",
+      "rejected_at": "2026-09-04T21:09:02Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1707227000",
+      "catalog_id": "arizona-green-tea-500",
+      "cell": "arizona-green-tea-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need Arizona Green Tea 500ml",
+      "rejected_at": "2026-09-04T21:09:02Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1467947001",
+      "catalog_id": "fever-tree-tonic-500",
+      "cell": "fever-tree-tonic-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (8x150ml cans), need 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:02Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1497121001",
+      "catalog_id": "ballygowan-sport-750",
+      "cell": "ballygowan-sport-750",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (6-pack), need single 750ml sports bottle",
+      "rejected_at": "2026-09-04T21:09:02Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1249926010",
+      "catalog_id": "monster-mango-500",
+      "cell": "monster-mango-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:02Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1732984001",
+      "catalog_id": "monster-pipeline-500",
+      "cell": "monster-pipeline-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:02Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1007956000",
+      "catalog_id": "7up-330",
+      "cell": "7up-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Farley's Rusks baby food, non-beverage, keyword noise",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1013556000",
+      "catalog_id": "7up-330",
+      "cell": "7up-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Liga baby rusks, non-beverage, keyword noise",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1209995001",
+      "catalog_id": "lipton-peach-1500",
+      "cell": "lipton-peach-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need Lipton Peach 1.5L",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1730705003",
+      "catalog_id": "lipton-peach-1500",
+      "cell": "lipton-peach-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need Lipton Peach 1.5L",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1209993003",
+      "catalog_id": "lipton-lemon-1500",
+      "cell": "lipton-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need Lipton Lemon 1.5L",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1730705002",
+      "catalog_id": "lipton-lemon-1500",
+      "cell": "lipton-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need Lipton Lemon 1.5L",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1731670002",
+      "catalog_id": "fever-tree-ginger-500",
+      "cell": "fever-tree-ginger-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (8x150ml cans)",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1865009006",
+      "catalog_id": "schweppes-ginger-1l",
+      "cell": "schweppes-ginger-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (8x150ml cans)",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1586051002",
+      "catalog_id": "7up-free-330",
+      "cell": "7up-free-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: twinpack 2L bottles, wrong format and size, need 330ml can",
+      "rejected_at": "2026-09-04T21:09:03Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1709263001",
+      "catalog_id": "7up-free-330",
+      "cell": "7up-free-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Ella's Kitchen baby food, non-beverage, keyword noise",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1026637002",
+      "catalog_id": "ribena-blackcurrant-500",
+      "cell": "ribena-blackcurrant-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Light)",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1451138000",
+      "catalog_id": "ribena-blackcurrant-500",
+      "cell": "ribena-blackcurrant-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format (concentrate) and size 850ml",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1026637002",
+      "catalog_id": "ribena-blackcurrant-1l",
+      "cell": "ribena-blackcurrant-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml (and Light variant)",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1026637005",
+      "catalog_id": "ribena-blackcurrant-1l",
+      "cell": "ribena-blackcurrant-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml bottle, need 1L",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1451138000",
+      "catalog_id": "ribena-blackcurrant-1l",
+      "cell": "ribena-blackcurrant-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format (concentrate) and size 850ml",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1865009005",
+      "catalog_id": "schweppes-slimline-1l",
+      "cell": "schweppes-slimline-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Elderflower) and pack count (8x150ml cans)",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1865009009",
+      "catalog_id": "schweppes-slimline-1l",
+      "cell": "schweppes-slimline-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count (8x150ml cans)",
+      "rejected_at": "2026-09-04T21:09:04Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162014",
+      "catalog_id": "fanta-zero-330",
+      "cell": "fanta-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need Fanta Zero 330ml single can",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145005",
+      "catalog_id": "fanta-zero-330",
+      "cell": "fanta-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need Fanta Zero 330ml single can",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1732489003",
+      "catalog_id": "fanta-zero-330",
+      "cell": "fanta-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need Fanta Zero 330ml single can",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1026147009",
+      "catalog_id": "volvic-touch-lemon-1500",
+      "cell": "volvic-touch-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Lemon & Lime Sugar Free), need Touch of Lemon",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1702753003",
+      "catalog_id": "volvic-touch-lemon-1500",
+      "cell": "volvic-touch-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Lemon & Lime) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1987173001",
+      "catalog_id": "volvic-touch-lemon-1500",
+      "cell": "volvic-touch-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Lemon & Lime) and pack count (6x500ml)",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1249926013",
+      "catalog_id": "monster-original-500",
+      "cell": "monster-original-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1893686001",
+      "catalog_id": "monster-original-500",
+      "cell": "monster-original-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar)",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1919554000",
+      "catalog_id": "monster-original-500",
+      "cell": "monster-original-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar) and multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008586001",
+      "catalog_id": "evian-500",
+      "cell": "evian-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:05Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008608001",
+      "catalog_id": "evian-500",
+      "cell": "evian-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024806002",
+      "catalog_id": "evian-500",
+      "cell": "evian-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024876001",
+      "catalog_id": "evian-500",
+      "cell": "evian-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008586001",
+      "catalog_id": "evian-6",
+      "cell": "evian-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (6x1.5L bottles)",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024806002",
+      "catalog_id": "evian-6",
+      "cell": "evian-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 1.5L bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024876001",
+      "catalog_id": "evian-6",
+      "cell": "evian-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 750ml bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1045321002",
+      "catalog_id": "robinsons-orange-1l",
+      "cell": "robinsons-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Fruit Shoot 4x200ml, wrong product line and format",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1045323003",
+      "catalog_id": "robinsons-orange-1l",
+      "cell": "robinsons-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Fruit Shoot 8x200ml, wrong product line and format",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1131207000",
+      "catalog_id": "robinsons-orange-1l",
+      "cell": "robinsons-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Barley Water Orange Squash 850ml, wrong product and size",
+      "rejected_at": "2026-09-04T21:09:06Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1298089001",
+      "catalog_id": "robinsons-orange-1l",
+      "cell": "robinsons-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Fruit Shoot 275ml bottle, wrong product line",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008586001",
+      "catalog_id": "evian-1l",
+      "cell": "evian-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 1L bottle",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008608001",
+      "catalog_id": "evian-1l",
+      "cell": "evian-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 1L bottle",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024806002",
+      "catalog_id": "evian-1l",
+      "cell": "evian-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 1L bottle",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024876001",
+      "catalog_id": "evian-1l",
+      "cell": "evian-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Evian 1L bottle",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1601285000",
+      "catalog_id": "innocent-apple-900",
+      "cell": "innocent-apple-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.35L carafe",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1697214000",
+      "catalog_id": "innocent-apple-900",
+      "cell": "innocent-apple-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Apple & Blackcurrant Kids)",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1819481000",
+      "catalog_id": "innocent-apple-900",
+      "cell": "innocent-apple-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: kids smoothie 4x150ml, wrong product/format",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1928914000",
+      "catalog_id": "innocent-apple-900",
+      "cell": "innocent-apple-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Pineapple Strawberry & Apple)",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009113004",
+      "catalog_id": "sprite-zero-330",
+      "cell": "sprite-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count or size, need single 330ml can",
+      "rejected_at": "2026-09-04T21:09:07Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1023907003",
+      "catalog_id": "sprite-zero-330",
+      "cell": "sprite-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count or size, need single 330ml can",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1025338003",
+      "catalog_id": "sprite-zero-330",
+      "cell": "sprite-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count or size, need single 330ml can",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1619328001",
+      "catalog_id": "sprite-zero-330",
+      "cell": "sprite-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count or size, need single 330ml can",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1869281001",
+      "catalog_id": "sprite-zero-330",
+      "cell": "sprite-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count or size, need single 330ml can",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1365652005",
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.5L",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1365652006",
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.5L",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1433076000",
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 300ml",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1433076003",
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 300ml",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1027074002",
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 900ml",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1027074003",
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 900ml",
+      "rejected_at": "2026-09-04T21:09:08Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1433076000",
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 300ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1433076003",
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 300ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019222003",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019740001",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1249952001",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1264166003",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1497121001",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1803407002",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1809412001",
+      "catalog_id": "ballygowan-still-500",
+      "cell": "ballygowan-still-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size or pack count, need single Ballygowan Still 500ml",
+      "rejected_at": "2026-09-04T21:09:09Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019222003",
+      "catalog_id": "ballygowan-still-6",
+      "cell": "ballygowan-still-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 2L bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019740001",
+      "catalog_id": "ballygowan-still-6",
+      "cell": "ballygowan-still-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 1L bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1249952001",
+      "catalog_id": "ballygowan-still-6",
+      "cell": "ballygowan-still-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 750ml bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1497121001",
+      "catalog_id": "ballygowan-still-6",
+      "cell": "ballygowan-still-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: sports bottle 6x750ml, wrong size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1803407002",
+      "catalog_id": "ballygowan-still-6",
+      "cell": "ballygowan-still-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 1.5L bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1809412001",
+      "catalog_id": "ballygowan-still-6",
+      "cell": "ballygowan-still-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4x1.5L pack, wrong size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019222003",
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need single 1.5L bottle",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019740001",
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need single 1.5L bottle",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1249952001",
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size, need single 1.5L bottle",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1264166003",
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 6x500ml pack, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:10Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1497121001",
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: sports bottle 6x750ml, wrong size and pack",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1809412001",
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4x1.5L pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1003870000",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1029731002",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1121905002",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1121907002",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1273416002",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1305454001",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1839670000",
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong pack count/size/variant, need Sparkling Water 6x500ml bottles",
+      "rejected_at": "2026-09-04T21:09:11Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1004902001",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (No Added Sugar)",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018141001",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Orange & Pineapple)",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1188587005",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Double Concentrate No Added Sugar)",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1188587007",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Orange & Pineapple Double Concentrate)",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1427246009",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero)",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1534820001",
+      "catalog_id": "miwadi-orange-1l",
+      "cell": "miwadi-orange-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format (66ml mini)",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1002074007",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1005241005",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1497221002",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1602093001",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:12Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1808404004",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1815281002",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1940735000",
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size (1.75L is the largest Rock Shandy bottle) or pack count, need 2L",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514538000",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.35L",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514539000",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.35L",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1601285000",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong product (Apple Juice Carafe)",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1697214002",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Orange Mango & Pineapple Kids 600ml)",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1822193000",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 330ml",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1825245000",
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 330ml",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1228450000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:13Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1228451000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514538000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514539000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1601285000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1697214002",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1822193000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1825245000",
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong format/variant, need Kids orange juice 4x150ml pouches",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1005247003",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 2L",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1264166002",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 6x500ml pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1264166003",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: still water 6-pack, wrong variant and pack count",
+      "rejected_at": "2026-09-04T21:09:14Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1803405002",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.5L",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1809514001",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4x1.5L pack, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1950493000",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Hint of Fruits Orange)",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1950502000",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Hint of Fruits Summer Fruits)",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1951867000",
+      "catalog_id": "ballygowan-sparkling-500",
+      "cell": "ballygowan-sparkling-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Hint of Fruits Strawberry)",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1004873001",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 500ml bottle, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1005247003",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 2L bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1264166003",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: still water 6-pack, wrong variant",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1803405002",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single 1.5L bottle, wrong pack count and size",
+      "rejected_at": "2026-09-04T21:09:15Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1809514001",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4x1.5L pack, wrong size",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1950493000",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Hint of Fruits Orange), single 1.5L",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1950502000",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Hint of Fruits Summer Fruits), single 1.5L",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1951867000",
+      "catalog_id": "ballygowan-sparkling-6",
+      "cell": "ballygowan-sparkling-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Hint of Fruits Strawberry), single 1.5L",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009130003",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, need 6-pack",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1016995006",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019614003",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2x1L bottle twin pack, wrong format",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1023917003",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024083002",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack multipack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1284232007",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack multipack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:16Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1378440004",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1L bottle, wrong size",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1949641000",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack multipack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2003091000",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and pack count (12-pack)",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2003101000",
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and pack count (single can)",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009130003",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, need 24-pack",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1016995006",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019614003",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2x1L bottle twin pack, wrong format",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1023917003",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024083002",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack multipack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1284232007",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack multipack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:17Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1378440004",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1L bottle, wrong size",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1949641000",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack multipack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2003091000",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and pack count (12-pack)",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2003101000",
+      "catalog_id": "coca-diet-330-24",
+      "cell": "coca-diet-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and pack count (single can)",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009130003",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 330ml can, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1016995006",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1019614003",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2x1L twin pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1023917003",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 2L bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024083002",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1284232007",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1378440004",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1L bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:18Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1949641000",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2003091000",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and format (12-pack cans)",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2003101000",
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and format (330ml can)",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1871093001",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Full Throttle Zero Sugar)",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1893302001",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Peachy Keen)",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1916965000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Full Throttle) and multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1917053000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Rosa) and multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1919554000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 4x500ml",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1933098000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Strawberry Dreams)",
+      "rejected_at": "2026-09-04T21:09:19Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1968730000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Fantasy Ruby Red)",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1995989000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Rossi VR46)",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2013692000",
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Ultra Vice Guava)",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1375014005",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 18-pack multipack",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1375166001",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Club Zero), need Club Orange 330ml single can",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1375176002",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Club Zero), need Club Orange 330ml single can",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1403795004",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Club Zero), need Club Orange 330ml single can",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1602063002",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1.75L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1808404005",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero) and pack count (12-pack)",
+      "rejected_at": "2026-09-04T21:09:20Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1856518001",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1856588003",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack multipack",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1863316002",
+      "catalog_id": "club-orange-330",
+      "cell": "club-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack multipack",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1021611004",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 380ml",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1068606002",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 6x380ml",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1160633003",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 900ml",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1228819009",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong product line (Lucozade Sport) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514699000",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong product line (Sport Sparkling)",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1560812000",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 8x380ml",
+      "rejected_at": "2026-09-04T21:09:21Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1591173008",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong product line (Lucozade Sport)",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1684889002",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: multipack 4x380ml",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1684889003",
+      "catalog_id": "lucozade-orange-500",
+      "cell": "lucozade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong product line (Sport) and pack count (4-pack)",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1021611004",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy) and size 380ml",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1068606002",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), multipack 6x380ml",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1160633003",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy) and size 900ml",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1228819009",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 750ml",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514699000",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Sparkling)",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1560812000",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), multipack 8x380ml",
+      "rejected_at": "2026-09-04T21:09:22Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1684889002",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), multipack 4x380ml",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1684889003",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack multipack, need single bottle",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1740360002",
+      "catalog_id": "lucozade-sport-orange-500",
+      "cell": "lucozade-sport-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy, not Sport)",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1021611004",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy) and size 380ml",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1068606002",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), multipack 6x380ml",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1160633003",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy) and size 900ml",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1228819009",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 750ml single",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1514699000",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Sparkling), single bottle",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1560812000",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), multipack 8x380ml",
+      "rejected_at": "2026-09-04T21:09:23Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1591173008",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single bottle, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1684889002",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), multipack 4x380ml",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1740360002",
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "cell": "lucozade-sport-orange-500-2",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong line (Energy), single bottle",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1002516002",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack multipack",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008703005",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1022603003",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack multipack",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024817004",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and format (750ml bottle)",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024817005",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 750ml bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1210566001",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1.25L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:24Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1438956002",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and format (2L bottle)",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939884000",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 18-pack multipack",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939888000",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: duplicate Pepsi Max 330ml can listing at \u20ac1.35 promo; approved supervalu:1015836005",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939955000",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry)",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1940756000",
+      "catalog_id": "pepsi-max-330",
+      "cell": "pepsi-max-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack multipack",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1002516002",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008703005",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1015836005",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, need 6-pack",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1022603003",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024817004",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Cherry 750ml bottle, wrong variant and format",
+      "rejected_at": "2026-09-04T21:09:25Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024817005",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 750ml bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1210566001",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1.25L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1438956002",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Cherry 2L bottle, wrong variant and format",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939884000",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 18-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939888000",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, need 6-pack",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939955000",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Cherry single can, wrong variant",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1940756000",
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1002516002",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008703005",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 2L bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:26Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1015836005",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 330ml can, wrong format",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1022603003",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024817004",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1024817005",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 750ml bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1210566001",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.25L bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1438956002",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and size 2L",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939884000",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 18-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939888000",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 330ml can, wrong format",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1939955000",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Cherry) and format (330ml can)",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1940756000",
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:27Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009113005",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 6-pack multipack",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162012",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162013",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Lemon)",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162014",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar) and format (500ml bottle)",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1270031003",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1376362001",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack multipack",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145005",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero) and size 1.75L",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145006",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Lemon) and size 1.75L",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145008",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.75L bottle",
+      "rejected_at": "2026-09-04T21:09:28Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1732489002",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack multipack",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1732489003",
+      "catalog_id": "fanta-orange-330",
+      "cell": "fanta-orange-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero) and pack count (12-pack)",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009113005",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 6-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009135001",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 330ml can, wrong format",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162012",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162013",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Lemon) and size 500ml",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018162014",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero Sugar) and format (500ml bottle)",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1270031003",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1L bottle",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1376362001",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145005",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero) and size 1.75L",
+      "rejected_at": "2026-09-04T21:09:29Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145006",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong flavour (Lemon) and size 1.75L",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1487145008",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1.75L bottle, need 1.5L",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1732489002",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack cans, wrong format",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1732489003",
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Zero) and format (12-pack cans)",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1001547001",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 6x1.5L multipack",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1008673001",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1018294001",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 1L",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1026147008",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant/size, need Volvic Still 1.5L",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1603955000",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Touch of Fruit Watermelon)",
+      "rejected_at": "2026-09-04T21:09:30Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1702753003",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Touch of Fruit Lemon & Lime) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1702753004",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Touch of Fruit Strawberry) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1962360000",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Touch of Fruit Peach & Raspberry)",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1987173000",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Touch of Fruit Strawberry), 6x500ml",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1987173001",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Touch of Fruit Lemon & Lime), 6x500ml",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2005388000",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Vitamin+ Peach) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2005392000",
+      "catalog_id": "volvic-1500",
+      "cell": "volvic-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong variant (Vitamin+ Recharge Raspberry) and size 750ml",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009004003",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009004004",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 2L bottle",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005007",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Cherry), 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:31Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005008",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, wrong size",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005009",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Caffeine Free), 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009106005",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2x1L twin pack, wrong format",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1222815001",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, need 6-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1284236006",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack, need 6-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1316170002",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 4-pack",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1316170003",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack, need 6-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1378440003",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1L bottle, wrong size",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1380426001",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack, need 6-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1603099001",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Cherry), 2L bottle",
+      "rejected_at": "2026-09-04T21:09:32Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1790666001",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 12-pack",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999020000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999022000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999038000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999041000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999056000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999065000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999114000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999117000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2002875000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Dr Pepper)",
+      "rejected_at": "2026-09-04T21:09:33Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2002876000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Dr Pepper)",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2012091000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml Super Can",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2014995000",
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Jack Daniel's & Coca-Cola, alcohol)",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009004003",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009004004",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 2L bottle",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005007",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Cherry), 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005008",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, wrong size",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005009",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Caffeine Free), 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009106005",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2x1L twin pack, wrong format",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1222815001",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, need 24-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:34Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1284236006",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack, need 24-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1316170002",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 4-pack",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1316170003",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack, need 24-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1378440003",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1L bottle, wrong size",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1380426001",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack, need 24-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1603099001",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Cherry), 2L bottle",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1790666001",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 12-pack",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999020000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999022000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999038000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:35Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999041000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999056000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999065000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999114000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999117000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2002875000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Dr Pepper)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2002876000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Dr Pepper)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2012091000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong size 500ml Super Can",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2014995000",
+      "catalog_id": "coca-zero-330-24",
+      "cell": "coca-zero-330-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Jack Daniel's & Coca-Cola, alcohol)",
+      "rejected_at": "2026-09-04T21:09:36Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009004003",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2L bottle, wrong format and size",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009004004",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 2L bottle",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005007",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Cherry), 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005008",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 500ml bottle, need 1.5L, wrong size",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009005009",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Caffeine Free), 500ml bottle",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1009106005",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 2x1L twin pack, wrong format",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1222815001",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: single can, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1284236006",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 8-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1316170002",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 4-pack",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1316170003",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 4-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:37Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1378440003",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 1L bottle, need 1.5L, wrong size",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1380426001",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: 12-pack, wrong pack count",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1603099001",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Cherry), 2L bottle",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1790666001",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong sub-variant (Zero Caffeine), 12-pack",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999020000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999022000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999038000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999041000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Cream Soda)",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999056000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999065000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:38Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999114000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:39Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:1999117000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Pepsi Strawberries 'N' Cream)",
+      "rejected_at": "2026-09-04T21:09:39Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2002875000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Dr Pepper)",
+      "rejected_at": "2026-09-04T21:09:39Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2002876000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Dr Pepper)",
+      "rejected_at": "2026-09-04T21:09:39Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2012091000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: need 1.5L, wrong size 500ml Super Can",
+      "rejected_at": "2026-09-04T21:09:39Z",
+      "retailer": "supervalu",
+      "state": "rejected"
+    },
+    {
+      "canonical_key": "supervalu:2014995000",
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: wrong brand (Jack Daniel's & Coca-Cola, alcohol)",
+      "rejected_at": "2026-09-04T21:09:39Z",
+      "retailer": "supervalu",
       "state": "rejected"
     }
   ]

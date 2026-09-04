@@ -286,6 +286,33 @@ class DecideCellTests(unittest.TestCase):
                 "SELECT state FROM discovery_cells").fetchone()
         self.assertEqual(state, ("approved",))
 
+    def test_reconcile_rejection_of_competing_candidate_never_demotes_approved_cell(self):
+        """Approve a cell, then reject a near-miss candidate in the same cell:
+        reconciliation must keep the cell approved, not flip it to rejected."""
+        self.decide([listing()])  # approved mapping on ref-1:item-1
+        with closing(self.store.connection()) as connection:
+            connection.execute(
+                "INSERT INTO catalog_packs VALUES "
+                "('pack-1', 'x', 'Coca-Cola', 'Original Taste', 1, 330, 'can', 'x')"
+            )
+            connection.commit()
+        write_rejections(self.rejection_path, {"listings": [{
+            "canonical_key": "dunnes:ref-2:item-2",
+            "retailer": "dunnes",
+            "catalog_id": "pack-1",
+            "cell": "pack-1",
+            "rejected_at": "2026-09-04T21:05:00Z",
+            "decided_by": "agent-sprint",
+            "reason": "agent-sprint: wrong variant",
+            "state": "rejected",
+        }], "cells": []})
+        reconcile_json_decisions(self.store.database, self.mapping_path, self.rejection_path)
+
+        with closing(self.store.connection()) as connection:
+            state = connection.execute(
+                "SELECT state FROM discovery_cells WHERE catalog_id='pack-1'").fetchone()
+        self.assertEqual(state, ("approved",))
+
     def _decide_supervalu(self, record, catalog_id="coca-diet-2000"):
         """Run decide_cell for a SuperValu listing via its product identity."""
         pack = BenchmarkPack(

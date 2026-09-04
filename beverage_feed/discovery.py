@@ -872,7 +872,13 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                         decided_by=row["decided_by"],
                         reason=row.get("reason"),
                     )
-                elif row["state"] == "rejected":
+                elif row["state"] == "rejected" and not connection.execute(
+                    # A listing rejection of a competing candidate must never
+                    # downgrade a cell that has an approved mapping — the
+                    # mapping loop above already set that cell to approved.
+                    "SELECT 1 FROM catalog_mappings WHERE retailer=? AND catalog_id=? AND status='approved'",
+                    (row["retailer"], cell),
+                ).fetchone():
                     upsert_cell(
                         row["retailer"], cell, "rejected",
                         decided_at=row["rejected_at"],
