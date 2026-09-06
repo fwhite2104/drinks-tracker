@@ -17,9 +17,10 @@ storage/*
 # Local editor/tool config
 /opencode.json
 
-# Issue tracker and agent docs (local only, never pushed)
+# Issue tracker and agent instructions (local only, never pushed)
+# docs/ is committed since 2026-09-06 (project documentation tree);
+# only .scratch/ and AGENTS.md stay local.
 .scratch/
-docs/
 AGENTS.md
 
 # Throwaway exploration/prototype scripts (not part of the feed)

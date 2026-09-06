@@ -2,6 +2,10 @@
 
 Local collection and review tools for the Irish beverage price feed.
 
+Full documentation lives in [`docs/`](docs/README.md) — start with
+[`docs/architecture.md`](docs/architecture.md) (system overview) and
+[`docs/status.md`](docs/status.md) (where the project stands).
+
 ## Retailers
 
 Tier 1 adapters: Tesco Ireland, Dunnes Stores, SuperValu, Lidl Ireland,
