@@ -946,6 +946,19 @@
       "matched_source_identity": "1008672001",
       "source_product_id": "1008672001",
       "status": "approved"
+    },
+    {
+      "candidate_id": "supervalu:1470834018",
+      "catalog_id": "monster-ultra-white-500",
+      "decided_at": "2026-09-06T22:50:06Z",
+      "decided_by": "agent",
+      "decision_kind": "operator",
+      "decision_reason": "SuperValu 'Monster Energy Ultra Zero Can (500 ml)' = Monster Ultra White white can: identical 'Ultra Zero' title as the Tesco listing whose GTIN (05061013942980) is Ultra White (Open Food Facts); single 500ml Monster can, 2.60 EUR. Class B (name-based, cross-retailer corroboration).",
+      "expected_product_name": "Monster Energy Ultra Zero Can (500 ml)",
+      "identity_tier": "product",
+      "matched_source_identity": "1470834018",
+      "source_product_id": "1470834018",
+      "status": "approved"
     }
   ],
   "tesco": [
@@ -1003,6 +1016,19 @@
       "expected_product_name": "Coca-Cola Zero Sugar Soft Drink 24 x 330ml",
       "matched_source_identity": "96930642",
       "source_tpnb": "96930642",
+      "status": "approved"
+    },
+    {
+      "candidate_id": "tesco:92858544",
+      "catalog_id": "monster-ultra-white-500",
+      "decided_at": "2026-09-06T22:50:05Z",
+      "decided_by": "agent",
+      "decision_kind": "operator",
+      "decision_reason": "Tesco title 'Monster Energy Ultra Zero Enrgy Drink 500Ml' = Monster Ultra White white can: listing GTIN 05061013942980 resolves to 'Monster Ultra White 500ml' on Open Food Facts; same title convention as all confirmed 'Ultra <colour>' siblings. Class A (GTIN evidence).",
+      "expected_product_name": "Monster Energy Ultra Zero Enrgy Drink 500Ml",
+      "identity_tier": "tpnb",
+      "matched_source_identity": "92858544",
+      "source_tpnb": "92858544",
       "status": "approved"
     }
   ]
