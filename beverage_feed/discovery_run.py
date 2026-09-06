@@ -762,16 +762,23 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.rediscover:
         targets = rediscovery_targets(catalog, store, retailer=args.retailer)
-        target_retailers = {target["retailer"] for target in targets}
-        if args.retailer:
-            retailers = [args.retailer] if args.retailer in target_retailers else []
+        if args.catalog_id:
+            # Operator-scoped: search this one cell wherever asked, even if
+            # classification has no target for it (decided/stateless cells).
+            retailers = [args.retailer] if args.retailer else list(
+                REDISCOVERY_DEFAULT_RETAILERS
+            )
         else:
-            # Politeness (ticket 11): Tesco discovery runs only via CI egress,
-            # so it is excluded from the default re-discovery pass; run it
-            # explicitly with --retailer tesco from the CI workflow.
-            retailers = [
-                name for name in REDISCOVERY_DEFAULT_RETAILERS if name in target_retailers
-            ]
+            target_retailers = {target["retailer"] for target in targets}
+            if args.retailer:
+                retailers = [args.retailer] if args.retailer in target_retailers else []
+            else:
+                # Politeness (ticket 11): Tesco discovery runs only via CI egress,
+                # so it is excluded from the default re-discovery pass; run it
+                # explicitly with --retailer tesco from the CI workflow.
+                retailers = [
+                    name for name in REDISCOVERY_DEFAULT_RETAILERS if name in target_retailers
+                ]
         adapters: dict[str, DiscoveryAdapter] = {}
         try:
             for name in retailers:
