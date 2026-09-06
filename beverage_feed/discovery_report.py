@@ -12,7 +12,6 @@ import json
 import os
 import sqlite3
 from contextlib import closing
-from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
@@ -98,20 +97,18 @@ def coverage_report(
     rows = {name: _empty_row(name, catalog_count) for name in retailers}
     overall = _empty_row("overall", catalog_count * len(retailers))
 
+    for cell in store.cell_states():
+        row = rows.get(cell["retailer"])
+        if row is None:
+            continue
+        if cell["state"] == "review":
+            row[_review_key(cell["review_category"])] += 1
+            row["review"] += 1
+        elif cell["state"] in _CELL_COUNTS:
+            row[cell["state"]] += 1
+
     with closing(store.connection()) as connection:
         connection.row_factory = sqlite3.Row
-        for cell in connection.execute(
-            "SELECT retailer, state, review_category FROM discovery_cells"
-        ):
-            row = rows.get(cell["retailer"])
-            if row is None:
-                continue
-            if cell["state"] == "review":
-                row[_review_key(cell["review_category"])] += 1
-                row["review"] += 1
-            elif cell["state"] in _CELL_COUNTS:
-                row[cell["state"]] += 1
-
         # Review-queue age buckets.
         for cell in connection.execute(
             "SELECT retailer, decided_at FROM discovery_cells WHERE state='review'"

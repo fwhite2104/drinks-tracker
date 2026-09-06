@@ -66,9 +66,7 @@ from typing import Any, Mapping, Sequence
 
 from .collector import (
     BenchmarkPack,
-    SuperValuClient,
-    TescoClient,
-    DunnesClient,
+    build_client,
     _find_listing,
     _find_supervalu_listing,
     _find_tesco_listing,
@@ -725,19 +723,11 @@ def _default_clients(store_ids: Mapping[str, str] | None = None) -> dict[str, An
     canary outcome for that retailer instead of aborting the whole probe.
     """
     clients: dict[str, Any] = {}
-    try:
-        clients["dunnes"] = DunnesClient()
-    except ValueError as exc:
-        print(f"canary: dunnes client not configured: {exc}", file=sys.stderr)
-    store_id = (store_ids or {}).get("supervalu")
-    try:
-        clients["supervalu"] = SuperValuClient(store_id or "")
-    except ValueError as exc:
-        print(f"canary: supervalu client not configured: {exc}", file=sys.stderr)
-    try:
-        clients["tesco"] = TescoClient()
-    except ValueError as exc:
-        print(f"canary: tesco client not configured: {exc}", file=sys.stderr)
+    for name in ("dunnes", "supervalu", "tesco"):
+        try:
+            clients[name] = build_client(name, supervalu_store_id=(store_ids or {}).get("supervalu"))
+        except ValueError as exc:
+            print(f"canary: {name} client not configured: {exc}", file=sys.stderr)
     return clients
 
 

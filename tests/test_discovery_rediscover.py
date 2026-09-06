@@ -268,6 +268,22 @@ class RunRediscoveryTests(unittest.TestCase):
         self.assertEqual(state, ("inconclusive",))
         self.assertEqual(summary["inconclusive"], 1)
 
+    def test_catalog_id_scope_overrides_decided_state(self):
+        # pack-1 is decided (do_not_map): normally never a target. An
+        # operator-scoped catalog_id must still search it for fresh evidence.
+        self.store.set_cell_state("dunnes", "pack-1", "do_not_map", decided_by="operator")
+        adapter = FakeAdapter()
+        summary = run_rediscovery(
+            [pack("pack-1"), pack("pack-2")], {"dunnes": adapter}, self.store,
+            catalog_id="pack-1", max_formulations=2,
+        )
+
+        self.assertEqual(summary["status"], "complete")
+        self.assertEqual(len(adapter.calls), 2)  # term + alias only, one cell
+        kinds = [row[0] for row in self.store.connection().execute(
+            "SELECT request_kind FROM discovery_search_history")]
+        self.assertEqual(kinds, ["rediscovery"] * 2)
+
     def test_request_cap_exhausts_retailer(self):
         self.store.set_cell_state("dunnes", "pack-1", "pending", decided_by="discovery")
         adapter = FakeAdapter()

@@ -11,7 +11,6 @@ import argparse
 import json
 import os
 import sqlite3
-from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -20,15 +19,13 @@ from .collector import as_datetime, timestamp
 from .discovery import (
     DiscoveryStore,
     approved_mapping,
-    candidate_id_for,
     load_mappings,
     load_rejections,
     reconcile_json_decisions,
     source_fields,
-    write_mappings,
     write_rejections,
 )
-from .discovery_decisions import apply_mapping_replacement, resolve_challenge
+from .discovery_decisions import apply_mapping_replacement, commit_decision, resolve_challenge
 
 REVIEW_CATEGORIES = ("missing", "conflicting", "conflicting-candidates", "challenge")
 
@@ -56,36 +53,18 @@ def review_list(
     """List review cells with stored raw/normalized evidence and diffs."""
     if category is not None and category not in REVIEW_CATEGORIES:
         raise ValueError(f"unsupported review category: {category}")
-    query = "SELECT * FROM discovery_cells WHERE state='review'"
-    parameters: list[str] = []
-    if retailer:
-        query += " AND retailer=?"
-        parameters.append(retailer)
-    if category:
-        query += " AND review_category=?"
-        parameters.append(category)
-    query += " ORDER BY retailer, catalog_id"
     results: list[dict[str, Any]] = []
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        for cell in connection.execute(query, parameters):
-            evidence = connection.execute(
-                "SELECT candidate_id, raw_attributes, normalized_attributes, inference_basis, "
-                "attribute_diffs, raw_price_value, price_parse_status, price_parse_reason "
-                "FROM discovery_candidate_evidence WHERE retailer=? AND catalog_id=? "
-                "ORDER BY evidence_id",
-                (cell["retailer"], cell["catalog_id"]),
-            ).fetchall()
-            results.append({
-                "retailer": cell["retailer"],
-                "catalog_id": cell["catalog_id"],
-                "review_category": cell["review_category"],
-                "candidate_id": cell["candidate_id"],
-                "reason": cell["reason"],
-                "decided_by": cell["decided_by"],
-                "decided_at": cell["decided_at"],
-                "evidence": [dict(row) for row in evidence],
-            })
+    for cell in store.review_cells(retailer=retailer, category=category):
+        results.append({
+            "retailer": cell["retailer"],
+            "catalog_id": cell["catalog_id"],
+            "review_category": cell["review_category"],
+            "candidate_id": cell["candidate_id"],
+            "reason": cell["reason"],
+            "decided_by": cell["decided_by"],
+            "decided_at": cell["decided_at"],
+            "evidence": cell["evidence"],
+        })
     return results
 
 
@@ -135,19 +114,15 @@ def approve(
         **source_fields(retailer, candidate["identity_key"], candidate["identity_tier"]),
     }
     mappings.setdefault(retailer, []).append(row)
-    write_mappings(mapping_path, mappings)  # durable JSON first, SQLite second
-    store.set_cell_state(
-        retailer, catalog_id, "approved",
-        candidate_id=candidate_id, decided_by=decided_by, reason=reason,
+    commit_decision(
+        store, retailer=retailer, catalog_id=catalog_id,
+        mapping_path=mapping_path, mappings=mappings,
+        state="approved", decided_by=decided_by,
+        reason=reason, candidate_id=candidate_id,
     )
-    with closing(store.connection()) as connection:
-        connection.execute(
-            "UPDATE catalog_candidates SET status='resolved' "
-            "WHERE candidate_id <> ? AND status='pending_review' AND candidate_id IN "
-            "(SELECT candidate_id FROM discovery_candidate_cells WHERE retailer=? AND catalog_id=?)",
-            (candidate_id, retailer, catalog_id),
-        )
-        connection.commit()
+    store.resolve_competing_candidates(
+        retailer=retailer, catalog_id=catalog_id, keep_candidate_id=candidate_id,
+    )
     return {"status": "approved", "idempotent": False, "row": row}
 
 
@@ -169,10 +144,10 @@ def revoke(
     if existing is None:
         raise ValueError("no approved mapping to revoke")
     rows.remove(existing)
-    write_mappings(mapping_path, mappings)
-    store.set_cell_state(
-        retailer, catalog_id, "review",
-        decided_by=decided_by,
+    commit_decision(
+        store, retailer=retailer, catalog_id=catalog_id,
+        mapping_path=mapping_path, mappings=mappings,
+        state="review", decided_by=decided_by,
         reason=f"revoked approval of {existing.get('candidate_id')}: {reason or 'no reason given'}",
     )
     store.diagnostic(
@@ -309,12 +284,7 @@ def reset_rejections(
             count += 1
             if section == "listings":
                 store.supersede_rejection("listings", row["canonical_key"], superseded_at=now)
-                with closing(store.connection()) as connection:
-                    connection.execute(
-                        "UPDATE catalog_candidates SET status='pending_review' WHERE candidate_id=?",
-                        (row["canonical_key"],),
-                    )
-                    connection.commit()
+                store.set_candidate_status(row["canonical_key"], "pending_review")
             else:
                 store.supersede_rejection(
                     "cells", f"{row['retailer']}:{row.get('cell', row.get('catalog_id'))}",
@@ -341,17 +311,7 @@ def reopen_reviews(
     if category is not None and category not in REVIEW_CATEGORIES:
         raise ValueError(f"unsupported review category: {category}")
     now = now or timestamp()
-    query = "SELECT retailer, catalog_id, decided_at FROM discovery_cells WHERE state='review'"
-    parameters: list[str] = []
-    if retailer:
-        query += " AND retailer=?"
-        parameters.append(retailer)
-    if category:
-        query += " AND review_category=?"
-        parameters.append(category)
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        cells = connection.execute(query, parameters).fetchall()
+    cells = store.review_cells(retailer=retailer, category=category)
     count = 0
     for cell in cells:
         if not _older_than(cell["decided_at"] or now, older_than_days, now):
@@ -390,35 +350,19 @@ def challenge_list(
 ) -> list[dict[str, Any]]:
     """Group pending challenges with approved vs challenger evidence side by side."""
     mappings = load_mappings(mapping_path)
-    query = (
-        "SELECT * FROM discovery_cells "
-        "WHERE state='review' AND review_category='challenge'"
-    )
-    parameters: list[str] = []
-    if retailer:
-        query += " AND retailer=?"
-        parameters.append(retailer)
-    query += " ORDER BY retailer, catalog_id"
-
     grouped: list[dict[str, Any]] = []
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        for cell in connection.execute(query, parameters):
-            existing = approved_mapping(mappings, cell["retailer"], cell["catalog_id"])
-            challenger_row = connection.execute(
-                "SELECT * FROM discovery_candidate_evidence "
-                "WHERE retailer=? AND catalog_id=? AND candidate_id=? "
-                "ORDER BY evidence_id DESC LIMIT 1",
-                (cell["retailer"], cell["catalog_id"], cell["candidate_id"]),
-            ).fetchone()
-            # Stamp the pending challenge on the mapping row (forward-migrated
-            # field); idempotent and never touches approved status.
-            connection.execute(
-                "UPDATE catalog_mappings SET challenge_pending=? "
-                "WHERE retailer=? AND catalog_id=?",
-                (cell["candidate_id"], cell["retailer"], cell["catalog_id"]),
-            )
-            grouped.append({
+    for cell in store.review_cells(retailer=retailer, category="challenge"):
+        existing = approved_mapping(mappings, cell["retailer"], cell["catalog_id"])
+        challenger_row = store.latest_evidence(
+            retailer=cell["retailer"], catalog_id=cell["catalog_id"],
+            candidate_id=cell["candidate_id"],
+        )
+        # Stamp the pending challenge on the mapping row (forward-migrated
+        # field); idempotent and never touches approved status.
+        store.set_mapping_challenge_pending(
+            cell["retailer"], cell["catalog_id"], cell["candidate_id"],
+        )
+        grouped.append({
                 "retailer": cell["retailer"],
                 "catalog_id": cell["catalog_id"],
                 "challenger_candidate_id": cell["candidate_id"],
@@ -434,8 +378,7 @@ def challenge_list(
                     if challenger_row is not None and challenger_row["raw_attributes"]
                     else None
                 ),
-            })
-        connection.commit()
+        })
     return grouped
 
 

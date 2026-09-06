@@ -32,6 +32,8 @@ from contextlib import closing
 from pathlib import Path
 from typing import Any
 
+from .feed_reads import open_readonly
+
 _DEFAULT_DATABASE = "data/feed.sqlite"
 _RESULT_LIMIT = 8
 
@@ -75,7 +77,7 @@ def trace(
     retailer: str | None = None,
 ) -> int:
     """Print every persisted stage for the traced product. Returns exit code."""
-    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as connection:
+    with closing(open_readonly(database)) as connection:
         if reference and not catalog_id:
             # Resolve the reference to catalog cell(s) it has been seen with.
             cells = {

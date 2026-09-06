@@ -2838,7 +2838,9 @@ class SuperValuHydrationTests(unittest.TestCase):
 
     def _client(self, payload):
         client = SuperValuClient("store-123")
-        patcher = patch.object(client, "_get", lambda url, **kwargs: payload)
+        patcher = patch.object(
+            client._transport, "json", lambda url, **kwargs: payload
+        )
         patcher.start()
         self.addCleanup(patcher.stop)
         return client

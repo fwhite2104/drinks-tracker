@@ -10,13 +10,13 @@ from __future__ import annotations
 
 import argparse
 import os
-import sqlite3
 from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from .collector import as_datetime
+from .feed_reads import open_readonly
 
 _KNOWN_RETAILERS_SQL = "SELECT DISTINCT retailer FROM catalog_mappings ORDER BY retailer"
 _FRESHEST_SQL = (
@@ -30,9 +30,7 @@ def freshness_snapshot(database: str | Path) -> list[dict[str, Any]]:
     Retailers with mappings but no observations report ``None`` — that is the
     frozen-collection signature (supervalu/tesco, 2026-08-27 → 2026-09-03).
     """
-    with closing(
-        sqlite3.connect(f"file:{database}?mode=ro", uri=True)
-    ) as connection:
+    with closing(open_readonly(database)) as connection:
         retailers = [row[0] for row in connection.execute(_KNOWN_RETAILERS_SQL)]
         rows = []
         for retailer in retailers:

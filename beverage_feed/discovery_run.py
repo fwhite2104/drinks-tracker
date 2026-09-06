@@ -11,18 +11,13 @@ import argparse
 import json
 import os
 import sqlite3
-from contextlib import closing
 from dataclasses import replace
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
 from .collector import (
-    AldiClient,
     BenchmarkPack,
-    DunnesClient,
-    LidlClient,
-    SuperValuClient,
-    TescoClient,
+    build_client,
     timestamp,
 )
 from .discovery import (
@@ -62,10 +57,7 @@ _IDENTITY_BASIS = {
 
 
 def _run_exists(store: DiscoveryStore, run_id: str) -> bool:
-    with closing(store.connection()) as connection:
-        return connection.execute(
-            "SELECT 1 FROM discovery_runs WHERE run_id=?", (run_id,)
-        ).fetchone() is not None
+    return store.run_exists(run_id)
 
 
 def _suppressed_candidates(rejection_path: str | Path | None) -> set[str]:
@@ -102,8 +94,12 @@ def run_discovery(
     retailer: str | None = None,
     request_caps: Mapping[str, int] | None = None,
     run_id: str | None = None,
+    catalog_id: str | None = None,
 ) -> dict[str, Any]:
     """Evaluate one search per eligible unmapped retailer-pack cell.
+
+    When *catalog_id* is set, only that pack's cell is evaluated regardless
+    of the rest of the catalog (operator-scoped single-pack discovery).
 
     Retries once with the canonical brand-plus-variant fallback when the
     primary complete result set has no exact candidate.  Stops safely at
@@ -149,14 +145,15 @@ def run_discovery(
         adapter = adapters[retailer_name]
         cap = caps[retailer_name]
         spent = 0
-        with closing(store.connection()) as connection:
-            states = dict(connection.execute(
-                "SELECT catalog_id, state FROM discovery_cells WHERE retailer=?",
-                (retailer_name,),
-            ).fetchall())
+        states = {
+            row["catalog_id"]: row["state"]
+            for row in store.cell_states(retailer=retailer_name)
+        }
         for pack_index, pack in enumerate(catalog):
             if paused:
                 break
+            if catalog_id is not None and pack.catalog_id != catalog_id:
+                continue
             if states.get(pack.catalog_id) in SKIPPED_STATES:
                 continue
 
@@ -308,24 +305,21 @@ def rediscovery_targets(
         if retailer is not None and target["retailer"] != retailer:
             continue
         targets[(target["retailer"], target["catalog_id"])] = dict(target)
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        rows = connection.execute("SELECT retailer, catalog_id, state FROM discovery_cells")
-        for row in rows:
-            key = (row["retailer"], row["catalog_id"])
-            if row["state"] not in REDISCOVERY_UNRESOLVED_STATES or key in targets:
-                continue
-            if retailer is not None and row["retailer"] != retailer:
-                continue
-            targets[key] = {
-                "retailer": key[0],
-                "catalog_id": key[1],
-                "state": row["state"],
-                "reason": (
-                    f"unresolved state {row['state']!r}: "
-                    "classification could not decide the cell"
-                ),
-            }
+    for row in store.cell_states():
+        key = (row["retailer"], row["catalog_id"])
+        if row["state"] not in REDISCOVERY_UNRESOLVED_STATES or key in targets:
+            continue
+        if retailer is not None and row["retailer"] != retailer:
+            continue
+        targets[key] = {
+            "retailer": key[0],
+            "catalog_id": key[1],
+            "state": row["state"],
+            "reason": (
+                f"unresolved state {row['state']!r}: "
+                "classification could not decide the cell"
+            ),
+        }
     return [targets[key] for key in sorted(targets)]
 
 
@@ -342,8 +336,13 @@ def run_rediscovery(
     run_id: str | None = None,
     max_formulations: int = REDISCOVERY_MAX_FORMULATIONS,
     reclassify: bool = True,
+    catalog_id: str | None = None,
 ) -> dict[str, Any]:
     """Term-expansion re-discovery pass over thin target cells (ticket 14).
+
+    When *catalog_id* is set, targets collapse to that one cell regardless
+    of its state (including decided cells, e.g. to re-verify a stale
+    ``do_not_map`` verdict with fresh evidence).
 
     Searches only the cells in *targets* (by default
     :func:`rediscovery_targets`: thin/Class-D cells from the classification
@@ -371,6 +370,15 @@ def run_rediscovery(
     resolved_targets = targets if targets is not None else rediscovery_targets(
         catalog, store, retailer=retailer,
     )
+    if catalog_id is not None:
+        scoped = [t for t in resolved_targets if t["catalog_id"] == catalog_id]
+        if not scoped:
+            scoped = [{
+                "retailer": name,
+                "catalog_id": catalog_id,
+                "reason": "operator-scoped single-cell rediscovery",
+            } for name in adapters]
+        resolved_targets = scoped
     for target in resolved_targets:
         key = (target["retailer"], target["catalog_id"])
         if retailer is not None and key[0] != retailer:
@@ -408,15 +416,11 @@ def run_rediscovery(
 
     # Politeness: never re-issue a query the cell's search history already
     # holds, regardless of which pass recorded it.
-    searched: dict[tuple[str, str], set[str]] = {}
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        for row in connection.execute(
-            "SELECT retailer, catalog_id, search_term FROM discovery_search_history"
-        ):
-            key = (row["retailer"], row["catalog_id"])
-            if key in target_map:
-                searched.setdefault(key, set()).add(row["search_term"].strip().lower())
+    searched: dict[tuple[str, str], set[str]] = {
+        key: {term.strip().lower() for term in terms}
+        for key, terms in store.searched_terms().items()
+        if key in target_map
+    }
 
     selected = [name for name in adapters if retailer is None or name == retailer]
     search_cache: dict[tuple[str, str], DiscoveryResult] = {}
@@ -647,19 +651,19 @@ def _build_adapter(name: str, supervalu_store_id: str | None) -> DiscoveryAdapte
         TescoDiscoveryAdapter,
     )
 
-    if name == "dunnes":
-        return DunnesDiscoveryAdapter(DunnesClient())
-    if name == "supervalu":
-        if not supervalu_store_id:
-            raise ValueError(
-                "--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu"
-            )
-        return SuperValuDiscoveryAdapter(SuperValuClient(supervalu_store_id))
-    if name == "tesco":
-        return TescoDiscoveryAdapter(TescoClient())
-    if name == "lidl":
-        return LidlDiscoveryAdapter(LidlClient())
-    return AldiDiscoveryAdapter(AldiClient())
+    if name == "supervalu" and not supervalu_store_id:
+        raise ValueError(
+            "--supervalu-store-id or SUPERVALU_STORE_ID is required for SuperValu"
+        )
+    client = build_client(name, supervalu_store_id=supervalu_store_id)
+    adapter_type = {
+        "dunnes": DunnesDiscoveryAdapter,
+        "supervalu": SuperValuDiscoveryAdapter,
+        "tesco": TescoDiscoveryAdapter,
+        "lidl": LidlDiscoveryAdapter,
+        "aldi": AldiDiscoveryAdapter,
+    }[name]
+    return adapter_type(client)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -685,6 +689,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--max-formulations", type=int, default=REDISCOVERY_MAX_FORMULATIONS,
         help="maximum alternate search formulations per cell in --rediscover mode",
+    )
+    parser.add_argument(
+        "--catalog-id",
+        help="scope the run to this one catalog pack (operator-supplied; "
+             "in --rediscover mode it overrides the cell's state)",
     )
     parser.add_argument(
         "--list-targets", action="store_true",
@@ -742,6 +751,12 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.list_targets:
         targets = rediscovery_targets(catalog, store, retailer=args.retailer)
+        if args.catalog_id:
+            targets = [t for t in targets if t["catalog_id"] == args.catalog_id] or [
+                {"retailer": args.retailer, "catalog_id": args.catalog_id,
+                 "state": None,
+                 "reason": "operator-scoped single-cell rediscovery"}
+            ]
         print(json.dumps(targets, indent=2, default=str))
         return 0
 
@@ -773,6 +788,7 @@ def main(argv: list[str] | None = None) -> int:
             request_caps={name: args.request_cap for name in adapters},
             run_id=args.run_id,
             max_formulations=args.max_formulations,
+            catalog_id=args.catalog_id,
         )
         requests = ",".join(
             f"{kind}={count}" for kind, count in sorted(summary["request_counts"].items())
@@ -812,6 +828,7 @@ def main(argv: list[str] | None = None) -> int:
         retailer=args.retailer,
         request_caps={name: args.request_cap for name in adapters},
         run_id=args.run_id,
+        catalog_id=args.catalog_id,
     )
     requests = ",".join(f"{kind}={count}" for kind, count in sorted(summary["request_counts"].items())) or "-"
     exhausted = ",".join(summary["retailers_exhausted"]) or "-"

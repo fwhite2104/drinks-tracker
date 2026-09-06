@@ -7,9 +7,9 @@ retailer, and open a circuit breaker after repeated failures — while operator
 diagnostics preserve status codes and retryability and never carry
 credentials, cookies, or sensitive headers.
 
-Wired into ``collector.py`` today. The thin clients in ``lidl.py`` and
-``aldi.py`` keep their own transports and are documented follow-up adopters
-of this module.
+Wired into every retailer client: ``RetailerTransport.send`` is the single
+throttle + error-classification path for Dunnes, SuperValu, Tesco (urllib
+branch), Lidl, and Aldi.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, Mapping
 
 __all__ = [
     "DEFAULT_CIRCUIT_COOLDOWN",
@@ -204,7 +204,9 @@ class RetailerTransport:
         if min_request_interval < 0:
             raise ValueError(f"{retailer} request interval must not be negative")
         self.retailer = retailer
-        self.opener = opener or urllib.request.build_opener()
+        # opener=None keeps the module-level urllib.request.urlopen as the
+        # transport (tests intercept it as the network seam).
+        self.opener = opener
         self.min_request_interval = min_request_interval
         self._last_request_at: float | None = None
 
@@ -213,14 +215,21 @@ class RetailerTransport:
         if delay:
             time.sleep(delay)
 
-    def text(self, url: str, *, accept: str = "application/json") -> str:
+    def send(self, request: urllib.request.Request, *, parse_json: bool = True) -> Any:
+        """Fetch a prepared urllib Request with shared throttle + error mapping.
+
+        HTTP >= 400 becomes ``status_error`` (carrying Retry-After evidence),
+        transport-level outages become ``transport_error``, anything else
+        degrades to a plain ``RuntimeError``.
+        """
         self._throttle()
-        request = urllib.request.Request(
-            url,
-            headers={"Accept": accept, "User-Agent": "drinks-tracker/0.1"},
-        )
         try:
-            with self.opener.open(request, timeout=30) as response:
+            context = (
+                self.opener.open(request, timeout=30)
+                if self.opener is not None
+                else urllib.request.urlopen(request, timeout=30)
+            )
+            with context as response:
                 if getattr(response, "status", 200) >= 400:
                     raise status_error(
                         self.retailer, getattr(response, "status", 200),
@@ -239,14 +248,41 @@ class RetailerTransport:
             raise RuntimeError(f"{self.retailer} request failed: {exc}") from exc
         finally:
             self._last_request_at = time.monotonic()
+        if not parse_json:
+            return body
+        try:
+            return json.loads(body.decode("utf-8"))
+        except (UnicodeDecodeError, ValueError) as exc:
+            raise RuntimeError(
+                f"{self.retailer} response was not valid JSON: {exc}"
+            ) from exc
+
+    def text(
+        self,
+        url: str,
+        *,
+        accept: str = "application/json",
+        headers: Mapping[str, str] | None = None,
+    ) -> str:
+        request = urllib.request.Request(
+            url,
+            headers={"Accept": accept, "User-Agent": "drinks-tracker/0.1", **(headers or {})},
+        )
+        body = self.send(request, parse_json=False)
         try:
             return body.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise RuntimeError(f"{self.retailer} response was not UTF-8: {exc}") from exc
 
-    def json(self, url: str, *, accept: str = "application/json") -> Any:
+    def json(
+        self,
+        url: str,
+        *,
+        accept: str = "application/json",
+        headers: Mapping[str, str] | None = None,
+    ) -> Any:
         try:
-            return json.loads(self.text(url, accept=accept))
+            return json.loads(self.text(url, accept=accept, headers=headers))
         except ValueError as exc:
             raise RuntimeError(f"{self.retailer} response was not valid JSON: {exc}") from exc
 

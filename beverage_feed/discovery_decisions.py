@@ -7,8 +7,6 @@ JSON commits before SQLite, so reconciliation repairs interrupted decisions.
 
 from __future__ import annotations
 
-import sqlite3
-from contextlib import closing
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
@@ -24,6 +22,38 @@ _EXACT_ATTRIBUTES = ("brand", "variant", "pack_count", "unit_size_ml", "package_
 # Fixture case: name_pack_signature is a weak fallback identity and never
 # satisfies the stable-identity auto-approval requirement.
 _STABLE_TIERS = {"composite", "item", "product", "tpnb"}
+
+
+def commit_decision(
+    store: DiscoveryStore,
+    *,
+    retailer: str,
+    catalog_id: str,
+    mapping_path: str | Path,
+    mappings: Mapping[str, Any],
+    state: str,
+    decided_by: str,
+    reason: str | None = None,
+    candidate_id: str | None = None,
+    review_category: str | None = None,
+) -> None:
+    """Commit one Review Decision: durable JSON first, SQLite cell state second.
+
+    The single ordering contract shared by operator approve/revoke, mapping
+    replacement, and auto-approval — a process interrupted between the two
+    writes is repaired by ``reconcile_json_decisions`` on the next
+    invocation. Callers mutate the ``mappings`` payload first.
+    """
+    # ponytail: R4 writer-side conversion pending — discovery still commits
+    # mappings JSON-first + SQLite-second; once set_cell_state is the sole
+    # path and this JSON write is replaced by `export-mappings` in the
+    # daily cron, data/mappings.json becomes a pure export artifact.
+    write_mappings(mapping_path, mappings)
+    store.set_cell_state(
+        retailer, catalog_id, state,
+        review_category=review_category, candidate_id=candidate_id,
+        decided_by=decided_by, reason=reason,
+    )
 
 
 def exact_match(pack: BenchmarkPack, listing: Any) -> bool:
@@ -160,14 +190,11 @@ def decide_cell(
         }
         mappings.setdefault(retailer, [])
         mappings[retailer].append(row)
-        # ponytail: R4 writer-side conversion pending — discovery still commits
-        # mappings JSON-first + SQLite-second; once set_cell_state is the sole
-        # path and this JSON write is replaced by `export-mappings` in the
-        # daily cron, data/mappings.json becomes a pure export artifact.
-        write_mappings(mapping_path, mappings)  # durable JSON first, SQLite second
-        store.set_cell_state(
-            retailer, pack.catalog_id, "approved",
-            candidate_id=candidate_id, decided_by=decided_by, reason=reason,
+        commit_decision(
+            store, retailer=retailer, catalog_id=pack.catalog_id,
+            mapping_path=mapping_path, mappings=mappings,
+            state="approved", decided_by=decided_by,
+            reason=reason, candidate_id=candidate_id,
         )
         store.diagnostic(
             event="auto_approved", run_id=run_id,
@@ -236,10 +263,11 @@ def apply_mapping_replacement(
         **source_fields(retailer, candidate["identity_key"], candidate["identity_tier"]),
     }
     rows.append(new_row)
-    write_mappings(mapping_path, mappings)  # one logical JSON commit
-    store.set_cell_state(
-        retailer, catalog_id, "approved",
-        candidate_id=candidate_id, decided_by=decided_by, reason=reason,
+    commit_decision(
+        store, retailer=retailer, catalog_id=catalog_id,
+        mapping_path=mapping_path, mappings=mappings,
+        state="approved", decided_by=decided_by,
+        reason=reason, candidate_id=candidate_id,
     )
     store.diagnostic(
         event="mapping_replaced",
@@ -269,14 +297,7 @@ def resolve_challenge(
     if action not in {"keep", "replace"}:
         raise ValueError("challenge action must be keep or replace")
     now = now or timestamp()
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        cell = connection.execute(
-            "SELECT * FROM discovery_cells "
-            "WHERE retailer=? AND catalog_id=? AND state='review' "
-            "AND review_category='challenge'",
-            (retailer, catalog_id),
-        ).fetchone()
+    cell = store.challenge_cell(retailer, catalog_id)
     if cell is None:
         raise ValueError(f"no pending challenge for {retailer}/{catalog_id}")
     challenger_id = cell["candidate_id"]

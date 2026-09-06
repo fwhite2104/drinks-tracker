@@ -20,13 +20,11 @@ import argparse
 import json
 import os
 import signal
-import sqlite3
 import socket
 import sys
 import threading
 import traceback
 import webbrowser
-from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -116,20 +114,13 @@ def _latest_evidence(
     store: DiscoveryStore, *, retailer: str, catalog_id: str, candidate_id: str
 ) -> dict[str, Any] | None:
     """Candidate row plus its latest evidence row, or None when unknown."""
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        candidate = connection.execute(
-            "SELECT * FROM catalog_candidates WHERE candidate_id=?", (candidate_id,)
-        ).fetchone()
-        if candidate is None:
-            return None
-        row = connection.execute(
-            "SELECT * FROM discovery_candidate_evidence "
-            "WHERE candidate_id=? AND retailer=? AND catalog_id=? "
-            "ORDER BY evidence_id DESC LIMIT 1",
-            (candidate_id, retailer, catalog_id),
-        ).fetchone()
-        return {"candidate": dict(candidate), "evidence": dict(row) if row else None}
+    candidate = store.candidate(candidate_id)
+    if candidate is None:
+        return None
+    row = store.latest_evidence(
+        retailer=retailer, catalog_id=catalog_id, candidate_id=candidate_id
+    )
+    return {"candidate": candidate, "evidence": row}
 
 
 def _evidence_view(
@@ -298,27 +289,8 @@ def sprint_queue(app: SprintApp) -> dict[str, Any]:
 def sprint_audit(app: SprintApp, *, limit: int = 50) -> dict[str, Any]:
     """Recent decision trail: SQLite transitions plus decision diagnostics."""
     store = app.store()
-    with closing(store.connection()) as connection:
-        connection.row_factory = sqlite3.Row
-        transitions = [
-            dict(row)
-            for row in connection.execute(
-                "SELECT changed_at, retailer, catalog_id, from_state, to_state, "
-                "category, candidate_id, reason, changed_by "
-                "FROM discovery_state_transitions "
-                "ORDER BY changed_at DESC, rowid DESC LIMIT ?",
-                (limit,),
-            )
-        ]
-        diagnostics = [
-            dict(row)
-            for row in connection.execute(
-                "SELECT created_at, retailer, catalog_id, level, event, message "
-                "FROM discovery_diagnostics "
-                "ORDER BY created_at DESC, rowid DESC LIMIT ?",
-                (limit,),
-            )
-        ]
+    transitions = store.recent_transitions(limit)
+    diagnostics = store.recent_diagnostics(limit)
     return {"transitions": transitions, "diagnostics": diagnostics}
 
 

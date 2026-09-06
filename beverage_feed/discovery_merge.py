@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Any
 
 from .discovery import ensure_discovery_schema
+from .feed_reads import open_readonly
 
 # Natural key per discovery table, in dependency order (runs before attempts
 # before everything that references them).  Auto-increment primary keys are
@@ -70,7 +71,7 @@ def merge_discovery_database(source: str | Path, target: str | Path) -> dict[str
     ensure_discovery_schema(target)
     inserted: dict[str, int] = {}
     with (
-        closing(sqlite3.connect(f"file:{source_path}?mode=ro", uri=True)) as src,
+        closing(open_readonly(source_path)) as src,
         closing(sqlite3.connect(target)) as dst,
     ):
         dst.execute("PRAGMA foreign_keys = ON")

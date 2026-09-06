@@ -16,14 +16,16 @@ import time
 import urllib.parse
 import urllib.request
 import uuid
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields, replace
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from . import source_http
+from .feed_reads import current_feed, last_seen, price_history
 from .aldi import AldiDiscoveryClient as AldiClient
+from .aldi import AldiClient as WorkingAldiClient
 from .finders import (
     _aldi_drs_deposit,
     _find_aldi_listing,
@@ -39,6 +41,7 @@ from .finders import (
     _tesco_drs_deposit,
 )
 from .lidl import LidlDiscoveryClient as LidlClient
+from .lidl import LidlClient as WorkingLidlClient
 from .money import decimal_price as _decimal_price
 from .money import decimal_text as _decimal_text
 
@@ -121,21 +124,13 @@ class DunnesClient:
     """
 
     def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID, opener: urllib.request.OpenerDirector | None = None, min_request_interval: float = 1.0):
-        if min_request_interval < 0:
-            raise ValueError("Dunnes request interval must not be negative")
         self.endpoint = endpoint.rstrip("/")
         self.store_id = store_id
-        # When no opener is injected the module-level urllib.request.urlopen
-        # stays the transport (tests intercept it as the network seam).
-        self.opener = opener
-        self.min_request_interval = min_request_interval
-        self._last_request_at: float | None = None
-
-    def _throttle(self) -> None:
-        """Space out successive requests to the Dunnes gateway."""
-        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
-        if delay:
-            time.sleep(delay)
+        # opener=None keeps the module-level urllib.request.urlopen as the
+        # transport (tests intercept it as the network seam).
+        self._transport = source_http.RetailerTransport(
+            "Dunnes", opener=opener, min_request_interval=min_request_interval
+        )
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         if not search_term.strip():
@@ -145,39 +140,7 @@ class DunnesClient:
             self.store_id,
             urllib.parse.urlencode({"q": search_term, "take": DUNNES_PAGE_SIZE}),
         )
-        request = urllib.request.Request(
-            url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "drinks-tracker/0.1",
-            },
-        )
-        self._throttle()
-        try:
-            context = (
-                self.opener.open(request, timeout=30)
-                if self.opener is not None
-                else urllib.request.urlopen(request, timeout=30)
-            )
-            with context as response:
-                if response.status >= 400:
-                    raise source_http.status_error(
-                        "Dunnes", response.status,
-                        source_http.response_retry_after(response),
-                    )
-                payload = json.load(response)
-        except source_http.SourceHTTPError:
-            raise
-        except urllib.error.HTTPError as exc:
-            raise source_http.status_error(
-                "Dunnes", exc.code, exc.headers.get("Retry-After")
-            ) from exc
-        except source_http.TRANSPORT_ERRORS as exc:
-            raise source_http.transport_error("Dunnes", exc) from exc
-        except Exception as exc:
-            raise RuntimeError(f"Dunnes request failed: {exc}") from exc
-        finally:
-            self._last_request_at = time.monotonic()
+        payload = self._transport.json(url)
 
         items = payload.get("items") if isinstance(payload, dict) else None
         if not isinstance(items, list):
@@ -855,162 +818,8 @@ def _retrying_fetcher(
     return fetch
 
 
-_OBSERVATION_COLUMNS = """
-    po.run_id,
-    po.catalog_id,
-    cp.name AS catalog_name,
-    po.retailer,
-    po.source_product_reference,
-    po.source_item_id,
-    po.source_product_name,
-    po.displayed_price,
-    po.clubcard_price,
-    po.drs_deposit,
-    po.source_scope,
-    po.currency,
-    po.pack_count,
-    po.unit_size_ml,
-    po.package_type,
-    po.component_unit_price,
-    po.price_per_litre,
-    po.observed_at
-"""
-
-
-def _read_rows(
-    database: str | Path,
-    query: str,
-    parameters: tuple[Any, ...] = (),
-) -> list[dict[str, Any]]:
-    with closing(sqlite3.connect(database)) as connection:
-        ensure_schema(connection)
-        connection.row_factory = sqlite3.Row
-        return [
-            dict(row)
-            for row in connection.execute(query, parameters).fetchall()
-        ]
-
-
-def _filter_clause(
-    retailer: str | None, catalog_id: str | None, prefix: str = ""
-) -> tuple[str, tuple[str, ...]]:
-    filters: list[str] = []
-    parameters: list[str] = []
-    if retailer is not None:
-        filters.append(f"{prefix}retailer = ?")
-        parameters.append(retailer)
-    if catalog_id is not None:
-        filters.append(f"{prefix}catalog_id = ?")
-        parameters.append(catalog_id)
-    return (" WHERE " + " AND ".join(filters)) if filters else "", tuple(parameters)
-
-
-def price_history(
-    database: str | Path,
-    *,
-    retailer: str | None = None,
-    catalog_id: str | None = None,
-) -> list[dict[str, Any]]:
-    """Return append-only Price Observations, newest first."""
-    where, parameters = _filter_clause(retailer, catalog_id, "po.")
-    filters = where.replace(" WHERE ", " AND ", 1)
-    return _read_rows(
-        database,
-        f"""
-        SELECT {_OBSERVATION_COLUMNS}
-        FROM price_observations AS po
-        LEFT JOIN catalog_packs AS cp ON cp.catalog_id = po.catalog_id
-        LEFT JOIN catalog_mappings AS cm
-          ON cm.catalog_id = po.catalog_id AND cm.retailer = po.retailer
-        WHERE (cm.status IS NULL OR cm.status <> 'dormant'){filters}
-        ORDER BY po.observed_at DESC, po.observation_id DESC
-        """,
-        parameters,
-    )
-
-
-def current_feed(
-    database: str | Path,
-    *,
-    retailer: str | None = None,
-    catalog_id: str | None = None,
-) -> list[dict[str, Any]]:
-    """Return only observed results from the latest result for each pair.
-
-    The latest result wins even when it is ``not_found``, ``source_error``,
-    or ``inconclusive``; this prevents an older price from being presented as
-    current. Results for other retailer-pack pairs are independent.
-    """
-    where, parameters = _filter_clause(retailer, catalog_id, "cr.")
-    return _read_rows(
-        database,
-        f"""
-        WITH latest_results AS (
-            SELECT cr.*,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY cr.retailer, cr.catalog_id
-                       ORDER BY cr.recorded_at DESC, cr.rowid DESC
-                   ) AS position
-            FROM collection_results AS cr
-            {where}
-        ),
-        winning_results AS (
-            SELECT lr.run_id, lr.catalog_id, lr.retailer
-            FROM latest_results AS lr
-            WHERE lr.position = 1 AND lr.status = 'observed'
-        ),
-        ranked_observations AS (
-            SELECT po.*,
-                   ROW_NUMBER() OVER (
-                       PARTITION BY po.run_id, po.retailer, po.catalog_id
-                       ORDER BY po.observed_at DESC, po.observation_id DESC
-                   ) AS obs_position
-            FROM price_observations AS po
-            JOIN winning_results AS wr
-              ON wr.run_id = po.run_id
-             AND wr.catalog_id = po.catalog_id
-             AND wr.retailer = po.retailer
-        )
-        SELECT {_OBSERVATION_COLUMNS}
-        FROM ranked_observations AS po
-        LEFT JOIN catalog_packs AS cp ON cp.catalog_id = po.catalog_id
-        WHERE po.obs_position = 1
-          AND NOT EXISTS (
-              SELECT 1 FROM catalog_mappings AS cm
-              WHERE cm.catalog_id = po.catalog_id
-                AND cm.retailer = po.retailer
-                AND cm.status = 'dormant'
-          )
-        ORDER BY po.retailer, cp.name, po.catalog_id
-        """,
-        parameters,
-    )
-
-
-def last_seen(
-    database: str | Path,
-    *,
-    retailer: str,
-    catalog_id: str,
-) -> dict[str, Any] | None:
-    """Return the latest successful observation, or ``None`` if never seen.
-
-    A pair that is absent from the Current Feed is reported as
-    ``not_seen_since`` rather than being treated as retired.
-    """
-    observations = price_history(database, retailer=retailer, catalog_id=catalog_id)
-    if not observations:
-        return None
-    observation = observations[0]
-    current = any(
-        row["retailer"] == retailer and row["catalog_id"] == catalog_id
-        for row in current_feed(database, retailer=retailer, catalog_id=catalog_id)
-    )
-    return observation | {
-        "availability": "current" if current else "not_seen_since",
-        "not_seen_since": None if current else observation["observed_at"],
-    }
-
+# Current Feed / Price Observation reads are re-exported from feed_reads
+# (the single read interface) for api.py, dashboard_read.py, and tests.
 
 def _candidate_products(
     payload: Mapping[str, Any], mapping: DunnesMapping
@@ -1041,276 +850,15 @@ def _candidate_products(
     return candidates
 
 
-def collect_one(
-    pack: BenchmarkPack,
-    mapping: DunnesMapping,
-    fetcher: Callable[[str], Mapping[str, Any]],
-    database: str | Path,
-    *,
-    _run_id: str | None = None,
-    _started_at: str | None = None,
-) -> dict[str, Any]:
-    """Collect one mapped pack and return the operator-facing run summary."""
-    if pack.catalog_id != mapping.catalog_id:
-        raise ValueError("catalog pack and Dunnes mapping must have the same catalog_id")
-    if pack.pack_count < 1 or pack.unit_size_ml < 1:
-        raise ValueError("pack composition must contain positive count and size")
-
-    started_at = _started_at or timestamp()
-    started = time.monotonic()
-    run_id = _run_id or uuid.uuid4().hex
-    own_run = _run_id is None
-    status = "observed"
-    error: str | None = None
-    product: dict[str, Any] | None = None
-    item: dict[str, Any] | None = None
-    offer: dict[str, Any] | None = None
-    payload: Mapping[str, Any] | None = None
-    complete = "unknown"
-
-    if mapping.status != "approved":
-        status = "unmapped"
-        error = "catalog mapping is not approved"
-    else:
-        try:
-            payload = fetcher(pack.search_term)
-            complete = _page_completeness(payload)
-            try:
-                product, item, offer = _find_listing(payload, mapping)
-            except LookupError:
-                # The gateway's relevance is exact-substring: full pack names
-                # often return zero results while the bare brand returns the
-                # whole range (which contains the mapped item). Retry once
-                # with the brand term before declaring absence.
-                if complete != "true":
-                    raise
-                payload = fetcher(pack.brand)
-                complete = _page_completeness(payload)
-                product, item, offer = _find_listing(payload, mapping)
-            reason = _validate_listing(product.get("productName", ""), pack)
-            if reason is not None:
-                status = "source_error"
-                error = f"stale source identifier: {reason}"
-        except LookupError as exc:
-            # Dunnes has no direct-hydration path: every response is a search
-            # page, so absence without completeness evidence is inconclusive.
-            status = _absence_status(payload, unknown_status="inconclusive")
-            error = str(exc)
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    observed_at = timestamp()
-    duration_ms = round((time.monotonic() - started) * 1000, 1)
-    displayed_price: Decimal | None = None
-    drs_deposit: Decimal | None = None
-    component_unit_price: str | None = None
-    price_per_litre: str | None = None
-
-    if status == "observed":
-        assert product is not None and item is not None and offer is not None
-        try:
-            displayed_price = _decimal_price(offer["Price"])
-            drs_deposit = _dunnes_drs_deposit(offer)
-            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
-            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
-            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
-        except Exception as exc:
-            # Malformed prices demote to source_error; never throw mid-observation.
-            status = "source_error"
-            error = str(exc)
-            displayed_price = None
-            drs_deposit = None
-            component_unit_price = None
-            price_per_litre = None
-
-    summary = {
-        "run_id": run_id,
-        "retailer": "dunnes",
-        "catalog_id": pack.catalog_id,
-        "status": status,
-        "complete": complete,
-        "observed_count": int(status == "observed"),
-        "failed_count": int(status == "source_error"),
-        "duration_ms": duration_ms,
-    }
-
-    database_path = Path(database)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(database_path)) as connection:
-        ensure_schema(connection)
-        connection.execute(
-            """
-            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id) DO UPDATE SET
-                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
-                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
-                package_type=excluded.package_type, search_term=excluded.search_term
-            """,
-            (
-                pack.catalog_id,
-                pack.name,
-                pack.brand,
-                pack.variant,
-                pack.pack_count,
-                pack.unit_size_ml,
-                pack.package_type,
-                pack.search_term,
-            ),
-        )
-        connection.execute(
-            """
-            INSERT INTO catalog_mappings
-                (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status, approved_at)
-            VALUES (?, 'dunnes', ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
-                expected_product_name=excluded.expected_product_name,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id,
-                status=excluded.status,
-                approved_at=CASE
-                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
-                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
-                END
-            """,
-            (
-                mapping.catalog_id,
-                mapping.expected_product_name,
-                mapping.source_product_reference,
-                mapping.source_item_id,
-                mapping.status,
-                timestamp(),
-            ),
-        )
-        if own_run:
-            connection.execute(
-                "INSERT INTO collection_runs VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (
-                    run_id,
-                    started_at,
-                    observed_at,
-                    "completed" if status != "source_error" else "failed",
-                    summary["observed_count"],
-                    summary["failed_count"],
-                    json.dumps(summary),
-                ),
-            )
-        connection.execute(
-            """
-            INSERT INTO collection_results (
-                run_id, catalog_id, retailer, status, error,
-                source_product_reference, source_item_id, source_scope,
-                complete, recorded_at
-            ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, NULL, ?, ?)
-            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
-                status=excluded.status, error=excluded.error,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id,
-                complete=excluded.complete, recorded_at=excluded.recorded_at
-            """,
-            (
-                run_id,
-                pack.catalog_id,
-                status,
-                error,
-                product.get("productReference") if product else None,
-                item.get("itemId") if item else None,
-                complete,
-                observed_at,
-            ),
-        )
-        if payload is not None:
-            for reference, item_id, name, price, raw_record in _candidate_products(payload, mapping):
-                candidate_id = f"dunnes:{reference}:{item_id}"
-                connection.execute(
-                    """
-                    INSERT INTO catalog_candidates (
-                        candidate_id, retailer, source_product_reference, source_item_id,
-                        source_product_name, displayed_price, raw_record, status, first_seen_at
-                    ) VALUES (?, 'dunnes', ?, ?, ?, ?, ?, 'pending_review', ?)
-                    ON CONFLICT(candidate_id) DO UPDATE SET
-                        displayed_price=excluded.displayed_price,
-                        raw_record=excluded.raw_record
-                    """,
-                    (candidate_id, reference, item_id, name, price, raw_record, observed_at),
-                )
-        if status == "observed":
-            assert product is not None and item is not None and displayed_price is not None
-            connection.execute(
-                """
-                INSERT INTO price_observations (
-                    run_id, catalog_id, retailer, source_product_reference,
-                    source_item_id, source_product_name, displayed_price, drs_deposit,
-                    currency, pack_count, unit_size_ml, package_type,
-                    component_unit_price, price_per_litre, observed_at
-                ) VALUES (?, ?, 'dunnes', ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-                (
-                    run_id,
-                    pack.catalog_id,
-                    product.get("productReference", ""),
-                    item.get("itemId", ""),
-                    product.get("productName", ""),
-                    _decimal_text(displayed_price),
-                    _decimal_text(drs_deposit) if drs_deposit is not None else None,
-                    pack.pack_count,
-                    pack.unit_size_ml,
-                    pack.package_type,
-                    component_unit_price,
-                    price_per_litre,
-                    observed_at,
-                ),
-            )
-            _touch_mapping_last_observed(connection, pack.catalog_id, "dunnes", observed_at)
-            # Idempotent per (run, retailer, pack, scope): a repeated cell
-            # never duplicates the observation (ticket 07).
-            if drs_deposit is None:
-                # Validated source limitation: no live VTEX offer carries
-                # deposit evidence (see _dunnes_drs_deposit).
-                connection.execute(
-                    """
-                    INSERT INTO collection_diagnostics
-                        (run_id, retailer, catalog_id, level, event, message,
-                         raw_record, request_metadata, created_at)
-                    VALUES (?, 'dunnes', ?, 'warning', 'drs_not_available', ?, NULL, NULL, ?)
-                    """,
-                    (
-                        run_id,
-                        pack.catalog_id,
-                        "Dunnes VTEX offer evidence exposes no DRS deposit;"
-                        " stored as NULL",
-                        timestamp(),
-                    ),
-                )
-        connection.commit()
-    return summary | ({"error": error} if error else {})
-
-
-def collect_catalog(
-    catalog: list[BenchmarkPack],
-    mappings: list[DunnesMapping],
-    fetcher: Callable[[str], Mapping[str, Any]],
-    database: str | Path,
-) -> list[dict[str, Any]]:
-    """Run only approved retailer mappings; leave review/unmapped packs untouched."""
-    mappings_by_pack = {
-        mapping.catalog_id: mapping
-        for mapping in mappings
-        if mapping.status == "approved"
-    }
-    return [
-        collect_one(pack, mappings_by_pack[pack.catalog_id], fetcher, database)
-        for pack in catalog
-        if pack.catalog_id in mappings_by_pack
-    ]
-
-
 SUPERVALU_HOME = "https://shop.supervalu.ie/"
 SUPERVALU_ENDPOINT = "https://storefrontgateway.supervalu.ie/api/stores/{store_id}/search"
 SUPERVALU_PAGE_SIZE = 50  # the ``take`` bound requested from the gateway
 SUPERVALU_PRODUCT_ENDPOINT = "https://storefrontgateway.supervalu.ie/api/stores/{store_id}/products/{product_id}"
+_SUPERVALU_HEADERS = {
+    "User-Agent": "drinks-tracker/0.1",
+    "Origin": "https://shop.supervalu.ie",
+    "Referer": SUPERVALU_HOME,
+}
 
 
 class SuperValuClient:
@@ -1326,25 +874,24 @@ class SuperValuClient:
     ):
         if not store_id.strip():
             raise ValueError("SuperValu store_id must not be empty")
-        if min_request_interval < 0:
-            raise ValueError("SuperValu request interval must not be negative")
         self.store_id = store_id
         self.endpoint = endpoint
         self.product_endpoint = product_endpoint
-        self.min_request_interval = min_request_interval
-        self._last_request_at: float | None = None
         self.opener = opener or urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar())
+        )
+        self._transport = source_http.RetailerTransport(
+            "SuperValu", opener=self.opener, min_request_interval=min_request_interval
         )
         self._session_ready = False
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         if not self._session_ready:
-            self._get(SUPERVALU_HOME, parse_json=False)
+            self._transport.text(SUPERVALU_HOME, accept="text/html", headers=_SUPERVALU_HEADERS)
             self._session_ready = True
         url = self.endpoint.format(store_id=urllib.parse.quote(self.store_id, safe=""))
         url += "?" + urllib.parse.urlencode({"q": search_term, "take": SUPERVALU_PAGE_SIZE})
-        payload = self._get(url)
+        payload = self._transport.json(url, headers=_SUPERVALU_HEADERS)
         if not isinstance(payload, dict):
             raise RuntimeError("SuperValu response was not a JSON object")
         if not isinstance(payload.get("pagination"), Mapping) and payload.get("count") is None:
@@ -1363,7 +910,7 @@ class SuperValuClient:
             store_id=urllib.parse.quote(self.store_id, safe=""),
             product_id=urllib.parse.quote(str(product_id), safe=""),
         )
-        payload = self._get(url)
+        payload = self._transport.json(url, headers=_SUPERVALU_HEADERS)
         if not isinstance(payload, dict):
             raise RuntimeError("SuperValu product response was not a JSON object")
         # The detail endpoint keys identity by ``sku``; downstream hydration
@@ -1381,281 +928,6 @@ class SuperValuClient:
             except (ValueError, TypeError):
                 pass
         return payload
-
-    def _throttle(self) -> None:
-        """Space out successive requests to the SuperValu storefront."""
-        delay = source_http.spacing_delay(self._last_request_at, self.min_request_interval)
-        if delay:
-            time.sleep(delay)
-
-    def _get(self, url: str, *, parse_json: bool = True) -> Any:
-        request = urllib.request.Request(
-            url,
-            headers={
-                "Accept": "application/json",
-                "User-Agent": "drinks-tracker/0.1",
-                "Origin": "https://shop.supervalu.ie",
-                "Referer": SUPERVALU_HOME,
-            },
-        )
-        self._throttle()
-        try:
-            with self.opener.open(request, timeout=30) as response:
-                if getattr(response, "status", 200) >= 400:
-                    raise source_http.status_error(
-                        "SuperValu", getattr(response, "status", 200),
-                        source_http.response_retry_after(response),
-                    )
-                return json.load(response) if parse_json else response.read()
-        except source_http.SourceHTTPError:
-            raise
-        except urllib.error.HTTPError as exc:
-            raise source_http.status_error(
-                "SuperValu", exc.code, exc.headers.get("Retry-After")
-            ) from exc
-        except source_http.TRANSPORT_ERRORS as exc:
-            raise source_http.transport_error("SuperValu", exc) from exc
-        except Exception as exc:
-            raise RuntimeError(f"SuperValu request failed: {exc}") from exc
-        finally:
-            self._last_request_at = time.monotonic()
-
-
-def collect_supervalu_one(
-    pack: BenchmarkPack,
-    mapping: SuperValuMapping,
-    fetcher: Callable[[str], Mapping[str, Any]],
-    database: str | Path,
-    *,
-    store_id: str | None = None,
-    hydrator: Callable[[str], Mapping[str, Any]] | None = None,
-    _run_id: str | None = None,
-    _started_at: str | None = None,
-) -> dict[str, Any]:
-    """Collect one mapped pack from one configured SuperValu store.
-
-    When *mapping.source_product_id* is known, uses direct product-ID
-    hydration (via *hydrator* or ``fetcher.fetch_product``) instead of
-    repeating the catalog search.
-    """
-    if pack.catalog_id != mapping.catalog_id:
-        raise ValueError("catalog pack and SuperValu mapping must have the same catalog_id")
-    if pack.pack_count < 1 or pack.unit_size_ml < 1:
-        raise ValueError("pack composition must contain positive count and size")
-    store_id = store_id or getattr(fetcher, "store_id", None)
-    if not store_id:
-        raise ValueError("SuperValu store_id is required")
-
-    started_at = _started_at or timestamp()
-    started = time.monotonic()
-    run_id = _run_id or uuid.uuid4().hex
-    own_run = _run_id is None
-    status = "observed"
-    error: str | None = None
-    item: dict[str, Any] | None = None
-    payload: Mapping[str, Any] | None = None
-    complete = "unknown"
-    hydrated = False
-
-    if mapping.status != "approved":
-        status = "unmapped"
-        error = "catalog mapping is not approved"
-    else:
-        try:
-            # Direct hydration via stable source identifier where available.
-            if mapping.source_product_id:
-                hydrate = hydrator or getattr(fetcher, "fetch_product", None)
-                if hydrate is not None and callable(hydrate):
-                    hydrated = True
-                    payload = hydrate(str(mapping.source_product_id))
-                    complete = _page_completeness(payload)
-                    items = payload.get("items")
-                    if isinstance(items, list) and items:
-                        item = items[0] if isinstance(items[0], dict) else None
-                    elif isinstance(payload, dict) and payload.get("productId"):
-                        item = payload
-                    if item is None:
-                        raise LookupError(f"SuperValu product {mapping.source_product_id} returned no item")
-                else:
-                    payload = fetcher(pack.search_term)
-                    complete = _page_completeness(payload)
-                    item = _find_supervalu_listing(payload, mapping)
-            else:
-                payload = fetcher(pack.search_term)
-                complete = _page_completeness(payload)
-                item = _find_supervalu_listing(payload, mapping)
-            reason = _validate_listing(item.get("name", ""), pack)
-            if reason is not None:
-                status = "source_error"
-                error = f"stale source identifier: {reason}"
-        except LookupError as exc:
-            # Search pages can be truncated, so absence without completeness
-            # evidence is inconclusive. Direct hydration answers for exactly
-            # one known product — no page window to truncate — so its absence
-            # stays a definitive not_found.
-            status = _absence_status(
-                payload, unknown_status="not_found" if hydrated else "inconclusive",
-            )
-            error = str(exc)
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    observed_at = timestamp()
-    duration_ms = round((time.monotonic() - started) * 1000, 1)
-    displayed_price: Decimal | None = None
-    clubcard_price: Decimal | None = None
-    drs_deposit: Decimal | None = None
-    component_unit_price: str | None = None
-    price_per_litre: str | None = None
-
-    if status == "observed":
-        assert item is not None
-        try:
-            displayed_price = _decimal_price(
-                item.get("priceNumeric")
-                if item.get("priceNumeric") is not None
-                else item.get("price")
-            )
-            clubcard_price = _optional_price(
-                item, "clubcardPrice", "clubCardPrice", "loyaltyPrice", "memberPrice"
-            )
-            drs_deposit = _supervalu_drs_deposit(item)
-            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
-            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
-            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-            displayed_price = None
-            clubcard_price = None
-            drs_deposit = None
-            component_unit_price = None
-            price_per_litre = None
-
-    source_product_id = (
-        str(item.get("productId") or item.get("sku") or "")
-        if item
-        else str(mapping.source_product_id or "")
-    )
-    source_item_id = (
-        str(item.get("sku") or item.get("productId") or "") if item else ""
-    )
-    summary = {
-        "run_id": run_id,
-        "retailer": "supervalu",
-        "catalog_id": pack.catalog_id,
-        "source_scope": store_id,
-        "status": status,
-        "complete": complete,
-        "observed_count": int(status == "observed"),
-        "failed_count": int(status == "source_error"),
-        "duration_ms": duration_ms,
-    }
-
-    database_path = Path(database)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(database_path)) as connection:
-        ensure_schema(connection)
-        connection.execute(
-            """
-            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id) DO UPDATE SET
-                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
-                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
-                package_type=excluded.package_type, search_term=excluded.search_term
-            """,
-            (
-                pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
-                pack.unit_size_ml, pack.package_type, pack.search_term,
-            ),
-        )
-        connection.execute(
-            """
-            INSERT INTO catalog_mappings
-                (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status, approved_at)
-            VALUES (?, 'supervalu', ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
-                expected_product_name=excluded.expected_product_name,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status,
-                approved_at=CASE
-                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
-                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
-                END
-            """,
-            (
-                mapping.catalog_id,
-                mapping.expected_product_name,
-                source_product_id or mapping.source_product_id,
-                source_item_id or None,
-                mapping.status,
-                timestamp(),
-            ),
-        )
-        if own_run:
-            connection.execute(
-                """
-                INSERT INTO collection_runs
-                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    run_id, started_at, observed_at,
-                    "completed" if status != "source_error" else "failed",
-                    summary["observed_count"], summary["failed_count"], json.dumps(summary),
-                ),
-            )
-        connection.execute(
-            """
-            INSERT INTO collection_results
-                (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope,
-                 complete, recorded_at)
-            VALUES (?, ?, 'supervalu', ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
-                status=excluded.status, error=excluded.error,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id,
-                source_scope=excluded.source_scope,
-                complete=excluded.complete, recorded_at=excluded.recorded_at
-            """,
-            (
-                run_id, pack.catalog_id, status, error,
-                source_product_id or None,
-                source_item_id or None,
-                store_id,
-                complete,
-                observed_at,
-            ),
-        )
-        if status == "observed":
-            assert item is not None and displayed_price is not None
-            connection.execute(
-                """
-                INSERT INTO price_observations (
-                    run_id, catalog_id, retailer, source_product_reference,
-                    source_item_id, source_product_name, displayed_price, clubcard_price,
-                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
-                    package_type, component_unit_price, price_per_litre, observed_at
-                ) VALUES (?, ?, 'supervalu', ?, ?, ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-                (
-                    run_id, pack.catalog_id, source_product_id,
-                    source_item_id, item.get("name", ""),
-                    _decimal_text(displayed_price),
-                    _decimal_text(clubcard_price) if clubcard_price is not None else None,
-                    _decimal_text(drs_deposit) if drs_deposit is not None else None,
-                    store_id, pack.pack_count, pack.unit_size_ml, pack.package_type,
-                    component_unit_price, price_per_litre, observed_at,
-                ),
-            )
-            _touch_mapping_last_observed(connection, pack.catalog_id, "supervalu", observed_at)
-        connection.commit()
-    return summary | ({"error": error} if error else {})
-
 
 TESCO_SEARCH_ENDPOINT = "https://search.api.tesco.com/search"
 TESCO_SEARCH_PAGE_SIZE = 10  # the ``count`` bound requested from the search API
@@ -1701,9 +973,13 @@ class TescoClient:
             raise ValueError("Tesco request interval must not be negative")
         self.search_endpoint = search_endpoint
         self.graphql_endpoint = graphql_endpoint
-        self.opener = opener or urllib.request.build_opener()
+        self.opener = opener
         self.min_request_interval = min_request_interval
         self._last_request_at: float | None = None
+        self._transport = source_http.RetailerTransport(
+            "Tesco", opener=opener or urllib.request.build_opener(),
+            min_request_interval=min_request_interval,
+        )
         self._impersonator: Any | None = None
         if opener is None:
             try:
@@ -1811,9 +1087,11 @@ class TescoClient:
             time.sleep(delay)
 
     def _request_json(self, request: urllib.request.Request) -> Any:
-        self._throttle()
-        try:
-            if self._impersonator is not None:
+        if self._impersonator is not None:
+            # The impersonated session raises its own transport exception
+            # types; anything raised here is an outage-class failure.
+            self._throttle()
+            try:
                 response = self._impersonator.request(
                     request.get_method(),
                     request.full_url,
@@ -1827,29 +1105,617 @@ class TescoClient:
                         source_http.response_retry_after(response),
                     )
                 return response.json()
-            with self.opener.open(request, timeout=30) as response:
-                if getattr(response, "status", 200) >= 400:
-                    raise source_http.status_error(
-                        "Tesco", getattr(response, "status", 200),
-                        source_http.response_retry_after(response),
-                    )
-                return json.load(response)
-        except source_http.SourceHTTPError:
+            except source_http.SourceHTTPError:
+                raise
+            except Exception as exc:
+                raise source_http.transport_error("Tesco", exc) from exc
+            finally:
+                self._last_request_at = time.monotonic()
+        return self._transport.send(request)
+
+
+@dataclass
+class FetchOutcome:
+    """What one fetch attempt produced, including how far it got.
+
+    A fetch never raises past ``_collect_cell``'s single conversion point:
+    an absence (LookupError) or failure lands in ``error`` while
+    ``payload``/``hydrated``/``warnings`` keep whatever was achieved, so the
+    shared cell lifecycle can classify and persist it.
+    """
+
+    payload: Mapping[str, Any] | None = None
+    found: Any = None
+    hydrated: bool = False
+    warnings: list[tuple[str, str, str]] = field(default_factory=list)
+    error: BaseException | None = None
+
+
+@dataclass(frozen=True)
+class RetailerExtraction:
+    """The per-retailer variation of one Collection Result cell.
+
+    ``_collect_cell`` owns the shared lifecycle — unmapped guard, absence
+    classification, price math, persistence, diagnostics. Only what a
+    retailer's source actually varies is encoded here.
+    """
+
+    retailer: str
+    # -> mutates the FetchOutcome (payload/found/hydrated/warnings); raises
+    #    on failure; absence is a LookupError.
+    fetch: Callable[..., None]
+    # Listing name persisted on the Price Observation.
+    name: Callable[[Any], str]
+    # -> (displayed_price, clubcard_price, drs_deposit). Raises ValueError
+    #    on malformed evidence; the cell demotes that to source_error.
+    prices: Callable[[Any], tuple[Decimal, Any, Any]]
+    # -> (source_product_reference, source_item_id) for results rows.
+    identity: Callable[[Any, Any], tuple[str, str]]
+    # Mapping-row identity when it differs from the results identity.
+    mapping_identity: Callable[[Any, Any], tuple[Any, Any]] | None = None
+    # Name evidence the pack-validation guard checks (defaults to name).
+    validate_name: Callable[[Any], str] | None = None
+    # Source scope recorded on results/observations (SuperValu store id).
+    scope: Callable[[Any], str | None] = lambda fetcher: None
+    # Absence status when the page gives no completeness evidence.
+    absence_unknown: Callable[[bool], str] = lambda hydrated: "not_found"
+    # Harvest Catalog Candidates from a search payload (Dunnes only).
+    candidates: Callable[[Mapping[str, Any], Any], list[tuple[Any, ...]]] | None = None
+    # Warn when an observed price carries no DRS deposit evidence (Dunnes).
+    drs_missing_warning: bool = False
+
+    def validation_name(self, found: Any) -> str:
+        return (
+            self.validate_name(found) if self.validate_name is not None else self.name(found)
+        )
+
+    def mapping_identity_or_identity(self, found: Any, mapping: Any) -> tuple[Any, Any]:
+        return (
+            self.mapping_identity(found, mapping)
+            if self.mapping_identity is not None
+            else self.identity(found, mapping)
+        )
+
+
+def _outcome(fn: Callable[..., Any], *args: Any) -> FetchOutcome:
+    """Run a fetch, converting every failure into ``FetchOutcome.error``."""
+    outcome = FetchOutcome()
+    try:
+        fn(outcome, *args)
+    except LookupError as exc:
+        outcome.error = exc
+    except Exception as exc:
+        outcome.error = exc
+    return outcome
+
+
+def _direct_or_search_fetch(
+    outcome: FetchOutcome,
+    pack: BenchmarkPack,
+    mapping: Any,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    find: Callable[[Mapping[str, Any], Any], Any],
+    source_id: str | None,
+) -> None:
+    """Search the catalog term, or hydrate one known source id directly.
+
+    Direct hydration via the client's ``fetch_product`` answers for exactly
+    one known product — no page window to truncate — so callers treat its
+    absence as a definitive not_found.
+    """
+    direct_fetcher = getattr(fetcher, "fetch_product", None)
+    hydrated = bool(source_id and callable(direct_fetcher))
+    outcome.hydrated = hydrated
+    payload = (
+        direct_fetcher(str(source_id))
+        if source_id and callable(direct_fetcher)
+        else fetcher(pack.search_term)
+    )
+    outcome.payload = payload
+    outcome.found = find(payload, mapping)
+
+
+def _dunnes_fetch(
+    outcome: FetchOutcome,
+    pack: BenchmarkPack,
+    mapping: DunnesMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+) -> None:
+    payload = fetcher(pack.search_term)
+    complete = _page_completeness(payload)
+    outcome.payload = payload
+    try:
+        outcome.found = _find_listing(payload, mapping)
+    except LookupError:
+        # The gateway's relevance is exact-substring: full pack names often
+        # return zero results while the bare brand returns the whole range
+        # (which contains the mapped item). Retry once with the brand term
+        # before declaring absence.
+        if complete != "true":
             raise
-        except urllib.error.HTTPError as exc:
-            raise source_http.status_error(
-                "Tesco", exc.code, exc.headers.get("Retry-After")
-            ) from exc
-        except ValueError as exc:
-            # A malformed body is a response failure, not a transport outage;
-            # it must not be retried.
-            raise RuntimeError(f"Tesco response was not valid JSON: {exc}") from exc
+        payload = fetcher(pack.brand)
+        outcome.payload = payload
+        outcome.found = _find_listing(payload, mapping)
+
+
+def _supervalu_fetch(
+    outcome: FetchOutcome,
+    pack: BenchmarkPack,
+    mapping: SuperValuMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    hydrator: Callable[[str], Mapping[str, Any]] | None = None,
+) -> None:
+    # Direct hydration via stable source identifier where available.
+    if mapping.source_product_id:
+        hydrate = hydrator or getattr(fetcher, "fetch_product", None)
+        if hydrate is not None and callable(hydrate):
+            outcome.hydrated = True
+            payload = hydrate(str(mapping.source_product_id))
+            outcome.payload = payload
+            items = payload.get("items")
+            if isinstance(items, list) and items:
+                item = items[0] if isinstance(items[0], dict) else None
+            elif isinstance(payload, dict) and payload.get("productId"):
+                item = payload
+            else:
+                item = None
+            if item is None:
+                raise LookupError(
+                    f"SuperValu product {mapping.source_product_id} returned no item"
+                )
+            outcome.found = item
+            return
+    outcome.payload = fetcher(pack.search_term)
+    outcome.found = _find_supervalu_listing(outcome.payload, mapping)
+
+
+def _tesco_fetch(
+    outcome: FetchOutcome,
+    pack: BenchmarkPack,
+    mapping: TescoMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+) -> None:
+    direct_fetcher = getattr(fetcher, "fetch_product", None)
+    if mapping.source_tpnb and not callable(direct_fetcher):
+        # Fixture case: direct TPNB hydration was expected for this mapping,
+        # so record the search fallback once the run row exists.
+        outcome.warnings.append((
+            "collection_fallback", "warning",
+            "direct TPNB hydration expected; falling back to search",
+        ))
+    _direct_or_search_fetch(
+        outcome, pack, mapping, fetcher, _find_tesco_listing, mapping.source_tpnb
+    )
+
+
+def _lidl_fetch(
+    outcome: FetchOutcome,
+    pack: BenchmarkPack,
+    mapping: LidlMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+) -> None:
+    _direct_or_search_fetch(
+        outcome, pack, mapping, fetcher, _find_lidl_listing, mapping.source_product_id
+    )
+
+
+def _aldi_fetch(
+    outcome: FetchOutcome,
+    pack: BenchmarkPack,
+    mapping: AldiMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+) -> None:
+    _direct_or_search_fetch(
+        outcome, pack, mapping, fetcher, _find_aldi_listing, mapping.source_product_id
+    )
+
+
+_DUNNES = RetailerExtraction(
+    retailer="dunnes",
+    fetch=_dunnes_fetch,
+    name=lambda found: found[0].get("productName", ""),
+    prices=lambda found: (
+        _decimal_price(found[2]["Price"]),
+        None,
+        _dunnes_drs_deposit(found[2]),
+    ),
+    identity=lambda found, mapping: (
+        str(found[0].get("productReference") or "") if found else "",
+        str(found[1].get("itemId") or "") if found else "",
+    ),
+    mapping_identity=lambda found, mapping: (
+        mapping.source_product_reference, mapping.source_item_id,
+    ),
+    absence_unknown=lambda hydrated: "inconclusive",
+    candidates=_candidate_products,
+    drs_missing_warning=True,
+)
+
+_SUPERVALU = RetailerExtraction(
+    retailer="supervalu",
+    fetch=_supervalu_fetch,
+    name=lambda found: found.get("name", ""),
+    prices=lambda found: (
+        _decimal_price(
+            found.get("priceNumeric")
+            if found.get("priceNumeric") is not None
+            else found.get("price")
+        ),
+        _optional_price(
+            found, "clubcardPrice", "clubCardPrice", "loyaltyPrice", "memberPrice"
+        ),
+        _supervalu_drs_deposit(found),
+    ),
+    identity=lambda found, mapping: (
+        (
+            str(found.get("productId") or found.get("sku") or "")
+            if found
+            else str(mapping.source_product_id or "")
+        ),
+        (
+            str(found.get("sku") or found.get("productId") or "") if found else ""
+        ),
+    ),
+    absence_unknown=lambda hydrated: "not_found" if hydrated else "inconclusive",
+    scope=lambda fetcher: getattr(fetcher, "store_id", None),
+)
+
+_TESCO = RetailerExtraction(
+    retailer="tesco",
+    fetch=_tesco_fetch,
+    name=lambda found: found.get("title", ""),
+    prices=lambda found: (
+        _decimal_price((found.get("price") or {}).get("actual")),
+        _tesco_clubcard_price(found),
+        _tesco_drs_deposit(found),
+    ),
+    identity=lambda found, mapping: (
+        str(found.get("tpnb") or "") if found else str(mapping.source_tpnb or ""),
+        (
+            str(found.get("id") or found.get("gtin") or found.get("tpnb") or "")
+            if found
+            else ""
+        ),
+    ),
+    absence_unknown=lambda hydrated: "not_found" if hydrated else "inconclusive",
+)
+
+_LIDL = RetailerExtraction(
+    retailer="lidl",
+    fetch=_lidl_fetch,
+    name=lambda found: found.get("name", ""),
+    prices=lambda found: (
+        _decimal_price(found.get("price")), None, _lidl_drs_deposit(found),
+    ),
+    identity=lambda found, mapping: (
+        str(found.get("productId") or "") if found else str(mapping.source_product_id or ""),
+        str(found.get("productId") or "") if found else "",
+    ),
+)
+
+_ALDI = RetailerExtraction(
+    retailer="aldi",
+    fetch=_aldi_fetch,
+    name=lambda found: found.get("name", ""),
+    prices=lambda found: (
+        _decimal_price(found.get("price")), None, _aldi_drs_deposit(found),
+    ),
+    identity=lambda found, mapping: (
+        str(found.get("productId") or "") if found else str(mapping.source_product_id or ""),
+        str(found.get("productId") or "") if found else "",
+    ),
+    # Aldi keeps the brand in a structured field rather than the product
+    # name, so validate against the combined evidence.
+    validate_name=lambda found: " ".join(
+        str(part) for part in (found.get("brand"), found.get("name")) if part
+    ),
+)
+
+
+def _collect_cell(
+    pack: BenchmarkPack,
+    mapping: Any,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    database: str | Path,
+    extraction: RetailerExtraction,
+    *,
+    scope: str | None = None,
+    _run_id: str | None = None,
+    _started_at: str | None = None,
+) -> dict[str, Any]:
+    """Collect one mapped pack and return the operator-facing run summary.
+
+    The deep Collection Result lifecycle shared by every retailer: unmapped
+    guard, fetch + absence classification, Price Observation price math, and
+    the full persistence block. Per-retailer variation lives in the
+    ``RetailerExtraction`` adapter.
+    """
+    if pack.catalog_id != mapping.catalog_id:
+        raise ValueError(
+            f"catalog pack and {extraction.retailer} mapping must have the same catalog_id"
+        )
+    if pack.pack_count < 1 or pack.unit_size_ml < 1:
+        raise ValueError("pack composition must contain positive count and size")
+
+    started_at = _started_at or timestamp()
+    started = time.monotonic()
+    run_id = _run_id or uuid.uuid4().hex
+    own_run = _run_id is None
+    status = "observed"
+    error: str | None = None
+    outcome = FetchOutcome()
+    complete = "unknown"
+
+    if mapping.status != "approved":
+        status = "unmapped"
+        error = "catalog mapping is not approved"
+    else:
+        outcome = _outcome(extraction.fetch, pack, mapping, fetcher)
+        complete = _page_completeness(outcome.payload)
+        if outcome.error is None:
+            reason = _validate_listing(extraction.validation_name(outcome.found), pack)
+            if reason is not None:
+                status = "source_error"
+                error = f"stale source identifier: {reason}"
+        elif isinstance(outcome.error, LookupError):
+            # Absence from a page that provably covered every match is a
+            # proven not_found; absence from a truncated or evidence-free
+            # page is inconclusive (or per-retailer: a direct hydration has
+            # no page window, so its absence stays definitive).
+            status = _absence_status(
+                outcome.payload,
+                unknown_status=extraction.absence_unknown(outcome.hydrated),
+            )
+            error = str(outcome.error)
+        else:
+            status = "source_error"
+            error = str(outcome.error)
+
+    observed_at = timestamp()
+    duration_ms = round((time.monotonic() - started) * 1000, 1)
+    displayed_price: Decimal | None = None
+    clubcard_price: Decimal | None = None
+    drs_deposit: Decimal | None = None
+    component_unit_price: str | None = None
+    price_per_litre: str | None = None
+
+    if status == "observed":
+        assert outcome.found is not None
+        try:
+            displayed_price, clubcard_price, drs_deposit = extraction.prices(outcome.found)
+            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
+            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
+            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
         except Exception as exc:
-            # The impersonated session raises its own transport exception
-            # types; anything else here is an outage-class failure.
-            raise source_http.transport_error("Tesco", exc) from exc
-        finally:
-            self._last_request_at = time.monotonic()
+            # Malformed prices demote to source_error; never throw mid-observation.
+            status = "source_error"
+            error = str(exc)
+            displayed_price = None
+            clubcard_price = None
+            drs_deposit = None
+            component_unit_price = None
+            price_per_litre = None
+
+    result_ref, result_item = extraction.identity(outcome.found, mapping)
+    map_ref, map_item = extraction.mapping_identity_or_identity(outcome.found, mapping)
+    summary = {
+        "run_id": run_id,
+        "retailer": extraction.retailer,
+        "catalog_id": pack.catalog_id,
+        "status": status,
+        "complete": complete,
+        "observed_count": int(status == "observed"),
+        "failed_count": int(status == "source_error"),
+        "duration_ms": duration_ms,
+    }
+    if scope:
+        summary["source_scope"] = scope
+
+    database_path = Path(database)
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    with closing(sqlite3.connect(database_path)) as connection:
+        ensure_schema(connection)
+        upsert_catalog_pack(connection, pack)
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name,
+                 source_product_reference, source_item_id, status, approved_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
+                expected_product_name=excluded.expected_product_name,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id, status=excluded.status,
+                approved_at=CASE
+                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
+                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
+                END
+            """,
+            (
+                mapping.catalog_id, extraction.retailer,
+                mapping.expected_product_name,
+                map_ref or None, map_item or None, mapping.status, timestamp(),
+            ),
+        )
+        if own_run:
+            connection.execute(
+                """
+                INSERT INTO collection_runs
+                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    run_id, started_at, observed_at,
+                    "completed" if status != "source_error" else "failed",
+                    summary["observed_count"], summary["failed_count"], json.dumps(summary),
+                ),
+            )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, error,
+                 source_product_reference, source_item_id, source_scope,
+                 complete, recorded_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
+                status=excluded.status, error=excluded.error,
+                source_product_reference=excluded.source_product_reference,
+                source_item_id=excluded.source_item_id,
+                source_scope=excluded.source_scope,
+                complete=excluded.complete, recorded_at=excluded.recorded_at
+            """,
+            (
+                run_id, pack.catalog_id, extraction.retailer, status, error,
+                result_ref or None, result_item or None, scope,
+                complete, observed_at,
+            ),
+        )
+        if outcome.payload is not None and extraction.candidates is not None:
+            for reference, item_id, name, price, raw_record in extraction.candidates(
+                outcome.payload, mapping
+            ):
+                candidate_id = f"{extraction.retailer}:{reference}:{item_id}"
+                connection.execute(
+                    """
+                    INSERT INTO catalog_candidates (
+                        candidate_id, retailer, source_product_reference, source_item_id,
+                        source_product_name, displayed_price, raw_record, status, first_seen_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending_review', ?)
+                    ON CONFLICT(candidate_id) DO UPDATE SET
+                        displayed_price=excluded.displayed_price,
+                        raw_record=excluded.raw_record
+                    """,
+                    (
+                        candidate_id, extraction.retailer, reference, item_id,
+                        name, price, raw_record, observed_at,
+                    ),
+                )
+        if status == "observed":
+            assert displayed_price is not None
+            connection.execute(
+                """
+                INSERT INTO price_observations (
+                    run_id, catalog_id, retailer, source_product_reference,
+                    source_item_id, source_product_name, displayed_price, clubcard_price,
+                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
+                    package_type, component_unit_price, price_per_litre, observed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'EUR', ?, ?, ?, ?, ?, ?)
+                ON CONFLICT DO NOTHING
+                """,
+                (
+                    run_id, pack.catalog_id, extraction.retailer,
+                    result_ref, result_item, extraction.name(outcome.found),
+                    _decimal_text(displayed_price),
+                    _decimal_text(clubcard_price) if clubcard_price is not None else None,
+                    _decimal_text(drs_deposit) if drs_deposit is not None else None,
+                    scope, pack.pack_count, pack.unit_size_ml, pack.package_type,
+                    component_unit_price, price_per_litre, observed_at,
+                ),
+            )
+            _touch_mapping_last_observed(
+                connection, pack.catalog_id, extraction.retailer, observed_at
+            )
+            if extraction.drs_missing_warning and drs_deposit is None:
+                # Validated source limitation: no live VTEX offer carries
+                # deposit evidence (see _dunnes_drs_deposit).
+                connection.execute(
+                    """
+                    INSERT INTO collection_diagnostics
+                        (run_id, retailer, catalog_id, level, event, message,
+                         raw_record, request_metadata, created_at)
+                    VALUES (?, ?, ?, 'warning', 'drs_not_available', ?, NULL, NULL, ?)
+                    """,
+                    (
+                        run_id, extraction.retailer, pack.catalog_id,
+                        f"{extraction.retailer} offer evidence exposes no DRS"
+                        " deposit; stored as NULL",
+                        timestamp(),
+                    ),
+                )
+        for event, level, message in outcome.warnings:
+            connection.execute(
+                """
+                INSERT INTO collection_diagnostics
+                    (run_id, retailer, catalog_id, level, event, message,
+                     raw_record, request_metadata, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+                """,
+                (
+                    run_id, extraction.retailer, pack.catalog_id,
+                    level, event, message, timestamp(),
+                ),
+            )
+        connection.commit()
+    return summary | ({"error": error} if error else {})
+
+
+def collect_one(
+    pack: BenchmarkPack,
+    mapping: DunnesMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    database: str | Path,
+    *,
+    _run_id: str | None = None,
+    _started_at: str | None = None,
+) -> dict[str, Any]:
+    """Collect one mapped Dunnes pack and return the operator-facing run summary."""
+    return _collect_cell(
+        pack, mapping, fetcher, database, _DUNNES,
+        _run_id=_run_id, _started_at=_started_at,
+    )
+
+
+def collect_catalog(
+    catalog: list[BenchmarkPack],
+    mappings: list[DunnesMapping],
+    fetcher: Callable[[str], Mapping[str, Any]],
+    database: str | Path,
+) -> list[dict[str, Any]]:
+    """Run only approved retailer mappings; leave review/unmapped packs untouched."""
+    mappings_by_pack = {
+        mapping.catalog_id: mapping
+        for mapping in mappings
+        if mapping.status == "approved"
+    }
+    return [
+        collect_one(pack, mappings_by_pack[pack.catalog_id], fetcher, database)
+        for pack in catalog
+        if pack.catalog_id in mappings_by_pack
+    ]
+
+
+def collect_supervalu_one(
+    pack: BenchmarkPack,
+    mapping: SuperValuMapping,
+    fetcher: Callable[[str], Mapping[str, Any]],
+    database: str | Path,
+    *,
+    store_id: str | None = None,
+    hydrator: Callable[[str], Mapping[str, Any]] | None = None,
+    _run_id: str | None = None,
+    _started_at: str | None = None,
+) -> dict[str, Any]:
+    """Collect one mapped pack from one configured SuperValu store.
+
+    When *mapping.source_product_id* is known, uses direct product-ID
+    hydration (via *hydrator* or ``fetcher.fetch_product``) instead of
+    repeating the catalog search.
+    """
+    store_id = store_id or getattr(fetcher, "store_id", None)
+    if not store_id:
+        raise ValueError("SuperValu store_id is required")
+    extraction = _SUPERVALU
+    if hydrator is not None:
+        extraction = replace(
+            _SUPERVALU,
+            fetch=lambda outcome, pack_, mapping_, fetcher_: _supervalu_fetch(
+                outcome, pack_, mapping_, fetcher_, hydrator=hydrator
+            ),
+        )
+    return _collect_cell(
+        pack, mapping, fetcher, database, extraction, scope=store_id,
+        _run_id=_run_id, _started_at=_started_at,
+    )
 
 
 def collect_tesco_one(
@@ -1862,188 +1728,10 @@ def collect_tesco_one(
     _started_at: str | None = None,
 ) -> dict[str, Any]:
     """Collect one mapped pack from Tesco Ireland's public API."""
-    if pack.catalog_id != mapping.catalog_id:
-        raise ValueError("catalog pack and Tesco mapping must have the same catalog_id")
-    if pack.pack_count < 1 or pack.unit_size_ml < 1:
-        raise ValueError("pack composition must contain positive count and size")
-
-    started_at = _started_at or timestamp()
-    started = time.monotonic()
-    run_id = _run_id or uuid.uuid4().hex
-    own_run = _run_id is None
-    status = "observed"
-    error: str | None = None
-    item: dict[str, Any] | None = None
-    payload: Mapping[str, Any] | None = None
-    complete = "unknown"
-    if mapping.status != "approved":
-        status = "unmapped"
-        error = "catalog mapping is not approved"
-    else:
-        fallback_diagnostic = False
-        try:
-            direct_fetcher = getattr(fetcher, "fetch_product", None)
-            if mapping.source_tpnb and not callable(direct_fetcher):
-                # Fixture case: direct TPNB hydration was expected for this
-                # mapping, so the search fallback is recorded once the run row
-                # exists (after the persistence block below).
-                fallback_diagnostic = True
-            hydrated = bool(mapping.source_tpnb and callable(direct_fetcher))
-            payload = (
-                direct_fetcher(mapping.source_tpnb)
-                if mapping.source_tpnb and callable(direct_fetcher)
-                else fetcher(pack.search_term)
-            )
-            complete = _page_completeness(payload)
-            item = _find_tesco_listing(payload, mapping)
-            reason = _validate_listing(item.get("title", ""), pack)
-            if reason is not None:
-                status = "source_error"
-                error = f"stale source identifier: {reason}"
-        except LookupError as exc:
-            # Search pages can be truncated, so absence without completeness
-            # evidence is inconclusive. Direct TPNB hydration answers for
-            # exactly one known product — no page window to truncate — so
-            # its absence stays a definitive not_found.
-            status = _absence_status(
-                payload, unknown_status="not_found" if hydrated else "inconclusive",
-            )
-            error = str(exc)
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    displayed_price: Decimal | None = None
-    clubcard_price: Decimal | None = None
-    drs_deposit: Decimal | None = None
-    component_unit_price: str | None = None
-    price_per_litre: str | None = None
-    if status == "observed":
-        assert item is not None
-        try:
-            price = item.get("price") or {}
-            displayed_price = _decimal_price(price.get("actual"))
-            clubcard_price = _tesco_clubcard_price(item)
-            drs_deposit = _tesco_drs_deposit(item)
-            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
-            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
-            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    source_product_reference = str(item.get("tpnb") or "") if item else str(mapping.source_tpnb or "")
-    source_item_id = (
-        str(item.get("id") or item.get("gtin") or item.get("tpnb") or "") if item else ""
+    return _collect_cell(
+        pack, mapping, fetcher, database, _TESCO,
+        _run_id=_run_id, _started_at=_started_at,
     )
-    summary = {
-        "run_id": run_id,
-        "retailer": "tesco",
-        "catalog_id": pack.catalog_id,
-        "status": status,
-        "complete": complete,
-        "observed_count": int(status == "observed"),
-        "failed_count": int(status == "source_error"),
-        "duration_ms": round((time.monotonic() - started) * 1000, 1),
-    }
-
-    database_path = Path(database)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(database_path)) as connection:
-        ensure_schema(connection)
-        connection.execute(
-            """
-            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id) DO UPDATE SET
-                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
-                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
-                package_type=excluded.package_type, search_term=excluded.search_term
-            """,
-            (pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
-             pack.unit_size_ml, pack.package_type, pack.search_term),
-        )
-        connection.execute(
-            """
-            INSERT INTO catalog_mappings
-                (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status, approved_at)
-            VALUES (?, 'tesco', ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
-                expected_product_name=excluded.expected_product_name,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status,
-                approved_at=CASE
-                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
-                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
-                END
-            """,
-            (mapping.catalog_id, mapping.expected_product_name,
-             source_product_reference or mapping.source_tpnb, source_item_id or None,
-             mapping.status, timestamp()),
-        )
-        if own_run:
-            connection.execute(
-                """
-                INSERT INTO collection_runs
-                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (run_id, started_at, timestamp(),
-                 "completed" if status != "source_error" else "failed",
-                 summary["observed_count"], summary["failed_count"], json.dumps(summary)),
-            )
-        connection.execute(
-            """
-            INSERT INTO collection_results
-                (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope,
-                 complete, recorded_at)
-            VALUES (?, ?, 'tesco', ?, ?, ?, ?, NULL, ?, ?)
-            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
-                status=excluded.status, error=excluded.error,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id,
-                complete=excluded.complete, recorded_at=excluded.recorded_at
-            """,
-            (run_id, pack.catalog_id, status, error,
-             source_product_reference or None, source_item_id or None,
-             complete, timestamp()),
-        )
-        if status == "observed":
-            assert item is not None and displayed_price is not None
-            connection.execute(
-                """
-                INSERT INTO price_observations (
-                    run_id, catalog_id, retailer, source_product_reference,
-                    source_item_id, source_product_name, displayed_price, clubcard_price,
-                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
-                    package_type, component_unit_price, price_per_litre, observed_at
-                ) VALUES (?, ?, 'tesco', ?, ?, ?, ?, ?, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-                (run_id, pack.catalog_id, source_product_reference, source_item_id,
-                 item.get("title", ""), _decimal_text(displayed_price),
-                 _decimal_text(clubcard_price) if clubcard_price is not None else None,
-                 _decimal_text(drs_deposit) if drs_deposit is not None else None,
-                 pack.pack_count, pack.unit_size_ml, pack.package_type,
-                 component_unit_price, price_per_litre, timestamp()),
-            )
-            _touch_mapping_last_observed(
-                connection, pack.catalog_id, "tesco", timestamp()
-            )
-        if fallback_diagnostic:
-            connection.execute(
-                """
-                INSERT INTO collection_diagnostics
-                    (run_id, retailer, catalog_id, level, event, message,
-                     raw_record, request_metadata, created_at)
-                VALUES (?, 'tesco', ?, 'warning', 'collection_fallback', ?, NULL, NULL, ?)
-                """,
-                (run_id, pack.catalog_id,
-                 "direct TPNB hydration expected; falling back to search", timestamp()),
-            )
-        connection.commit()
-    return summary | ({"error": error} if error else {})
 
 
 def collect_lidl_one(
@@ -2056,157 +1744,10 @@ def collect_lidl_one(
     _started_at: str | None = None,
 ) -> dict[str, Any]:
     """Collect one mapped pack from Lidl Ireland's storefront."""
-    if pack.catalog_id != mapping.catalog_id:
-        raise ValueError("catalog pack and Lidl mapping must have the same catalog_id")
-    if pack.pack_count < 1 or pack.unit_size_ml < 1:
-        raise ValueError("pack composition must contain positive count and size")
-
-    started_at = _started_at or timestamp()
-    started = time.monotonic()
-    run_id = _run_id or uuid.uuid4().hex
-    own_run = _run_id is None
-    status = "observed"
-    error: str | None = None
-    item: dict[str, Any] | None = None
-    payload: Mapping[str, Any] | None = None
-    complete = "unknown"
-    if mapping.status != "approved":
-        status = "unmapped"
-        error = "catalog mapping is not approved"
-    else:
-        try:
-            direct_fetcher = getattr(fetcher, "fetch_product", None)
-            payload = (
-                direct_fetcher(str(mapping.source_product_id))
-                if mapping.source_product_id and callable(direct_fetcher)
-                else fetcher(pack.search_term)
-            )
-            complete = _page_completeness(payload)
-            item = _find_lidl_listing(payload, mapping)
-            reason = _validate_listing(item.get("name", ""), pack)
-            if reason is not None:
-                status = "source_error"
-                error = f"stale source identifier: {reason}"
-        except LookupError as exc:
-            status = _absence_status(payload)
-            error = str(exc)
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    displayed_price: Decimal | None = None
-    drs_deposit: Decimal | None = None
-    component_unit_price: str | None = None
-    price_per_litre: str | None = None
-    if status == "observed":
-        assert item is not None
-        try:
-            displayed_price = _decimal_price(item.get("price"))
-            drs_deposit = _lidl_drs_deposit(item)
-            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
-            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
-            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    source_product_id = (
-        str(item.get("productId") or "") if item else str(mapping.source_product_id or "")
+    return _collect_cell(
+        pack, mapping, fetcher, database, _LIDL,
+        _run_id=_run_id, _started_at=_started_at,
     )
-    summary = {
-        "run_id": run_id,
-        "retailer": "lidl",
-        "catalog_id": pack.catalog_id,
-        "status": status,
-        "complete": complete,
-        "observed_count": int(status == "observed"),
-        "failed_count": int(status == "source_error"),
-        "duration_ms": round((time.monotonic() - started) * 1000, 1),
-    }
-
-    database_path = Path(database)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(database_path)) as connection:
-        ensure_schema(connection)
-        connection.execute(
-            """
-            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id) DO UPDATE SET
-                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
-                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
-                package_type=excluded.package_type, search_term=excluded.search_term
-            """,
-            (pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
-             pack.unit_size_ml, pack.package_type, pack.search_term),
-        )
-        connection.execute(
-            """
-            INSERT INTO catalog_mappings
-                (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status, approved_at)
-            VALUES (?, 'lidl', ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
-                expected_product_name=excluded.expected_product_name,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status,
-                approved_at=CASE
-                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
-                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
-                END
-            """,
-            (mapping.catalog_id, mapping.expected_product_name,
-             source_product_id or mapping.source_product_id, None, mapping.status,
-             timestamp()),
-        )
-        if own_run:
-            connection.execute(
-                """
-                INSERT INTO collection_runs
-                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (run_id, started_at, timestamp(),
-                 "completed" if status != "source_error" else "failed",
-                 summary["observed_count"], summary["failed_count"], json.dumps(summary)),
-            )
-        connection.execute(
-            """
-            INSERT INTO collection_results
-                (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope,
-                 complete, recorded_at)
-            VALUES (?, ?, 'lidl', ?, ?, ?, NULL, NULL, ?, ?)
-            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
-                status=excluded.status, error=excluded.error,
-                source_product_reference=excluded.source_product_reference,
-                complete=excluded.complete, recorded_at=excluded.recorded_at
-            """,
-            (run_id, pack.catalog_id, status, error,
-             source_product_id or None, complete, timestamp()),
-        )
-        if status == "observed":
-            assert item is not None and displayed_price is not None
-            connection.execute(
-                """
-                INSERT INTO price_observations (
-                    run_id, catalog_id, retailer, source_product_reference,
-                    source_item_id, source_product_name, displayed_price, clubcard_price,
-                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
-                    package_type, component_unit_price, price_per_litre, observed_at
-                ) VALUES (?, ?, 'lidl', ?, ?, ?, ?, NULL, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-                (run_id, pack.catalog_id, source_product_id, source_product_id,
-                 item.get("name", ""), _decimal_text(displayed_price),
-                 _decimal_text(drs_deposit) if drs_deposit is not None else None,
-                 pack.pack_count, pack.unit_size_ml, pack.package_type,
-                 component_unit_price, price_per_litre, timestamp()),
-            )
-            _touch_mapping_last_observed(
-                connection, pack.catalog_id, "lidl", timestamp()
-            )
-        connection.commit()
-    return summary | ({"error": error} if error else {})
 
 
 def collect_aldi_one(
@@ -2219,162 +1760,10 @@ def collect_aldi_one(
     _started_at: str | None = None,
 ) -> dict[str, Any]:
     """Collect one mapped pack from Aldi Ireland's grocery API."""
-    if pack.catalog_id != mapping.catalog_id:
-        raise ValueError("catalog pack and Aldi mapping must have the same catalog_id")
-    if pack.pack_count < 1 or pack.unit_size_ml < 1:
-        raise ValueError("pack composition must contain positive count and size")
-
-    started_at = _started_at or timestamp()
-    started = time.monotonic()
-    run_id = _run_id or uuid.uuid4().hex
-    own_run = _run_id is None
-    status = "observed"
-    error: str | None = None
-    item: dict[str, Any] | None = None
-    payload: Mapping[str, Any] | None = None
-    complete = "unknown"
-    if mapping.status != "approved":
-        status = "unmapped"
-        error = "catalog mapping is not approved"
-    else:
-        try:
-            direct_fetcher = getattr(fetcher, "fetch_product", None)
-            payload = (
-                direct_fetcher(str(mapping.source_product_id))
-                if mapping.source_product_id and callable(direct_fetcher)
-                else fetcher(pack.search_term)
-            )
-            complete = _page_completeness(payload)
-            item = _find_aldi_listing(payload, mapping)
-            # Aldi keeps the brand in a structured field rather than the
-            # product name, so validate against the combined evidence.
-            evidence_name = " ".join(
-                str(part) for part in (item.get("brand"), item.get("name")) if part
-            )
-            reason = _validate_listing(evidence_name, pack)
-            if reason is not None:
-                status = "source_error"
-                error = f"stale source identifier: {reason}"
-        except LookupError as exc:
-            status = _absence_status(payload)
-            error = str(exc)
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    displayed_price: Decimal | None = None
-    drs_deposit: Decimal | None = None
-    component_unit_price: str | None = None
-    price_per_litre: str | None = None
-    if status == "observed":
-        assert item is not None
-        try:
-            displayed_price = _decimal_price(item.get("price"))
-            drs_deposit = _aldi_drs_deposit(item)
-            component_unit_price = _decimal_text(displayed_price / pack.pack_count)
-            litres = Decimal(pack.pack_count * pack.unit_size_ml) / Decimal(1000)
-            price_per_litre = _decimal_text(displayed_price / litres, "0.0001")
-        except Exception as exc:
-            status = "source_error"
-            error = str(exc)
-
-    source_product_id = (
-        str(item.get("productId") or "") if item else str(mapping.source_product_id or "")
+    return _collect_cell(
+        pack, mapping, fetcher, database, _ALDI,
+        _run_id=_run_id, _started_at=_started_at,
     )
-    summary = {
-        "run_id": run_id,
-        "retailer": "aldi",
-        "catalog_id": pack.catalog_id,
-        "status": status,
-        "complete": complete,
-        "observed_count": int(status == "observed"),
-        "failed_count": int(status == "source_error"),
-        "duration_ms": round((time.monotonic() - started) * 1000, 1),
-    }
-
-    database_path = Path(database)
-    database_path.parent.mkdir(parents=True, exist_ok=True)
-    with closing(sqlite3.connect(database_path)) as connection:
-        ensure_schema(connection)
-        connection.execute(
-            """
-            INSERT INTO catalog_packs VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id) DO UPDATE SET
-                name=excluded.name, brand=excluded.brand, variant=excluded.variant,
-                pack_count=excluded.pack_count, unit_size_ml=excluded.unit_size_ml,
-                package_type=excluded.package_type, search_term=excluded.search_term
-            """,
-            (pack.catalog_id, pack.name, pack.brand, pack.variant, pack.pack_count,
-             pack.unit_size_ml, pack.package_type, pack.search_term),
-        )
-        connection.execute(
-            """
-            INSERT INTO catalog_mappings
-                (catalog_id, retailer, expected_product_name,
-                 source_product_reference, source_item_id, status, approved_at)
-            VALUES (?, 'aldi', ?, ?, ?, ?, ?)
-            ON CONFLICT(catalog_id, retailer) DO UPDATE SET
-                expected_product_name=excluded.expected_product_name,
-                source_product_reference=excluded.source_product_reference,
-                source_item_id=excluded.source_item_id, status=excluded.status,
-                approved_at=CASE
-                    WHEN catalog_mappings.status = 'dormant' THEN excluded.approved_at
-                    ELSE COALESCE(catalog_mappings.approved_at, excluded.approved_at)
-                END
-            """,
-            (mapping.catalog_id, mapping.expected_product_name,
-             source_product_id or mapping.source_product_id, None, mapping.status,
-             timestamp()),
-        )
-        if own_run:
-            connection.execute(
-                """
-                INSERT INTO collection_runs
-                    (run_id, started_at, finished_at, status, observed_count, failed_count, summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (run_id, started_at, timestamp(),
-                 "completed" if status != "source_error" else "failed",
-                 summary["observed_count"], summary["failed_count"], json.dumps(summary)),
-            )
-        connection.execute(
-            """
-            INSERT INTO collection_results
-                (run_id, catalog_id, retailer, status, error,
-                 source_product_reference, source_item_id, source_scope,
-                 complete, recorded_at)
-            VALUES (?, ?, 'aldi', ?, ?, ?, NULL, NULL, ?, ?)
-            ON CONFLICT(run_id, catalog_id, retailer) DO UPDATE SET
-                status=excluded.status, error=excluded.error,
-                source_product_reference=excluded.source_product_reference,
-                complete=excluded.complete, recorded_at=excluded.recorded_at
-            """,
-            (run_id, pack.catalog_id, status, error,
-             source_product_id or None, complete, timestamp()),
-        )
-        if status == "observed":
-            assert item is not None and displayed_price is not None
-            connection.execute(
-                """
-                INSERT INTO price_observations (
-                    run_id, catalog_id, retailer, source_product_reference,
-                    source_item_id, source_product_name, displayed_price, clubcard_price,
-                    drs_deposit, source_scope, currency, pack_count, unit_size_ml,
-                    package_type, component_unit_price, price_per_litre, observed_at
-                ) VALUES (?, ?, 'aldi', ?, ?, ?, ?, NULL, ?, NULL, 'EUR', ?, ?, ?, ?, ?, ?)
-                ON CONFLICT DO NOTHING
-                """,
-                (run_id, pack.catalog_id, source_product_id, source_product_id,
-                 item.get("name", ""), _decimal_text(displayed_price),
-                 _decimal_text(drs_deposit) if drs_deposit is not None else None,
-                 pack.pack_count, pack.unit_size_ml, pack.package_type,
-                 component_unit_price, price_per_litre, timestamp()),
-            )
-            _touch_mapping_last_observed(
-                connection, pack.catalog_id, "aldi", timestamp()
-            )
-        connection.commit()
-    return summary | ({"error": error} if error else {})
 
 
 def upsert_catalog_pack(connection: sqlite3.Connection, pack: BenchmarkPack) -> None:
@@ -2487,6 +1876,35 @@ def _mapping_rows(value: Any) -> list[Any]:
     if isinstance(value, Mapping):
         return list(value.values())
     return list(value)
+
+
+def build_client(
+    name: str,
+    *,
+    supervalu_store_id: str | None = None,
+    focused: bool = False,
+) -> Any:
+    """Construct the retailer client for one retailer name.
+
+    One registry for the three wiring sites (collection CLI, canary,
+    discovery). Raises ``ValueError`` when credentials or configuration are
+    missing, so callers can skip one retailer without blocking the others.
+    ``focused=True`` selects the collection clients for Lidl/Aldi
+    (``lidl.LidlClient``/``aldi.AldiClient`` with detail endpoints); the
+    default returns the discovery search clients.
+    """
+    if name == "dunnes":
+        return DunnesClient()
+    if name == "supervalu":
+        store_id = supervalu_store_id or os.environ.get("SUPERVALU_STORE_ID") or ""
+        return SuperValuClient(store_id)
+    if name == "tesco":
+        return TescoClient()
+    if name == "lidl":
+        return WorkingLidlClient() if focused else LidlClient()
+    if name == "aldi":
+        return WorkingAldiClient() if focused else AldiClient()
+    raise ValueError(f"unsupported retailer: {name}")
 
 
 class _RunLock:
@@ -3229,28 +2647,9 @@ def main(argv: list[str] | None = None) -> int:
     adapters: dict[str, Callable[[str], Mapping[str, Any]]] = {}
     for retailer in configured_retailers:
         try:
-            if retailer == "dunnes":
-                adapters[retailer] = DunnesClient()
-            elif retailer == "supervalu":
-                adapters[retailer] = SuperValuClient(args.supervalu_store_id)
-            elif retailer == "tesco":
-                adapters[retailer] = TescoClient()
-            elif retailer == "lidl":
-                # Collection runs use the focused Lidl IE client from
-                # lidl.py (ticket 09); same fetcher contract as the
-                # discovery client in lidl.py, plus the detail endpoint and
-                # title pack parsing.
-                from .lidl import LidlClient as WorkingLidlClient
-
-                adapters[retailer] = WorkingLidlClient()
-            elif retailer == "aldi":
-                # Collection runs use the focused Aldi Glue client from
-                # aldi.py (ticket 10); same fetcher contract as the
-                # discovery client in aldi.py, plus servicePoint and
-                # sellingSize pack parsing.
-                from .aldi import AldiClient as WorkingAldiClient
-
-                adapters[retailer] = WorkingAldiClient()
+            adapters[retailer] = build_client(
+                retailer, supervalu_store_id=args.supervalu_store_id, focused=True
+            )
         except ValueError as exc:
             # A single unconfigured retailer (e.g. missing API key) must not
             # block collection across every other configured retailer.

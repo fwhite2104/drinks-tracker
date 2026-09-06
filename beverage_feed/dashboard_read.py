@@ -18,30 +18,8 @@ from typing import Any, Iterator, Mapping
 
 from .collector import BenchmarkPack, current_feed, load_catalog, timestamp
 from .discovery import load_mappings, load_rejections
-
-# Observation projection mirrored from collector._OBSERVATION_COLUMNS so the
-# dashboard can share the Current Feed / Last Seen semantics without calling
-# collector helpers that open SQLite read-write and run ensure_schema.
-_OBSERVATION_COLUMNS = """
-    po.run_id,
-    po.catalog_id,
-    cp.name AS catalog_name,
-    po.retailer,
-    po.source_product_reference,
-    po.source_item_id,
-    po.source_product_name,
-    po.displayed_price,
-    po.clubcard_price,
-    po.drs_deposit,
-    po.source_scope,
-    po.currency,
-    po.pack_count,
-    po.unit_size_ml,
-    po.package_type,
-    po.component_unit_price,
-    po.price_per_litre,
-    po.observed_at
-"""
+from .feed_reads import open_readonly as _open_readonly
+from . import feed_reads
 
 # Tier-1 registry shared with collector seed knowledge (not invented in the UI).
 SUPPORTED_RETAILERS: tuple[dict[str, Any], ...] = (
@@ -106,14 +84,6 @@ def default_database_path(repo_root: Path) -> Path:
         path = Path(env)
         return path if path.is_absolute() else (repo_root / path).resolve()
     return (repo_root / _DEFAULT_DATABASE).resolve()
-
-
-def _open_readonly(path: Path) -> sqlite3.Connection:
-    """Open an existing SQLite database read-only; never create or migrate."""
-    uri = path.resolve().as_uri() + "?mode=ro"
-    connection = sqlite3.connect(uri, uri=True)
-    connection.row_factory = sqlite3.Row
-    return connection
 
 
 def _probe_database(path: Path) -> DatabaseInfo:
@@ -610,129 +580,15 @@ def _as_decimal(value: Any) -> Decimal | None:
 
 
 def _read_current_feed(path: Path) -> list[dict[str, Any]]:
-    """Current Feed rows via read-only SQL (same semantics as collector.current_feed)."""
-    with closing(_open_readonly(path)) as connection:
-        if not _table_exists(connection, "collection_results"):
-            return []
-        if not _table_exists(connection, "price_observations"):
-            return []
-        has_mappings = _table_exists(connection, "catalog_mappings")
-        has_packs = _table_exists(connection, "catalog_packs")
-        dormant_clause = (
-            """
-            AND NOT EXISTS (
-                SELECT 1 FROM catalog_mappings AS cm
-                WHERE cm.catalog_id = po.catalog_id
-                  AND cm.retailer = po.retailer
-                  AND cm.status = 'dormant'
-            )
-            """
-            if has_mappings
-            else ""
-        )
-        pack_join = (
-            "LEFT JOIN catalog_packs AS cp ON cp.catalog_id = po.catalog_id"
-            if has_packs
-            else ""
-        )
-        # When catalog_packs is absent, still project a null catalog_name.
-        columns = _OBSERVATION_COLUMNS if has_packs else _OBSERVATION_COLUMNS.replace(
-            "cp.name AS catalog_name",
-            "NULL AS catalog_name",
-        )
-        rows = connection.execute(
-            f"""
-            WITH latest_results AS (
-                SELECT cr.*,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY cr.retailer, cr.catalog_id
-                           ORDER BY cr.recorded_at DESC, cr.rowid DESC
-                       ) AS position
-                FROM collection_results AS cr
-            ),
-            winning_results AS (
-                SELECT lr.run_id, lr.catalog_id, lr.retailer
-                FROM latest_results AS lr
-                WHERE lr.position = 1 AND lr.status = 'observed'
-            ),
-            ranked_observations AS (
-                SELECT po.*,
-                       ROW_NUMBER() OVER (
-                           PARTITION BY po.run_id, po.retailer, po.catalog_id
-                           ORDER BY po.observed_at DESC, po.observation_id DESC
-                       ) AS obs_position
-                FROM price_observations AS po
-                JOIN winning_results AS wr
-                  ON wr.run_id = po.run_id
-                 AND wr.catalog_id = po.catalog_id
-                 AND wr.retailer = po.retailer
-            )
-            SELECT {columns}
-            FROM ranked_observations AS po
-            {pack_join}
-            WHERE po.obs_position = 1
-              {dormant_clause}
-            ORDER BY po.retailer, po.catalog_id
-            """
-        ).fetchall()
-        return [dict(row) for row in rows]
+    """Current Feed rows via the shared read-only read module."""
+    return feed_reads.current_feed(path)
 
 
 def _read_last_seen(
     path: Path, *, retailer: str, catalog_id: str
 ) -> dict[str, Any] | None:
     """Latest successful observation with current / not_seen_since availability."""
-    with closing(_open_readonly(path)) as connection:
-        if not _table_exists(connection, "price_observations"):
-            return None
-        has_packs = _table_exists(connection, "catalog_packs")
-        has_mappings = _table_exists(connection, "catalog_mappings")
-        columns = _OBSERVATION_COLUMNS if has_packs else _OBSERVATION_COLUMNS.replace(
-            "cp.name AS catalog_name",
-            "NULL AS catalog_name",
-        )
-        pack_join = (
-            "LEFT JOIN catalog_packs AS cp ON cp.catalog_id = po.catalog_id"
-            if has_packs
-            else ""
-        )
-        dormant_filter = ""
-        if has_mappings:
-            dormant_filter = (
-                "AND (cm.status IS NULL OR cm.status <> 'dormant')"
-            )
-            mapping_join = (
-                "LEFT JOIN catalog_mappings AS cm "
-                "ON cm.catalog_id = po.catalog_id AND cm.retailer = po.retailer"
-            )
-        else:
-            mapping_join = ""
-        row = connection.execute(
-            f"""
-            SELECT {columns}
-            FROM price_observations AS po
-            {pack_join}
-            {mapping_join}
-            WHERE po.retailer = ? AND po.catalog_id = ?
-              {dormant_filter}
-            ORDER BY po.observed_at DESC, po.observation_id DESC
-            LIMIT 1
-            """,
-            (retailer, catalog_id),
-        ).fetchone()
-        if row is None:
-            return None
-        observation = dict(row)
-
-    # Determine whether this pair is still in the Current Feed.
-    in_feed = any(
-        r["retailer"] == retailer and r["catalog_id"] == catalog_id
-        for r in _read_current_feed(path)
-    )
-    return observation | {
-        "availability": "current" if in_feed else "not_seen_since",
-        "not_seen_since": None if in_feed else observation["observed_at"],
-    }
+    return feed_reads.last_seen(path, retailer=retailer, catalog_id=catalog_id)
 
 
 def _current_feed_index(

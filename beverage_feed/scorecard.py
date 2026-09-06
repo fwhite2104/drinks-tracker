@@ -12,12 +12,12 @@ gated on human review.
 from __future__ import annotations
 
 import argparse
-import sqlite3
 from contextlib import closing
 from pathlib import Path
 from typing import Any
 
 from .collector import load_catalog, timestamp
+from .feed_reads import open_readonly
 
 # A pack is "comparable" when two or more retailers have any evidence for it
 # (candidates from discovery, or an approved mapping) — the minimum for the
@@ -42,9 +42,9 @@ def load_signals(database: str | Path) -> dict[str, dict[str, Any]]:
             "rejections": 0,
         })
 
-    # Read-only URI (same seam as dashboard_read): mode=ro never creates or
-    # writes the database, even when the path is wrong.
-    with closing(sqlite3.connect(Path(database).resolve().as_uri() + "?mode=ro", uri=True)) as connection:
+    # Read-only open (feed_reads seam): mode=ro never creates or writes the
+    # database, even when the path is wrong.
+    with closing(open_readonly(database)) as connection:
         for catalog_id, retailer, count in connection.execute(
             "SELECT catalog_id, retailer, COUNT(*) FROM discovery_candidate_cells "
             "GROUP BY catalog_id, retailer"

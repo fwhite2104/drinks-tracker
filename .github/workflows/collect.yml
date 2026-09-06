@@ -12,7 +12,13 @@ name: collect
 on:
   schedule:
     - cron: '15 4 * * *' # once daily (ff-06 ruling); VM pulls at :40
-  workflow_dispatch: {} # manual trigger for the first run / retries
+  workflow_dispatch: # manual trigger for the first run / retries
+    inputs:
+      catalog_id:
+        description: 'Scope collection to one catalog pack (e.g. monster-ultra-white-500); empty = all mapped packs'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
@@ -34,7 +40,11 @@ jobs:
           TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
           SUPERVALU_STORE_ID: ${{ secrets.SUPERVALU_STORE_ID }}
         run: |
-          python -m beverage_feed --database data/ci-feed.sqlite
+          ARGS=""
+          if [ -n "${{ inputs.catalog_id }}" ]; then
+            ARGS="$ARGS --catalog-id ${{ inputs.catalog_id }}"
+          fi
+          python -m beverage_feed --database data/ci-feed.sqlite $ARGS
       # A partial run (some retailer source_error) exits 1 — the batch is
       # still truthful data and must ship. Export runs even then.
       - name: Export the run batch

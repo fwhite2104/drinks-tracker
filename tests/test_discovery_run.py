@@ -213,6 +213,19 @@ class DiscoveryRunTests(unittest.TestCase):
             "SELECT COUNT(*) FROM discovery_candidate_cells").fetchone()[0]
         self.assertEqual(associations, 2)
 
+    def test_catalog_id_scope_searches_only_that_pack(self):
+        adapter = FakeAdapter({"a": result([EXACT_RECORD]), "b": result([EXACT_RECORD])})
+        summary = run_discovery(
+            [pack("p1", "a"), pack("p2", "b")], {"dunnes": adapter}, self.store,
+            catalog_id="p2",
+        )
+
+        self.assertEqual(adapter.calls, ["b"])
+        self.assertEqual(summary["cells_evaluated"], 1)
+        rows = dict(self.store.connection().execute(
+            "SELECT catalog_id, state FROM discovery_cells").fetchall())
+        self.assertEqual(list(rows), ["p2"])  # p1 never searched, no row
+
     def test_rejected_listing_is_suppressed_and_does_not_block_absence(self):
         rejection_path = Path(self.tmp.name) / "rejections.json"
         write_rejections(rejection_path, {"listings": [{

@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from .collector import ensure_schema, safe_record, timestamp
+from .feed_reads import open_readonly
 
 
 CELL_STATES = {
@@ -368,7 +369,7 @@ def export_mappings(database: str | Path) -> dict[str, list[dict[str, Any]]]:
     excluded, null decision metadata omitted. ``data/mappings.json`` is an
     export artifact of this function — never hand-edited.
     """
-    with closing(sqlite3.connect(f"file:{database}?mode=ro", uri=True)) as connection:
+    with closing(open_readonly(database)) as connection:
         rows = connection.execute(
             "SELECT retailer, catalog_id, expected_product_name,"
             " source_product_reference, source_item_id, status,"
@@ -509,6 +510,175 @@ class DiscoveryStore:
         connection = sqlite3.connect(self.database)
         connection.execute("PRAGMA foreign_keys = ON")
         return connection
+
+    # --- Read interface: the store owns every read of its own tables. ---
+
+    def review_cells(
+        self,
+        *,
+        retailer: str | None = None,
+        category: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Review-state cells with their stored evidence rows."""
+        query = "SELECT * FROM discovery_cells WHERE state='review'"
+        parameters: list[str] = []
+        if retailer:
+            query += " AND retailer=?"
+            parameters.append(retailer)
+        if category:
+            query += " AND review_category=?"
+            parameters.append(category)
+        query += " ORDER BY retailer, catalog_id"
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            cells = [dict(row) for row in connection.execute(query, parameters)]
+            for cell in cells:
+                evidence = connection.execute(
+                    "SELECT candidate_id, raw_attributes, normalized_attributes, "
+                    "inference_basis, attribute_diffs, raw_price_value, "
+                    "price_parse_status, price_parse_reason "
+                    "FROM discovery_candidate_evidence WHERE retailer=? AND catalog_id=? "
+                    "ORDER BY evidence_id",
+                    (cell["retailer"], cell["catalog_id"]),
+                ).fetchall()
+                cell["evidence"] = [dict(row) for row in evidence]
+        return cells
+
+    def cell_states(
+        self, *, retailer: str | None = None
+    ) -> list[dict[str, Any]]:
+        """All discovery cell rows (retailer, catalog_id, state, …)."""
+        query = "SELECT * FROM discovery_cells"
+        parameters: tuple[str, ...] = ()
+        if retailer is not None:
+            query += " WHERE retailer=?"
+            parameters = (retailer,)
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            return [dict(row) for row in connection.execute(query, parameters)]
+
+    def challenge_cell(self, retailer: str, catalog_id: str) -> dict[str, Any] | None:
+        """The pending challenge review cell for one retailer-pack pair."""
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                "SELECT * FROM discovery_cells "
+                "WHERE retailer=? AND catalog_id=? AND state='review' "
+                "AND review_category='challenge'",
+                (retailer, catalog_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def run_exists(self, run_id: str) -> bool:
+        with closing(self.connection()) as connection:
+            return connection.execute(
+                "SELECT 1 FROM discovery_runs WHERE run_id=?", (run_id,)
+            ).fetchone() is not None
+
+    def candidate(self, candidate_id: str) -> dict[str, Any] | None:
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                "SELECT * FROM catalog_candidates WHERE candidate_id=?", (candidate_id,)
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def candidates(self, *, retailer: str | None = None) -> list[dict[str, Any]]:
+        """Catalog Candidate rows, optionally scoped to one retailer."""
+        query = "SELECT candidate_id, retailer, source_product_name, raw_record FROM catalog_candidates"
+        parameters: tuple[str, ...] = ()
+        if retailer is not None:
+            query += " WHERE retailer=?"
+            parameters = (retailer,)
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            return [dict(row) for row in connection.execute(query, parameters)]
+
+    def latest_evidence(
+        self, *, retailer: str, catalog_id: str, candidate_id: str
+    ) -> dict[str, Any] | None:
+        """Newest evidence row for one candidate in one cell."""
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            row = connection.execute(
+                "SELECT * FROM discovery_candidate_evidence "
+                "WHERE candidate_id=? AND retailer=? AND catalog_id=? "
+                "ORDER BY evidence_id DESC LIMIT 1",
+                (candidate_id, retailer, catalog_id),
+            ).fetchone()
+        return dict(row) if row is not None else None
+
+    def recent_transitions(self, limit: int) -> list[dict[str, Any]]:
+        """Decision trail: newest cell-state transitions first."""
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            return [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT changed_at, retailer, catalog_id, from_state, to_state, "
+                    "category, candidate_id, reason, changed_by "
+                    "FROM discovery_state_transitions "
+                    "ORDER BY changed_at DESC, rowid DESC LIMIT ?",
+                    (limit,),
+                )
+            ]
+
+    def recent_diagnostics(self, limit: int) -> list[dict[str, Any]]:
+        """Newest discovery diagnostics first."""
+        with closing(self.connection()) as connection:
+            connection.row_factory = sqlite3.Row
+            return [
+                dict(row)
+                for row in connection.execute(
+                    "SELECT created_at, retailer, catalog_id, level, event, message "
+                    "FROM discovery_diagnostics "
+                    "ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                    (limit,),
+                )
+            ]
+
+    def searched_terms(self) -> dict[tuple[str, str], set[str]]:
+        """Every (retailer, catalog_id) pair with the search terms it has used."""
+        searched: dict[tuple[str, str], set[str]] = {}
+        with closing(self.connection()) as connection:
+            for row in connection.execute(
+                "SELECT retailer, catalog_id, search_term FROM discovery_search_history"
+            ):
+                searched.setdefault((row[0], row[1]), set()).add(row[2])
+        return searched
+
+    def set_candidate_status(self, candidate_id: str, status: str) -> None:
+        with closing(self.connection()) as connection:
+            connection.execute(
+                "UPDATE catalog_candidates SET status=? WHERE candidate_id=?",
+                (status, candidate_id),
+            )
+            connection.commit()
+
+    def resolve_competing_candidates(
+        self, *, retailer: str, catalog_id: str, keep_candidate_id: str
+    ) -> None:
+        """Resolve every other pending candidate surfaced for the cell."""
+        with closing(self.connection()) as connection:
+            connection.execute(
+                "UPDATE catalog_candidates SET status='resolved' "
+                "WHERE candidate_id <> ? AND status='pending_review' AND candidate_id IN "
+                "(SELECT candidate_id FROM discovery_candidate_cells WHERE retailer=? AND catalog_id=?)",
+                (keep_candidate_id, retailer, catalog_id),
+            )
+            connection.commit()
+
+    def set_mapping_challenge_pending(
+        self, retailer: str, catalog_id: str, candidate_id: str | None
+    ) -> None:
+        """Stamp the pending challenge on the mapping row (forward-migrated field)."""
+        with closing(self.connection()) as connection:
+            connection.execute(
+                "UPDATE catalog_mappings SET challenge_pending=? "
+                "WHERE retailer=? AND catalog_id=?",
+                (candidate_id, retailer, catalog_id),
+            )
+            connection.commit()
 
     def start_run(self, run_id: str | None = None, *, started_at: str | None = None) -> str:
         run_id = run_id or uuid.uuid4().hex

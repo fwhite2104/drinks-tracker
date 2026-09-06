@@ -45,6 +45,11 @@ on:
         required: false
         default: 200
         type: number
+      catalog_id:
+        description: 'Scope the run to one catalog pack (e.g. monster-ultra-white-500); empty = all eligible cells'
+        required: false
+        default: ''
+        type: string
       state_release_tag:
         description: 'Optional release tag holding a feed.sqlite asset to seed the CI database (empty = fresh, stateless DB)'
         required: false
@@ -75,8 +80,12 @@ jobs:
             --output data/ci-discovery.sqlite
       - name: Preview rediscovery targets (zero retailer requests)
         run: |
+          ARGS=""
+          if [ -n "${{ inputs.catalog_id }}" ]; then
+            ARGS="$ARGS --catalog-id ${{ inputs.catalog_id }}"
+          fi
           python -m beverage_feed discovery \
-            --list-targets --retailer "${{ inputs.retailer }}" \
+            --list-targets --retailer "${{ inputs.retailer }}" $ARGS \
             --database data/ci-discovery.sqlite > rediscovery-targets.json
       - name: Run the rediscovery pass
         id: rediscover
@@ -88,16 +97,19 @@ jobs:
           MAX_FORMULATIONS: ${{ inputs.max_formulations }}
           REQUEST_CAP: ${{ inputs.request_cap }}
         run: |
+          if [ -n "${{ inputs.catalog_id }}" ]; then
+            ARGS="$ARGS --catalog-id ${{ inputs.catalog_id }}"
+          fi
           if [ "${{ inputs.mode }}" = "first_discovery" ]; then
             python -m beverage_feed discovery \
               --retailer "${{ inputs.retailer }}" \
-              --request-cap "$REQUEST_CAP" \
+              --request-cap "$REQUEST_CAP" $ARGS \
               --database data/ci-discovery.sqlite
           else
             python -m beverage_feed discovery \
               --rediscover --retailer "${{ inputs.retailer }}" \
               --max-formulations "$MAX_FORMULATIONS" \
-              --request-cap "$REQUEST_CAP" \
+              --request-cap "$REQUEST_CAP" $ARGS \
               --database data/ci-discovery.sqlite
           fi
       - name: Upload the rediscovery database (also on failure — partial evidence is truthful)
