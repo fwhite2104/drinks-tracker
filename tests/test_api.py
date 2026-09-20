@@ -954,3 +954,18 @@ def test_results_filter_by_run_id(client):
     assert [row["run_id"] for row in matching] == ["run-other"]
     everything = client.get("/results").json()
     assert {"run-other"} <= {row["run_id"] for row in everything}
+
+
+def test_web_page_is_served_and_api_keeps_precedence(client):
+    """The consumer web page serves at `/` and the API keeps precedence over
+    the root mount (web-app w-01/w-02)."""
+    page = client.get("/")
+    assert page.status_code == 200
+    assert "text/html" in page.headers["content-type"]
+    assert "Find the" in page.text
+    assert "/consumer/feed" in page.text
+
+    feed = client.get("/consumer/feed").json()
+    assert feed["standing_rule"] == (
+        "A missing price is not a stock or retirement claim."
+    )

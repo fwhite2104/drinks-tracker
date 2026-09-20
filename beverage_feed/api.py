@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any, AsyncIterator
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.staticfiles import StaticFiles
 
 from . import collector
 from .collector import (
@@ -307,3 +308,14 @@ def coverage() -> dict[str, Any]:
         "per_retailer": sorted(summaries.values(), key=lambda row: row["retailer"]),
         "cells": cells,
     }
+
+
+# Consumer web page — declared last so every API route keeps precedence over
+# the root mount (see .scratch/web-app/issues/01-app-shape.md).
+app.mount(
+    "/",
+    StaticFiles(
+        directory=Path(__file__).parent / "web", html=True, check_dir=True
+    ),
+    name="web",
+)

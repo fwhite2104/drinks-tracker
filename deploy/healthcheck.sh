@@ -7,8 +7,9 @@
 #              ./deploy/healthcheck.sh https://api.<your-domain>
 #          or: make deploy-check BASE_URL=https://api.<your-domain>
 #
-# Checks that /health reports status "ok" and /consumer/feed returns valid
-# JSON. Exits non-zero on the first failure.
+# Checks that /health reports status "ok", /consumer/feed returns valid
+# JSON, and the consumer web page serves at /. Exits non-zero on the first
+# failure.
 set -eu
 
 BASE_URL="${1:-http://localhost:8000}"
@@ -33,4 +34,11 @@ echo "$FEED" | grep -q '^{.*}$' \
     || fail "/consumer/feed did not return a JSON object"
 echo "ok: /consumer/feed JSON object ($(printf '%s' "$FEED" | wc -c) bytes)"
 
-echo "PASS: ${BASE_URL} is serving the public consumer API."
+# /: consumer web page (web-app w-03)
+PAGE=$(curl -fsS --max-time 15 "${BASE_URL}/") \
+    || fail "GET / failed (web page not served — rebuild the api container image)"
+echo "$PAGE" | grep -q "Find the" \
+    || fail "GET / did not serve the consumer web page"
+echo "ok: / consumer web page"
+
+echo "PASS: ${BASE_URL} is serving the public consumer app."

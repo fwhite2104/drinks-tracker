@@ -8,10 +8,11 @@ everything below is enforced at the tunnel/edge.
 
 ## Public — anonymous, edge rate-limited
 
-Consumer-facing read routes the mobile app calls:
+Consumer-facing read routes the web app and mobile client call:
 
 | Route | Handler | Purpose |
 |---|---|---|
+| `GET /` | consumer web page (`beverage_feed/web/`) | MVP consumer app (web-app w-02/w-03) |
 | `GET /consumer/feed` | `beverage_feed.api:consumer_feed` | §4 Exact-Pack Comparison feed (five consumer states, no operator diagnostics) |
 | `GET /catalog` | `catalog` | Benchmark Catalog listing |
 | `GET /prices/current` | `prices_current` | current prices |

@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<!-- Consumer web page (MVP) — consumes GET /consumer/feed verbatim.
+     UX + §4 information contract: .scratch/mobile-app/spec.md (locked).
+     Visual direction: variant C "Bottle green" from the mobile prototype.
+     Money is decimal strings end-to-end, compared exactly, never floats. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drinks Tracker — Find the cheaper bottle</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:#f2efe7;color:#0b3d2e;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;
+       min-height:100vh;display:flex;justify-content:center;}
+  #app{width:100%;max-width:560px;min-height:100vh;}
+  .head{background:#0b3d2e;color:#eef4ee;padding:26px 20px 22px;border-radius:0 0 26px 26px;}
+  .head h1{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.15;
+           font-family:ui-rounded,'SF Pro Rounded',system-ui,sans-serif;}
+  .head h1 em{font-style:normal;color:#ffd166;}
+  .head .sub{font-size:13px;color:#9dbfad;margin-top:6px;}
+  .srch{display:block;width:calc(100% - 32px);margin:-13px 16px 0;padding:13px 18px;font-size:15px;
+        border:none;border-radius:999px;background:#fff;color:#0b3d2e;
+        box-shadow:0 4px 14px rgba(11,61,46,.25);outline:none;}
+  .srch::placeholder{color:#8aa396;}
+  .bhead{background:#f2efe7;padding:16px 16px 8px;font-size:12px;font-weight:800;
+         letter-spacing:.09em;text-transform:uppercase;color:#0b3d2e;position:sticky;top:0;z-index:2;}
+  .bhead span{color:#6d7f72;font-weight:600;letter-spacing:0;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 16px 8px;}
+  @media (max-width:380px){.grid{grid-template-columns:1fr;}}
+  .pcard{background:#fff;border-radius:18px;padding:14px 13px;cursor:pointer;
+         box-shadow:0 1px 4px rgba(11,61,46,.12);display:flex;flex-direction:column;gap:6px;}
+  .pcard:active{transform:scale(.98);}
+  .pcard .nm{font-size:13px;font-weight:700;line-height:1.25;}
+  .pcard .meta{font-size:10.5px;color:#6d7f72;}
+  .pcard .pr{margin-top:auto;font-size:17px;font-weight:800;color:#0b3d2e;}
+  .pcard .pr small{font-size:10px;color:#6d7f72;font-weight:600;display:block;}
+  .loading{text-align:center;color:#6d7f72;font-size:12px;padding:16px 0 22px;}
+  .back{font-size:14px;color:#0b3d2e;background:none;border:none;padding:14px 16px 2px;
+        cursor:pointer;opacity:.8;font-weight:600;}
+  .detail-title{padding:0 16px;}
+  .detail-title h2{font-size:21px;letter-spacing:-.01em;line-height:1.2;}
+  .detail-title .meta{font-size:12.5px;color:#6d7f72;margin-top:3px;}
+  .hero{background:#0b3d2e;color:#fff;border-radius:24px;margin:12px 16px 0;padding:22px 20px;}
+  .hero .tag{display:inline-block;background:#ffd166;color:#0b3d2e;font-size:10px;font-weight:800;
+             letter-spacing:.09em;text-transform:uppercase;border-radius:999px;padding:4px 10px;}
+  .hero .tag.warn{background:#e4e9e2;color:#3f5449;}
+  .hero .rn{font-size:16px;font-weight:800;margin-top:10px;}
+  .hero .big{font-size:52px;font-weight:800;letter-spacing:-.03em;line-height:1;margin-top:6px;
+             font-family:ui-rounded,'SF Pro Rounded',system-ui,sans-serif;}
+  .hero .big .eur{font-size:22px;vertical-align:22px;font-weight:700;}
+  .hero .sub{font-size:12.5px;color:#bcd6c6;margin-top:10px;line-height:1.6;}
+  .hero .ccy{display:inline-block;margin-top:10px;background:#ffd166;color:#0b3d2e;font-size:12px;
+             font-weight:800;border-radius:10px;padding:6px 10px;}
+  .hero .ccy small{display:block;font-size:8px;letter-spacing:.04em;color:#8a6d00;}
+  .hero .when{font-size:11px;color:#9dbfad;margin-top:12px;}
+  .orow{background:#fff;border-radius:16px;margin:8px 16px 0;padding:12px 15px;display:flex;
+        justify-content:space-between;align-items:center;gap:10px;box-shadow:0 1px 4px rgba(11,61,46,.1);}
+  .orow .who{font-size:13px;font-weight:700;}
+  .orow .meta{font-size:10.5px;color:#6d7f72;margin-top:2px;line-height:1.5;}
+  .orow .pr{font-size:18px;font-weight:800;white-space:nowrap;}
+  .orow .ccy{display:inline-block;background:#ffd166;color:#0b3d2e;font-size:10.5px;font-weight:800;
+             border-radius:8px;padding:3px 7px;margin-top:4px;}
+  .stateline{background:#e4e9e2;margin:8px 16px 0;border-radius:14px;padding:11px 15px;
+             font-size:12.5px;display:flex;justify-content:space-between;align-items:center;color:#3f5449;}
+  .stateline b{color:#0b3d2e;}
+  .stateline span{text-align:right;}
+  .note{font-size:11.5px;line-height:1.6;color:#6d7f72;margin:14px 16px 0;}
+  .foot{font-size:10.5px;color:#8aa396;text-align:center;padding:18px 16px 30px;line-height:1.7;}
+  .err{margin:40px 16px;text-align:center;color:#3f5449;font-size:14px;line-height:1.7;}
+  .errbtn{display:inline-block;margin-top:14px;background:#0b3d2e;color:#fff;border:none;border-radius:999px;
+          padding:10px 22px;font-size:13px;font-weight:700;cursor:pointer;}
+  .stale-note{font-size:10.5px;color:#b8860b;margin-top:4px;font-weight:700;}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+'use strict';
+const LABELS = {
+  observed: 'Observed', last_seen: 'Last seen', awaiting_price: 'Awaiting price',
+  temporarily_unavailable: 'Temporarily unavailable', not_available: 'Not available',
+};
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const state = { feed: null, screen: { name: 'catalog' }, q: '', visible: 24, error: null };
+
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+/* Exact fixed-point comparison of decimal strings — ported from
+   mobile/src/feed.ts. Money never passes through a float. */
+function parseDecimal(s) {
+  const m = /^(-)?(\d+)(?:\.(\d*))?$/.exec(String(s).trim());
+  return m ? [m[1] ?? '+', m[2], m[3] ?? ''] : null;
+}
+function compareDecimal(a, b) {
+  const A = parseDecimal(a), B = parseDecimal(b);
+  if (!A || !B) return null;
+  const [sA, iA, fA0] = A, [sB, iB, fB0] = B;
+  const magA = iA.replace(/^0+(?=\d)/, ''), magB = iB.replace(/^0+(?=\d)/, '');
+  const w = Math.max(fA0.length, fB0.length), fA = fA0.padEnd(w, '0'), fB = fB0.padEnd(w, '0');
+  const mag = magA.length !== magB.length ? (magA.length < magB.length ? -1 : 1)
+    : magA === magB ? (fA === fB ? 0 : fA < fB ? -1 : 1) : (magA < magB ? -1 : 1);
+  if (sA !== sB) return sA === '-' ? -1 : 1;
+  return sA === '-' ? -mag : mag;
+}
+
+const packMeta = p => [
+  p.pack_count > 1 ? p.pack_count + '×' + p.unit_size_ml + 'ml' : p.unit_size_ml + 'ml',
+  p.package_type,
+].join(' · ');
+
+function cheapest(pack) {
+  let best = null;
+  for (const c of pack.retailers) {
+    if (c.state !== 'observed' || c.displayed_price == null) continue;
+    if (best == null || (compareDecimal(c.displayed_price, best.displayed_price) ?? 0) < 0) best = c;
+  }
+  return best;
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? iso : `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+function isStale(iso, now = Date.now()) {
+  const t = new Date(iso).getTime();
+  return Number.isFinite(t) && now - t > 7 * 24 * 60 * 60 * 1000;
+}
+function matches(pack, q) {
+  const s = q.trim().toLowerCase();
+  return !s || pack.name.toLowerCase().includes(s) || pack.brand.toLowerCase().includes(s);
+}
+
+/* §4 renders the server's label verbatim; the state name here is display-only chrome. */
+const stateLabel = c => c.label || LABELS[c.state] || c.state;
+
+function perCan(c) { return c.component_unit_price ? `€${esc(c.component_unit_price)} per can` : ''; }
+function drs(c) { return c.drs_deposit ? `♻ €${esc(c.drs_deposit)} refundable deposit on top` : ''; }
+
+function card(pack) {
+  const best = cheapest(pack);
+  return `<div class="pcard" data-id="${esc(pack.catalog_id)}">
+    <div class="nm">${esc(pack.name)}</div><div class="meta">${esc(packMeta(pack))}</div>
+    <div class="pr">${best ? `€${esc(best.displayed_price)}` : '—'}
+      <small>${best ? 'cheapest now' : 'no prices yet'}</small></div></div>`;
+}
+
+function catalogView() {
+  const packs = state.feed.packs;
+  const q = state.q, searching = q.trim().length > 0;
+  let body = '', hasMore = false;
+  if (searching) {
+    const hits = packs.filter(p => matches(p, q));
+    body = `<div class="grid">${hits.slice(0, state.visible).map(card).join('')}</div>`;
+    hasMore = hits.length > state.visible;
+    if (!hits.length) body = `<div class="stateline" style="margin-top:14px">Nothing matches. Try another brand.</div>`;
+  } else {
+    const byBrand = new Map();
+    for (const p of packs) {
+      if (!byBrand.has(p.brand)) byBrand.set(p.brand, []);
+      byBrand.get(p.brand).push(p);
+    }
+    const sections = [];
+    let acc = 0;
+    for (const [b, ps] of [...byBrand.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      if (acc >= state.visible) { hasMore = true; break; }
+      sections.push([b, ps]); acc += ps.length;
+    }
+    body = sections.map(([b, ps]) =>
+      `<div class="bhead">${esc(b)}<span> · ${ps.length}</span></div><div class="grid">${ps.map(card).join('')}</div>`
+    ).join('');
+  }
+  return `<div class="head"><h1>Find the <em>cheaper</em> bottle.</h1>
+    <div class="sub">Every shelf price across Ireland's big grocers — one exact pack at a time.</div></div>
+  <input class="srch" id="q" placeholder="Search ${packs.length} packs…" value="${esc(q)}" autocomplete="off">
+  ${body}
+  ${hasMore ? `<div class="loading" id="sentinel">Loading more packs…</div>` : ''}`;
+}
+
+function observedRow(c, dim) {
+  return `<div class="orow${dim ? ' dim' : ''}"><div>
+      <div class="who">${esc(c.display_name || c.retailer)}</div>
+      <div class="meta">${[perCan(c), drs(c), `obs ${formatDate(c.observed_at)}`].filter(Boolean).join(' · ')}</div>
+      ${c.clubcard_price ? `<span class="ccy">Member €${esc(c.clubcard_price)}</span>` : ''}
+    </div><div class="pr">€${esc(c.displayed_price)}</div></div>`;
+}
+
+function stateRow(c) {
+  const extra = c.state === 'last_seen' && c.last_seen_at ? ` · not seen since ${formatDate(c.last_seen_at)}` : '';
+  return `<div class="stateline"><b>${esc(c.display_name || c.retailer)}</b><span>${esc(stateLabel(c))}${extra}</span></div>`;
+}
+
+function detailView(id) {
+  const pack = state.feed.packs.find(p => p.catalog_id === id);
+  if (!pack) return `<div class="err">That pack is not in the feed.<button class="errbtn" onclick="go()">All packs</button></div>`;
+  const priced = pack.retailers
+    .filter(c => c.state === 'observed' && c.displayed_price != null)
+    .sort((a, b) => compareDecimal(a.displayed_price, b.displayed_price) ?? 0);
+  const rest = pack.retailers.filter(c => !priced.includes(c));
+  const best = priced[0];
+  let out = `<button class="back" onclick="go()">‹ All packs</button>
+  <div class="detail-title"><h2>${esc(pack.name)}</h2>
+  <div class="meta">${esc(packMeta(pack))}</div></div>`;
+  if (best) {
+    out += `<div class="hero"><span class="tag">Cheapest now</span>
+      <div class="rn">${esc(best.display_name || best.retailer)}</div>
+      <div class="big"><span class="eur">€</span>${esc(best.displayed_price)}</div>
+      <div class="sub">${[perCan(best), drs(best)].filter(Boolean).join(' · ')}</div>
+      ${best.clubcard_price ? `<span class="ccy">Clubcard €${esc(best.clubcard_price)}<small>member price</small></span>` : ''}
+      ${isStale(best.observed_at) ? `<div class="stale-note">May be out of date</div>` : ''}
+      <div class="when">Observed ${formatDate(best.observed_at)}</div></div>`;
+    out += priced.slice(1).map(c => observedRow(c, true)).join('');
+  }
+  out += rest.map(stateRow).join('');
+  out += `<div class="note">Prices are non-member shelf prices at collection time; deposits shown separately.
+    A missing price never means out of stock.</div>`;
+  return out;
+}
+
+function errorView() {
+  return `<div class="head"><h1>Find the <em>cheaper</em> bottle.</h1></div>
+  <div class="err">${esc(state.error)}<br><button class="errbtn" id="retry">Retry</button></div>`;
+}
+
+function render(scrollTop = true) {
+  const app = document.getElementById('app');
+  if (state.error) app.innerHTML = errorView();
+  else if (!state.feed) app.innerHTML = `<div class="head"><h1>Find the <em>cheaper</em> bottle.</h1></div><div class="loading">Loading the feed…</div>`;
+  else if (state.screen.name === 'catalog') app.innerHTML = catalogView();
+  else app.innerHTML = detailView(state.screen.id);
+  const foot = document.createElement('div');
+  foot.className = 'foot';
+  foot.innerHTML = state.feed
+    ? `${esc(state.feed.standing_rule || '')}<br>Feed generated ${formatDate(state.feed.generated_at)}`
+    : 'Drinks Tracker · Ireland';
+  app.appendChild(foot);
+  if (scrollTop) window.scrollTo(0, 0);
+  const q = document.getElementById('q');
+  if (q) {
+    q.oninput = e => { state.q = e.target.value; state.visible = 24; render(false); };
+    if (document.activeElement !== q) q.focus();
+  }
+  const retry = document.getElementById('retry');
+  if (retry) retry.onclick = load;
+  app.querySelectorAll('[data-id].pcard').forEach(el =>
+    el.onclick = () => { state.screen = { name: 'detail', id: el.dataset.id }; render(); });
+  window.onscroll = () => {
+    if (state.screen.name === 'catalog' && document.getElementById('sentinel') &&
+        window.innerHeight + window.scrollY > document.body.offsetHeight - 600) {
+      state.visible += 24; render(false);
+    }
+  };
+}
+
+function go() { state.screen = { name: 'catalog' }; render(); }
+
+async function load() {
+  state.error = null; state.feed = null; state.screen = { name: 'catalog' }; state.q = ''; state.visible = 24;
+  render();
+  try {
+    const response = await fetch('/consumer/feed');
+    if (!response.ok) throw new Error(`The feed answered HTTP ${response.status}.`);
+    const feed = await response.json();
+    if (!Array.isArray(feed.packs)) throw new Error('The feed did not look like the consumer feed.');
+    state.feed = feed; state.error = null;
+  } catch (err) {
+    state.error = err instanceof Error ? err.message : 'Could not reach the feed.';
+  }
+  render();
+}
+load();
+</script>
+</body>
+</html>
