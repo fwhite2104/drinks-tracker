@@ -89,11 +89,45 @@ _CATEGORY_FIELD_RE = re.compile(r"categor|browse|aisle|shelf|listing|grid", re.I
 CATEGORY_CANDIDATE_FIELDS: tuple[str, ...] = (
     "browseCategory",
     "category",
-    "categoryProducts",
-    "categoryListing",
     "productList",
-    "grid",
 )
+
+#: Top-level fields that answered on the IE gateway (2026-09-20 run
+#: 35544010364) and therefore carry the scans below.
+CATEGORY_TARGET_FIELDS: tuple[str, ...] = ("category", "productList")
+
+#: Argument names to test on a target field. An "Unknown argument" error
+#: means the name is wrong; any other answer means the argument exists — and a
+#: type error names the type it expects.
+CATEGORY_ARG_CANDIDATES: tuple[str, ...] = (
+    "id",
+    "categoryId",
+    "categoryKey",
+    "node",
+    "nodeId",
+    "path",
+    "key",
+    "slug",
+    "url",
+)
+
+#: Sub-field names to test on the returned list type. Unknown names come back
+#: as validation errors naming the offending field, so the valid ones are the
+#: complement of the error set.
+CATEGORY_SUBFIELD_CANDIDATES: tuple[str, ...] = (
+    "id",
+    "name",
+    "title",
+    "total",
+    "count",
+    "products",
+    "items",
+    "nodes",
+    "page",
+    "pagination",
+)
+
+_UNKNOWN_ARG_MARKER = "unknown argument"
 _DRINK_LINK_RE = re.compile(
     r"href=\"(?P<url>[^\"]*(?:drinks?|fizzy|soft-drinks?)[^\"]*)\"", re.I
 )
@@ -137,23 +171,6 @@ def _sole_result(payload: Any) -> Any:
     return payload
 
 
-def _elicitation_operations() -> list[dict[str, Any]]:
-    """Argless queries whose error text names the real arguments.
-
-    A GraphQL gateway answers "Cannot query field X" when the field is absent
-    and "field X argument Y is required" when it exists — either answer is
-    schema information, and neither requires inventing an argument value.
-    """
-    return [
-        {
-            "operationName": f"Probe{field[:1].upper()}{field[1:]}",
-            "variables": {},
-            "query": f"query Probe{field[:1].upper()}{field[1:]} {{ {field} {{ __typename }} }}",
-        }
-        for field in CATEGORY_CANDIDATE_FIELDS
-    ]
-
-
 def _first_tesco_tpnb(path: Path) -> str | None:
     """A real TPNB from the curated mappings — the batch's control value."""
     try:
@@ -167,6 +184,97 @@ def _first_tesco_tpnb(path: Path) -> str | None:
         if isinstance(entry, Mapping) and entry.get("source_tpnb"):
             return str(entry["source_tpnb"])
     return None
+
+
+def _scan_operations() -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(shape batch, argument batch) — both evidence-only, no values invented.
+
+    Shape batch: one argless existence query per candidate field, plus one
+    sub-field scan per known list field. Argument batch: one query per
+    candidate argument name, with a deliberately ill-typed value so a valid
+    argument answers with a type error naming the type it wants.
+    """
+    shape: list[dict[str, Any]] = [
+        {
+            "operationName": f"Probe{field[:1].upper()}{field[1:]}",
+            "variables": {},
+            "query": f"query Probe{field[:1].upper()}{field[1:]} {{ {field} {{ __typename }} }}",
+        }
+        for field in CATEGORY_CANDIDATE_FIELDS
+    ]
+    subfields = " ".join(CATEGORY_SUBFIELD_CANDIDATES)
+    for field in CATEGORY_TARGET_FIELDS:
+        name = f"SubfieldScan_{field}"
+        shape.append(
+            {
+                "operationName": name,
+                "variables": {},
+                "query": f"query {name} {{ {field} {{ {subfields} }} }}",
+            }
+        )
+    arguments: list[dict[str, Any]] = []
+    for field in CATEGORY_TARGET_FIELDS:
+        for argument in CATEGORY_ARG_CANDIDATES:
+            name = f"ArgScan_{field}_{argument}"
+            arguments.append(
+                {
+                    "operationName": name,
+                    "variables": {},
+                    "query": (
+                        f'query {name} {{ {field}({argument}: "1") {{ __typename }} }}'
+                    ),
+                }
+            )
+    return shape, arguments
+
+
+def classify_arg_scan(
+    results: Sequence[Mapping[str, Any]], field: str
+) -> dict[str, Any]:
+    """Split an argument scan into accepted names and names the gateway rejects."""
+    accepted: list[dict[str, Any]] = []
+    unknown: list[str] = []
+    prefix = f"ArgScan_{field}_"
+    for row in results:
+        operation = str(row.get("operation") or "")
+        if not operation.startswith(prefix):
+            continue
+        argument = operation[len(prefix):]
+        detail = " ".join(str(item) for item in (row.get("errors") or []))
+        if _UNKNOWN_ARG_MARKER in detail.lower():
+            unknown.append(argument)
+        else:
+            accepted.append(
+                {
+                    "arg": argument,
+                    "outcome": row.get("outcome"),
+                    "detail": detail[:200],
+                }
+            )
+    return {"field": field, "accepted": accepted, "unknown": unknown}
+
+
+def classify_subfield_scan(
+    row: Mapping[str, Any] | None,
+    candidates: Sequence[str] = CATEGORY_SUBFIELD_CANDIDATES,
+) -> dict[str, Any]:
+    """Valid sub-fields are the candidates the gateway did not complain about."""
+    if not row:
+        return {"available": False}
+    if row.get("outcome") == "answered":
+        return {
+            "available": True,
+            "valid": list(candidates),
+            "invalid": [],
+            "data_keys": row.get("data_keys"),
+        }
+    detail = " ".join(str(item) for item in (row.get("errors") or []))
+    invalid = [name for name in candidates if f'"{name}"' in detail]
+    return {
+        "available": True,
+        "valid": [name for name in candidates if name not in invalid],
+        "invalid": invalid,
+    }
 
 
 def _summarize_batch(
@@ -376,6 +484,7 @@ def probe_graphql(
     report: dict[str, Any] = {}
 
     control = _first_tesco_tpnb(MAPPING_PATH) if tpnb is None else tpnb
+    shape_operations, arg_operations = _scan_operations()
     operations: list[dict[str, Any]] = []
     if control:
         operations.append(
@@ -385,7 +494,7 @@ def probe_graphql(
                 "query": TESCO_PRODUCT_QUERY,
             }
         )
-    operations.extend(_elicitation_operations())
+    operations.extend(shape_operations)
 
     record, payload = _attempt(
         transport, _graphql_batch_request(operations, api_key), capture_errors=True
@@ -393,6 +502,26 @@ def probe_graphql(
     report["control_tpnb"] = control
     report["batch"] = record
     report["batch_results"] = _summarize_batch(operations, payload)
+    by_operation = {
+        str(row.get("operation")): row for row in report["batch_results"]
+    }
+    report["subfield_scan"] = [
+        {
+            "field": field,
+            **classify_subfield_scan(by_operation.get(f"SubfieldScan_{field}")),
+        }
+        for field in CATEGORY_TARGET_FIELDS
+    ]
+
+    arg_record, arg_payload = _attempt(
+        transport, _graphql_batch_request(arg_operations, api_key), capture_errors=True
+    )
+    report["arg_batch"] = arg_record
+    arg_results = _summarize_batch(arg_operations, arg_payload)
+    report["arg_scan_results"] = arg_results
+    report["arg_scan"] = [
+        classify_arg_scan(arg_results, field) for field in CATEGORY_TARGET_FIELDS
+    ]
 
     intro_record, intro_payload = _attempt(
         transport,

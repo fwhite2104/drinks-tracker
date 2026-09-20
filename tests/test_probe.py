@@ -149,7 +149,8 @@ def test_batch_carries_the_control_operation_and_argless_elicitations(
     # Every elicitation is argless: no invented argument values anywhere.
     for operation in batch[1:]:
         assert operation["variables"] == {}
-        assert "__typename" in operation["query"]
+        if not str(operation["operationName"]).startswith("SubfieldScan_"):
+            assert "__typename" in operation["query"]
 
 
 def test_batch_results_classify_answered_rejected_and_missing() -> None:
@@ -226,7 +227,50 @@ def test_run_writes_artifacts_and_uses_the_injected_transport(
     assert (tmp_path / "probe-summary.json").is_file()
     assert (tmp_path / "introspection-fields.json").is_file()
     assert (tmp_path / "category-page-1.json").is_file()
-    assert len(transport.requests) == 3  # 1 page + 1 batch + 1 introspection
+    # 1 page + 1 shape batch + 1 argument batch + 1 introspection
+    assert len(transport.requests) == 4
+
+
+def test_arg_scan_splits_accepted_from_unknown() -> None:
+    operations = [
+        {"operationName": "ArgScan_category_id"},
+        {"operationName": "ArgScan_category_path"},
+        {"operationName": "ArgScan_productList_id"},
+    ]
+    payload = [
+        {"errors": [{"message": 'Unknown argument "id" on field "Query.category".'}]},
+        {"errors": [{"message": 'Argument "path" has invalid value "1". Expected type Int.'}]},
+        {"data": {"productList": {"__typename": "GenericProductListType"}}},
+    ]
+
+    results = probe._summarize_batch(operations, payload)
+    category = probe.classify_arg_scan(results, "category")
+    product_list = probe.classify_arg_scan(results, "productList")
+
+    assert [row["arg"] for row in category["accepted"]] == ["path"]
+    assert "Expected type Int" in category["accepted"][0]["detail"]
+    assert category["unknown"] == ["id"]
+    assert [row["arg"] for row in product_list["accepted"]] == ["id"]
+    assert product_list["unknown"] == []
+
+
+def test_subfield_scan_infers_valid_fields_from_the_error_set() -> None:
+    row = {
+        "operation": "SubfieldScan_category",
+        "outcome": "rejected",
+        "errors": [
+            'Cannot query field "title" on type "ProductListType".',
+            'Cannot query field "nodes" on type "ProductListType".',
+        ],
+    }
+
+    report = probe.classify_subfield_scan(row)
+
+    assert report["available"] is True
+    assert report["invalid"] == ["title", "nodes"]
+    assert "products" in report["valid"]
+    assert "pagination" in report["valid"]
+    assert probe.classify_subfield_scan(None) == {"available": False}
 
 
 def test_transport_failures_are_recorded_as_evidence(
