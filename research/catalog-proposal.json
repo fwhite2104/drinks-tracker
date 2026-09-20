@@ -1,0 +1,2625 @@
+{
+  "drafts": {
+    "a_comparable_core": {
+      "catalog_ids": [
+        "ballygowan-sparkling-500",
+        "ballygowan-sparkling-6",
+        "ballygowan-still-1500",
+        "ballygowan-still-6",
+        "capri-orange-10",
+        "club-orange-330",
+        "coca-diet-2000",
+        "coca-diet-330-24",
+        "coca-diet-330-single",
+        "coca-diet-500",
+        "coca-original-330-24",
+        "coca-original-330-single",
+        "coca-original-500",
+        "coca-zero-2000",
+        "coca-zero-330-24",
+        "coca-zero-330-single",
+        "coca-zero-500",
+        "evian-6",
+        "innocent-apple-900",
+        "lucozade-orange-500",
+        "lucozade-sport-orange-500",
+        "lucozade-sport-orange-500-2",
+        "miwadi-orange-1l",
+        "monster-mango-500",
+        "monster-original-500",
+        "monster-pipeline-500",
+        "monster-ultra-white-500",
+        "monster-zero-500",
+        "schweppes-slimline-1l",
+        "tropicana-apple-900",
+        "volvic-1500"
+      ],
+      "cells_left": 87,
+      "packs": 31
+    },
+    "b_stay_at_100": {
+      "catalog_ids": [
+        "7up-330",
+        "7up-free-330",
+        "arizona-green-tea-500",
+        "ballygowan-sparkling-500",
+        "ballygowan-sparkling-6",
+        "ballygowan-sport-750",
+        "ballygowan-still-1500",
+        "ballygowan-still-500",
+        "ballygowan-still-6",
+        "boost-500",
+        "capri-orange-10",
+        "cawston-apple-1l",
+        "cawston-elderflower-1l",
+        "cawston-rhubarb-1l",
+        "club-orange-330",
+        "club-rock-shandy-2l",
+        "coca-diet-1500",
+        "coca-diet-2000",
+        "coca-diet-330-24",
+        "coca-diet-330-6",
+        "coca-diet-330-8",
+        "coca-diet-330-single",
+        "coca-diet-500",
+        "coca-original-1500",
+        "coca-original-2000",
+        "coca-original-330-24",
+        "coca-original-330-6",
+        "coca-original-330-8",
+        "coca-original-330-single",
+        "coca-original-500",
+        "coca-zero-1500",
+        "coca-zero-2000",
+        "coca-zero-330-24",
+        "coca-zero-330-6",
+        "coca-zero-330-8",
+        "coca-zero-330-single",
+        "coca-zero-500",
+        "dr-pepper-330",
+        "evian-1l",
+        "evian-500",
+        "evian-6",
+        "fanta-orange-1500",
+        "fanta-orange-330",
+        "fanta-zero-330",
+        "fever-tree-ginger-500",
+        "fever-tree-tonic-500",
+        "gatorade-orange-500",
+        "innocent-apple-900",
+        "innocent-kids-orange-4",
+        "innocent-orange-900",
+        "innocent-smoothie-750",
+        "kombucha-ginger-330",
+        "lipton-lemon-1500",
+        "lipton-peach-1500",
+        "lucozade-orange-500",
+        "lucozade-sport-berry-500",
+        "lucozade-sport-orange-500",
+        "lucozade-sport-orange-500-2",
+        "miwadi-orange-1l",
+        "monster-mango-500",
+        "monster-original-500",
+        "monster-paradise-500",
+        "monster-pipeline-500",
+        "monster-ultra-white-12",
+        "monster-ultra-white-4",
+        "monster-ultra-white-500",
+        "monster-zero-500",
+        "pepsi-max-1500",
+        "pepsi-max-330",
+        "pepsi-max-6",
+        "pepsi-original-1500",
+        "pepsi-original-24",
+        "pepsi-original-330",
+        "pepsi-original-6",
+        "powerade-mountain-500",
+        "powerade-orange-500",
+        "prime-ice-pop-500",
+        "redbull-250",
+        "redbull-250-4",
+        "redbull-sugarfree-250",
+        "redbull-sugarfree-4",
+        "relentless-500",
+        "ribena-blackcurrant-1l",
+        "ribena-blackcurrant-500",
+        "robinsons-orange-1l",
+        "rockstar-500",
+        "sanpellegrino-500-6",
+        "schweppes-ginger-1l",
+        "schweppes-lemonade-1l",
+        "schweppes-slimline-1l",
+        "schweppes-tonic-1l",
+        "sprite-1500",
+        "sprite-330",
+        "sprite-zero-330",
+        "tropicana-apple-900",
+        "tropicana-grapefruit-900",
+        "tropicana-orange-1500",
+        "tropicana-orange-900",
+        "volvic-1500",
+        "volvic-touch-lemon-1500"
+      ],
+      "cells_left": 355,
+      "packs": 100
+    },
+    "c_variant_expanded": {
+      "catalog_ids": [
+        "ballygowan-sparkling-500",
+        "ballygowan-sparkling-6",
+        "ballygowan-still-1500",
+        "ballygowan-still-6",
+        "capri-orange-10",
+        "club-orange-330",
+        "coca-diet-2000",
+        "coca-diet-330-24",
+        "coca-diet-330-single",
+        "coca-diet-500",
+        "coca-original-330-24",
+        "coca-original-330-single",
+        "coca-original-500",
+        "coca-zero-2000",
+        "coca-zero-330-24",
+        "coca-zero-330-single",
+        "coca-zero-500",
+        "evian-6",
+        "innocent-apple-900",
+        "lucozade-orange-500",
+        "lucozade-sport-orange-500",
+        "lucozade-sport-orange-500-2",
+        "miwadi-orange-1l",
+        "monster-mango-500",
+        "monster-original-500",
+        "monster-pipeline-500",
+        "monster-ultra-white-500",
+        "monster-zero-500",
+        "schweppes-slimline-1l",
+        "tropicana-apple-900",
+        "volvic-1500"
+      ],
+      "cells_left": 137,
+      "new_packs": [
+        {
+          "aliases": [
+            "7Up Zero Sugar Can"
+          ],
+          "brand": "7UP",
+          "evidence": {
+            "example_names": [
+              "7Up Zero Sugar Can 12 x 330ml",
+              "7Up Zero Sugar Can 18 x 330ml",
+              "7Up Zero Sugar Can 330ml",
+              "7Up Zero Sugar Can 4 x 330ml",
+              "7Up Zero Sugar Can 8 x 330ml"
+            ],
+            "family": "7up: zero",
+            "listings": 8,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "7UP Zero Sugar 330ml Can",
+          "pack_count": 1,
+          "package_type": "can",
+          "search_term": "7UP Zero Sugar Can 330ml",
+          "unit_size_ml": 330,
+          "variant": "Zero Sugar",
+          "variant_family": "7up: zero"
+        },
+        {
+          "aliases": [],
+          "brand": "7UP",
+          "evidence": {
+            "example_names": [
+              "7Up Zero Sugar Can 12 x 330ml",
+              "7Up Zero Sugar Can 18 x 330ml",
+              "7Up Zero Sugar Can 330ml",
+              "7Up Zero Sugar Can 4 x 330ml",
+              "7Up Zero Sugar Can 8 x 330ml"
+            ],
+            "family": "7up: zero",
+            "listings": 8,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "7UP Zero Sugar Bottle 500ml",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "7Up Zero Sugar Bottle 500ml",
+          "unit_size_ml": 500,
+          "variant": "Zero Sugar",
+          "variant_family": "7up: zero"
+        },
+        {
+          "aliases": [],
+          "brand": "7UP",
+          "evidence": {
+            "example_names": [
+              "7Up Zero Sugar Can 12 x 330ml",
+              "7Up Zero Sugar Can 18 x 330ml",
+              "7Up Zero Sugar Can 330ml",
+              "7Up Zero Sugar Can 4 x 330ml",
+              "7Up Zero Sugar Can 8 x 330ml"
+            ],
+            "family": "7up: zero",
+            "listings": 8,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "7UP Zero Sugar Bottle 1.25 Litres",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "7Up Zero Sugar Bottle 1.25 Litres",
+          "unit_size_ml": 1250,
+          "variant": "Zero Sugar",
+          "variant_family": "7up: zero"
+        },
+        {
+          "aliases": [
+            "7Up Zero Sugar 2L"
+          ],
+          "brand": "7UP",
+          "evidence": {
+            "example_names": [
+              "7Up Zero Sugar Can 12 x 330ml",
+              "7Up Zero Sugar Can 18 x 330ml",
+              "7Up Zero Sugar Can 330ml",
+              "7Up Zero Sugar Can 4 x 330ml",
+              "7Up Zero Sugar Can 8 x 330ml"
+            ],
+            "family": "7up: zero",
+            "listings": 8,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "7UP Zero Sugar Bottle 2 Litres",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "7Up Zero Sugar Bottle 2 Litres",
+          "unit_size_ml": 2000,
+          "variant": "Zero Sugar",
+          "variant_family": "7up: zero"
+        },
+        {
+          "aliases": [],
+          "brand": "Dr Pepper",
+          "evidence": {
+            "example_names": [
+              "Dr Pepper Zero 2L",
+              "Dr Pepper Zero 500ml"
+            ],
+            "family": "dr pepper: zero",
+            "listings": 2,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "Dr Pepper Zero 500ml",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "Dr Pepper Zero 500ml",
+          "unit_size_ml": 500,
+          "variant": "Zero",
+          "variant_family": "dr pepper: zero"
+        },
+        {
+          "aliases": [
+            "Dr Pepper Zero Bottle 2 Litres"
+          ],
+          "brand": "Dr Pepper",
+          "evidence": {
+            "example_names": [
+              "Dr Pepper Zero 2L",
+              "Dr Pepper Zero 500ml"
+            ],
+            "family": "dr pepper: zero",
+            "listings": 2,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "Dr Pepper Zero 2 Litres",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "Dr Pepper Zero 2L",
+          "unit_size_ml": 2000,
+          "variant": "Zero",
+          "variant_family": "dr pepper: zero"
+        },
+        {
+          "aliases": [],
+          "brand": "Red Bull",
+          "evidence": {
+            "example_names": [
+              "Red Bull Energy Drink, Sugar Free, 250ml",
+              "Red Bull Energy Drink, Sugar Free, 355ml",
+              "Red Bull Sugar Free 4 x 250ml"
+            ],
+            "family": "red bull: sugar free",
+            "listings": 3,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "Red Bull Sugarfree 355ml",
+          "pack_count": 1,
+          "package_type": "can",
+          "search_term": "Red Bull Energy Drink, Sugar Free, 355ml",
+          "unit_size_ml": 355,
+          "variant": "Sugarfree",
+          "variant_family": "red bull: sugar free"
+        },
+        {
+          "aliases": [],
+          "brand": "Lucozade",
+          "evidence": {
+            "example_names": [
+              "Lucozade Energy Zero Sugar Drink Grafruitti 500ml",
+              "Lucozade Energy Zero Sugar Drink Original 380ml",
+              "Lucozade Energy Zero Sugar Drink Original 4x380ml PMP \u20ac5",
+              "Lucozade Energy Zero Sugar Drink Original 500ml",
+              "Lucozade Energy Zero Sugar Drink Original 6x380ml"
+            ],
+            "family": "lucozade: zero",
+            "listings": 5,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "Lucozade Zero Sugar 380ml",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "Lucozade Energy Zero Sugar Drink Original 380ml",
+          "unit_size_ml": 380,
+          "variant": "Zero Sugar",
+          "variant_family": "lucozade: zero"
+        },
+        {
+          "aliases": [],
+          "brand": "Volvic",
+          "evidence": {
+            "example_names": [
+              "Volvic Touch of Fruit Sugar Free Mango Passion 1.5L",
+              "Volvic Touch of Fruit Sugar Free Summer Fruits 1.5L"
+            ],
+            "family": "volvic: sugar free",
+            "listings": 2,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "Volvic Touch of Fruit Sugar Free 1.5 Litres",
+          "pack_count": 1,
+          "package_type": "bottle",
+          "search_term": "Volvic Touch of Fruit Sugar Free 1.5L",
+          "unit_size_ml": 1500,
+          "variant": "Touch of Fruit Sugar Free",
+          "variant_family": "volvic: sugar free"
+        },
+        {
+          "aliases": [],
+          "brand": "Pepsi",
+          "evidence": {
+            "example_names": [
+              "Pepsi Cream Soda Flavour Zero Sugar Can 330ml"
+            ],
+            "family": "pepsi: zero",
+            "listings": 1,
+            "retailers": [
+              "dunnes"
+            ]
+          },
+          "name": "Pepsi Cream Soda Zero Sugar 330ml Can",
+          "pack_count": 1,
+          "package_type": "can",
+          "search_term": "Pepsi Cream Soda Flavour Zero Sugar Can 330ml",
+          "unit_size_ml": 330,
+          "variant": "Cream Soda Zero Sugar",
+          "variant_family": "pepsi: zero"
+        }
+      ],
+      "packs": 41
+    }
+  },
+  "generated_at": "2026-09-20T20:27:29Z",
+  "headline": {
+    "comparable": 71,
+    "packs_scored": 100,
+    "proven": 31
+  },
+  "retailer_summary": {
+    "aldi": {
+      "approved_mappings": 0,
+      "candidates": 83,
+      "gtin_hits": 0,
+      "listing_rejections": 316
+    },
+    "dunnes": {
+      "approved_mappings": 41,
+      "candidates": 692,
+      "gtin_hits": 0,
+      "listing_rejections": 106
+    },
+    "lidl": {
+      "approved_mappings": 0,
+      "candidates": 16,
+      "gtin_hits": 0,
+      "listing_rejections": 66
+    },
+    "supervalu": {
+      "approved_mappings": 36,
+      "candidates": 204,
+      "gtin_hits": 0,
+      "listing_rejections": 347
+    },
+    "tesco": {
+      "approved_mappings": 9,
+      "candidates": 10,
+      "gtin_hits": 10,
+      "listing_rejections": 0
+    }
+  },
+  "rows": [
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 45,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-500",
+      "evidence_retailers": 5,
+      "name": "Coca-Cola Original Taste 500ml Bottle",
+      "open_cells": [
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 37
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 88,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl",
+        "supervalu"
+      ],
+      "catalog_id": "coca-diet-330-24",
+      "evidence_retailers": 5,
+      "name": "Coca-Cola Diet 330ml Cans x24",
+      "open_cells": [
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 48
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 18,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes"
+      ],
+      "catalog_id": "coca-diet-2000",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Diet 2L Bottle",
+      "open_cells": [
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 241,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-diet-330-single",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Diet 330ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 7
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 78,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-330-24",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Original Taste 330ml Cans x24",
+      "open_cells": [
+        "supervalu",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 37
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 76,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-330-single",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Original Taste 330ml Can",
+      "open_cells": [
+        "supervalu",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 37
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 24,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-diet-500",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Diet 500ml Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 6
+    },
+    {
+      "approved_retailers": [
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 76,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-2000",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Original Taste 2L Bottle",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 36
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 44,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-330-8",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Original Taste 330ml Cans x8",
+      "open_cells": [
+        "dunnes",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 36
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Coca-Cola",
+      "candidate_count": 88,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl",
+        "supervalu"
+      ],
+      "catalog_id": "coca-diet-330-6",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Diet 330ml Cans x6",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 48
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Coca-Cola",
+      "candidate_count": 62,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl",
+        "supervalu"
+      ],
+      "catalog_id": "coca-diet-1500",
+      "evidence_retailers": 4,
+      "name": "Coca-Cola Diet 1.5L Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 15
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 14,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "coca-zero-2000",
+      "evidence_retailers": 3,
+      "name": "Coca-Cola Zero Sugar 2L Bottle",
+      "open_cells": [
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "tesco"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 65,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "coca-zero-330-24",
+      "evidence_retailers": 3,
+      "name": "Coca-Cola Zero Sugar 330ml Cans x24",
+      "open_cells": [
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 26
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 44,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes"
+      ],
+      "catalog_id": "coca-zero-330-single",
+      "evidence_retailers": 3,
+      "name": "Coca-Cola Zero Sugar 330ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 30
+    },
+    {
+      "approved_retailers": [
+        "supervalu",
+        "tesco"
+      ],
+      "brand": "Monster",
+      "candidate_count": 38,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu",
+        "tesco"
+      ],
+      "catalog_id": "monster-ultra-white-500",
+      "evidence_retailers": 3,
+      "name": "Monster Ultra White 500ml Can",
+      "open_cells": [
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 18,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes"
+      ],
+      "catalog_id": "coca-diet-330-8",
+      "evidence_retailers": 3,
+      "name": "Coca-Cola Diet 330ml Cans x8",
+      "open_cells": [
+        "dunnes",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Coca-Cola",
+      "candidate_count": 77,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-330-6",
+      "evidence_retailers": 3,
+      "name": "Coca-Cola Original Taste 330ml Cans x6",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 35
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Coca-Cola",
+      "candidate_count": 74,
+      "candidate_retailers": [
+        "aldi",
+        "dunnes",
+        "lidl"
+      ],
+      "catalog_id": "coca-original-1500",
+      "evidence_retailers": 3,
+      "name": "Coca-Cola Original Taste 1.5L Bottle",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 34
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Innocent",
+      "candidate_count": 43,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "innocent-apple-900",
+      "evidence_retailers": 2,
+      "name": "Innocent Apple Juice 900ml",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Lucozade",
+      "candidate_count": 40,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "lucozade-orange-500",
+      "evidence_retailers": 2,
+      "name": "Lucozade Energy Orange 500ml Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 9
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Ballygowan",
+      "candidate_count": 36,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ballygowan-sparkling-500",
+      "evidence_retailers": 2,
+      "name": "Ballygowan Sparkling Water 500ml Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 8
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Ballygowan",
+      "candidate_count": 36,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ballygowan-sparkling-6",
+      "evidence_retailers": 2,
+      "name": "Ballygowan Sparkling Water 500ml Bottles x6",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 7
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Monster",
+      "candidate_count": 36,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "monster-zero-500",
+      "evidence_retailers": 2,
+      "name": "Monster Energy Zero Sugar 500ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 33
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Ballygowan",
+      "candidate_count": 34,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ballygowan-still-1500",
+      "evidence_retailers": 2,
+      "name": "Ballygowan Still Water 1.5L Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 3
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Ballygowan",
+      "candidate_count": 34,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ballygowan-still-6",
+      "evidence_retailers": 2,
+      "name": "Ballygowan Still Water 500ml Bottles x6",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 6
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "MiWadi",
+      "candidate_count": 30,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "miwadi-orange-1l",
+      "evidence_retailers": 2,
+      "name": "MiWadi Orange Squash 1L",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 26
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Monster",
+      "candidate_count": 30,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "monster-original-500",
+      "evidence_retailers": 2,
+      "name": "Monster Energy Original 500ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 3
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Monster",
+      "candidate_count": 28,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "monster-mango-500",
+      "evidence_retailers": 2,
+      "name": "Monster Mango Loco 500ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Monster",
+      "candidate_count": 28,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "monster-pipeline-500",
+      "evidence_retailers": 2,
+      "name": "Monster Pipeline Punch 500ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Volvic",
+      "candidate_count": 24,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "volvic-1500",
+      "evidence_retailers": 2,
+      "name": "Volvic Still Water 1.5L Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 12
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Tropicana",
+      "candidate_count": 19,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "tropicana-apple-900",
+      "evidence_retailers": 2,
+      "name": "Tropicana Apple Juice 900ml",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Lucozade Sport",
+      "candidate_count": 18,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "lucozade-sport-orange-500",
+      "evidence_retailers": 2,
+      "name": "Lucozade Sport Orange 500ml Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 9
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Lucozade Sport",
+      "candidate_count": 18,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "lucozade-sport-orange-500-2",
+      "evidence_retailers": 2,
+      "name": "Lucozade Sport Orange 500ml Bottles x4",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 9
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Club",
+      "candidate_count": 17,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "club-orange-330",
+      "evidence_retailers": 2,
+      "name": "Club Orange 330ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 9
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 14,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "coca-zero-500",
+      "evidence_retailers": 2,
+      "name": "Coca-Cola Zero Sugar 500ml Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Schweppes",
+      "candidate_count": 14,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "schweppes-slimline-1l",
+      "evidence_retailers": 2,
+      "name": "Schweppes Slimline Tonic Water 1L",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Evian",
+      "candidate_count": 7,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "evian-6",
+      "evidence_retailers": 2,
+      "name": "Evian Still Water 500ml Bottles x6",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "brand": "Capri-Sun",
+      "candidate_count": 2,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "capri-orange-10",
+      "evidence_retailers": 2,
+      "name": "Capri-Sun Orange 200ml Pouches x10",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Ballygowan",
+      "candidate_count": 34,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ballygowan-still-500",
+      "evidence_retailers": 2,
+      "name": "Ballygowan Still Water 500ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 7
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Monster",
+      "candidate_count": 27,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "monster-paradise-500",
+      "evidence_retailers": 2,
+      "name": "Monster Ultra Paradise 500ml Can",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Robinsons",
+      "candidate_count": 21,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "robinsons-orange-1l",
+      "evidence_retailers": 2,
+      "name": "Robinsons Orange Squash 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Fanta",
+      "candidate_count": 20,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "fanta-zero-330",
+      "evidence_retailers": 2,
+      "name": "Fanta Orange Zero 330ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 3
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Fanta",
+      "candidate_count": 17,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "fanta-orange-330",
+      "evidence_retailers": 2,
+      "name": "Fanta Orange 330ml Can",
+      "open_cells": [
+        "dunnes",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 11
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Pepsi",
+      "candidate_count": 16,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "pepsi-max-330",
+      "evidence_retailers": 2,
+      "name": "Pepsi Max 330ml Can",
+      "open_cells": [
+        "dunnes",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 11
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Coca-Cola",
+      "candidate_count": 14,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "coca-zero-330-8",
+      "evidence_retailers": 2,
+      "name": "Coca-Cola Zero Sugar 330ml Cans x8",
+      "open_cells": [
+        "dunnes",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Fever-Tree",
+      "candidate_count": 13,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "fever-tree-ginger-500",
+      "evidence_retailers": 2,
+      "name": "Fever-Tree Ginger Ale 500ml",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Schweppes",
+      "candidate_count": 13,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "schweppes-ginger-1l",
+      "evidence_retailers": 2,
+      "name": "Schweppes Ginger Ale 1L",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 11
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Fever-Tree",
+      "candidate_count": 12,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "fever-tree-tonic-500",
+      "evidence_retailers": 2,
+      "name": "Fever-Tree Indian Tonic Water 500ml",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Sprite",
+      "candidate_count": 12,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "sprite-zero-330",
+      "evidence_retailers": 2,
+      "name": "Sprite Zero Sugar 330ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 5
+    },
+    {
+      "approved_retailers": [
+        "supervalu"
+      ],
+      "brand": "Ribena",
+      "candidate_count": 8,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ribena-blackcurrant-500",
+      "evidence_retailers": 2,
+      "name": "Ribena Blackcurrant 500ml",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Coca-Cola",
+      "candidate_count": 65,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "coca-zero-1500",
+      "evidence_retailers": 2,
+      "name": "Coca-Cola Zero Sugar 1.5L Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 26
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Coca-Cola",
+      "candidate_count": 65,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "coca-zero-330-6",
+      "evidence_retailers": 2,
+      "name": "Coca-Cola Zero Sugar 330ml Cans x6",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 26
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Club",
+      "candidate_count": 47,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "club-rock-shandy-2l",
+      "evidence_retailers": 2,
+      "name": "Club Rock Shandy 2L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 7
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Innocent",
+      "candidate_count": 46,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "innocent-kids-orange-4",
+      "evidence_retailers": 2,
+      "name": "Innocent Kids Orange Juice 150ml Pouches x4",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 8
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Innocent",
+      "candidate_count": 46,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "innocent-orange-900",
+      "evidence_retailers": 2,
+      "name": "Innocent Orange Juice 900ml",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 42
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Pepsi",
+      "candidate_count": 32,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "pepsi-max-1500",
+      "evidence_retailers": 2,
+      "name": "Pepsi Max 1.5L Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 12
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Pepsi",
+      "candidate_count": 32,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "pepsi-max-6",
+      "evidence_retailers": 2,
+      "name": "Pepsi Max 330ml Cans x6",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 12
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Fanta",
+      "candidate_count": 29,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "fanta-orange-1500",
+      "evidence_retailers": 2,
+      "name": "Fanta Orange 1.5L Bottle",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 12
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Ballygowan",
+      "candidate_count": 28,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ballygowan-sport-750",
+      "evidence_retailers": 2,
+      "name": "Ballygowan Sport Still Water 750ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Tropicana",
+      "candidate_count": 24,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "tropicana-orange-1500",
+      "evidence_retailers": 2,
+      "name": "Tropicana Pure Premium Orange Juice 1.5L",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Tropicana",
+      "candidate_count": 24,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "tropicana-orange-900",
+      "evidence_retailers": 2,
+      "name": "Tropicana Pure Premium Orange Juice 900ml",
+      "open_cells": [
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Boost",
+      "candidate_count": 20,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "boost-500",
+      "evidence_retailers": 2,
+      "name": "Boost Energy Original 500ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Volvic",
+      "candidate_count": 14,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "volvic-touch-lemon-1500",
+      "evidence_retailers": 2,
+      "name": "Volvic Touch of Lemon Water 1.5L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 3
+    },
+    {
+      "approved_retailers": [],
+      "brand": "7UP",
+      "candidate_count": 13,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "7up-330",
+      "evidence_retailers": 2,
+      "name": "7UP 330ml Can",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [],
+      "brand": "7UP",
+      "candidate_count": 13,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "7up-free-330",
+      "evidence_retailers": 2,
+      "name": "7UP Free 330ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Sanpellegrino",
+      "candidate_count": 12,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "sanpellegrino-500-6",
+      "evidence_retailers": 2,
+      "name": "Sanpellegrino Sparkling Water 500ml Bottles x6",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 12
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Ribena",
+      "candidate_count": 8,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "ribena-blackcurrant-1l",
+      "evidence_retailers": 2,
+      "name": "Ribena Blackcurrant 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Evian",
+      "candidate_count": 7,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "evian-1l",
+      "evidence_retailers": 2,
+      "name": "Evian Still Water 1L Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Evian",
+      "candidate_count": 7,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "evian-500",
+      "evidence_retailers": 2,
+      "name": "Evian Still Water 500ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 4
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Lipton",
+      "candidate_count": 5,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "lipton-lemon-1500",
+      "evidence_retailers": 2,
+      "name": "Lipton Ice Tea Lemon 1.5L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Lipton",
+      "candidate_count": 5,
+      "candidate_retailers": [
+        "dunnes",
+        "supervalu"
+      ],
+      "catalog_id": "lipton-peach-1500",
+      "evidence_retailers": 2,
+      "name": "Lipton Ice Tea Peach 1.5L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Red Bull",
+      "candidate_count": 26,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "redbull-250",
+      "evidence_retailers": 1,
+      "name": "Red Bull Energy Drink 250ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Red Bull",
+      "candidate_count": 26,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "redbull-250-4",
+      "evidence_retailers": 1,
+      "name": "Red Bull Energy Drink 250ml Cans x4",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Red Bull",
+      "candidate_count": 26,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "redbull-sugarfree-250",
+      "evidence_retailers": 1,
+      "name": "Red Bull Sugarfree 250ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Red Bull",
+      "candidate_count": 26,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "redbull-sugarfree-4",
+      "evidence_retailers": 1,
+      "name": "Red Bull Sugarfree 250ml Cans x4",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Schweppes",
+      "candidate_count": 11,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "schweppes-tonic-1l",
+      "evidence_retailers": 1,
+      "name": "Schweppes Indian Tonic Water 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [
+        "dunnes"
+      ],
+      "brand": "Pepsi",
+      "candidate_count": 9,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "pepsi-original-330",
+      "evidence_retailers": 1,
+      "name": "Pepsi 330ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Innocent",
+      "candidate_count": 38,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "innocent-smoothie-750",
+      "evidence_retailers": 1,
+      "name": "Innocent Berry Smoothie 750ml",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Monster",
+      "candidate_count": 26,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "monster-ultra-white-12",
+      "evidence_retailers": 1,
+      "name": "Monster Ultra White 500ml Cans x12",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Monster",
+      "candidate_count": 26,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "monster-ultra-white-4",
+      "evidence_retailers": 1,
+      "name": "Monster Ultra White 500ml Cans x4",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Pepsi",
+      "candidate_count": 20,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "pepsi-original-1500",
+      "evidence_retailers": 1,
+      "name": "Pepsi 1.5L Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Pepsi",
+      "candidate_count": 20,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "pepsi-original-24",
+      "evidence_retailers": 1,
+      "name": "Pepsi 330ml Cans x24",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Pepsi",
+      "candidate_count": 20,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "pepsi-original-6",
+      "evidence_retailers": 1,
+      "name": "Pepsi 330ml Cans x6",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Tropicana",
+      "candidate_count": 18,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "tropicana-grapefruit-900",
+      "evidence_retailers": 1,
+      "name": "Tropicana Pink Grapefruit Juice 900ml",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Schweppes",
+      "candidate_count": 11,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "schweppes-lemonade-1l",
+      "evidence_retailers": 1,
+      "name": "Schweppes Lemonade 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Lucozade Sport",
+      "candidate_count": 8,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "lucozade-sport-berry-500",
+      "evidence_retailers": 1,
+      "name": "Lucozade Sport Berry 500ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Sprite",
+      "candidate_count": 7,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "sprite-1500",
+      "evidence_retailers": 1,
+      "name": "Sprite 1.5L Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 7
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Dr Pepper",
+      "candidate_count": 4,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "dr-pepper-330",
+      "evidence_retailers": 1,
+      "name": "Dr Pepper 330ml Can",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Karma Drinks",
+      "candidate_count": 3,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "kombucha-ginger-330",
+      "evidence_retailers": 1,
+      "name": "Karma Drinks Ginger Kombucha 330ml",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Sprite",
+      "candidate_count": 3,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "sprite-330",
+      "evidence_retailers": 1,
+      "name": "Sprite 330ml Can",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Powerade",
+      "candidate_count": 2,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "powerade-mountain-500",
+      "evidence_retailers": 1,
+      "name": "Powerade Mountain Blast 500ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Powerade",
+      "candidate_count": 2,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "powerade-orange-500",
+      "evidence_retailers": 1,
+      "name": "Powerade Orange 500ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Prime",
+      "candidate_count": 2,
+      "candidate_retailers": [
+        "dunnes"
+      ],
+      "catalog_id": "prime-ice-pop-500",
+      "evidence_retailers": 1,
+      "name": "Prime Ice Pop 500ml Bottle",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 2
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Arizona",
+      "candidate_count": 1,
+      "candidate_retailers": [
+        "supervalu"
+      ],
+      "catalog_id": "arizona-green-tea-500",
+      "evidence_retailers": 1,
+      "name": "Arizona Green Tea with Honey 500ml",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 1
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Cawston Press",
+      "candidate_count": 0,
+      "candidate_retailers": [],
+      "catalog_id": "cawston-apple-1l",
+      "evidence_retailers": 0,
+      "name": "Cawston Press Cloudy Apple Juice 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Cawston Press",
+      "candidate_count": 0,
+      "candidate_retailers": [],
+      "catalog_id": "cawston-elderflower-1l",
+      "evidence_retailers": 0,
+      "name": "Cawston Press Elderflower Drink 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Cawston Press",
+      "candidate_count": 0,
+      "candidate_retailers": [],
+      "catalog_id": "cawston-rhubarb-1l",
+      "evidence_retailers": 0,
+      "name": "Cawston Press Rhubarb Drink 1L",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Gatorade",
+      "candidate_count": 0,
+      "candidate_retailers": [],
+      "catalog_id": "gatorade-orange-500",
+      "evidence_retailers": 0,
+      "name": "Gatorade Orange 500ml Bottle",
+      "open_cells": [
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Relentless",
+      "candidate_count": 0,
+      "candidate_retailers": [],
+      "catalog_id": "relentless-500",
+      "evidence_retailers": 0,
+      "name": "Relentless Origin 500ml Can",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    },
+    {
+      "approved_retailers": [],
+      "brand": "Rockstar",
+      "candidate_count": 0,
+      "candidate_retailers": [],
+      "catalog_id": "rockstar-500",
+      "evidence_retailers": 0,
+      "name": "Rockstar Original 500ml Can",
+      "open_cells": [
+        "dunnes",
+        "supervalu",
+        "tesco",
+        "lidl",
+        "aldi"
+      ],
+      "rejection_count": 0
+    }
+  ],
+  "variant_evidence": [
+    {
+      "example_names": [
+        "7Up Zero Sugar Can 12 x 330ml",
+        "7Up Zero Sugar Can 18 x 330ml",
+        "7Up Zero Sugar Can 330ml",
+        "7Up Zero Sugar Can 4 x 330ml",
+        "7Up Zero Sugar Can 8 x 330ml"
+      ],
+      "family": "7up: zero",
+      "listings": 8,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Lucozade Energy Zero Sugar Drink Grafruitti 500ml",
+        "Lucozade Energy Zero Sugar Drink Original 380ml",
+        "Lucozade Energy Zero Sugar Drink Original 4x380ml PMP \u20ac5",
+        "Lucozade Energy Zero Sugar Drink Original 500ml",
+        "Lucozade Energy Zero Sugar Drink Original 6x380ml"
+      ],
+      "family": "lucozade: zero",
+      "listings": 5,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "7Up Zero Sugar Pink Lemonade 2L",
+        "7Up Zero Sugar Pink Lemonade Bottle 500ml",
+        "7Up Zero Sugar Pink Lemonade Can 330ml"
+      ],
+      "family": "7up: lemonade/pink/zero",
+      "listings": 3,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Lucozade Energy Zero Sugar Drink Pink Lemonade 330ml PMP \u20ac1.50",
+        "Lucozade Energy Zero Sugar Drink Pink Lemonade 500ml",
+        "Lucozade Energy Zero Sugar Drink Pink Lemonade 900ml"
+      ],
+      "family": "lucozade: lemonade/pink/zero",
+      "listings": 3,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Red Bull Energy Drink, Sugar Free, 250ml",
+        "Red Bull Energy Drink, Sugar Free, 355ml",
+        "Red Bull Sugar Free 4 x 250ml"
+      ],
+      "family": "red bull: sugar free",
+      "listings": 3,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Tropicana Fresh & Light Tropical Juice Blend Drink 850ml",
+        "Tropicana Tropical Fruit Juice 1.5L",
+        "Tropicana Tropical Fruit Juice 850ml"
+      ],
+      "family": "tropicana: tropical",
+      "listings": 3,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Dr Pepper Zero 2L",
+        "Dr Pepper Zero 500ml"
+      ],
+      "family": "dr pepper: zero",
+      "listings": 2,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Red Bull Zero 250ml",
+        "Red Bull Zero 4 x 250ml"
+      ],
+      "family": "red bull: zero",
+      "listings": 2,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Red Bull Iced Vanilla Berry",
+        "Red Bull The Ice Edition Iced Vanilla Berry Energy Drink 4 x 250ml"
+      ],
+      "family": "red bull: vanilla",
+      "listings": 2,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Red Bull Energy Drink Tropical Edition 250ml",
+        "Red Bull The Tropical Edition Tropical Fruits Energy Drink 4 x 250ml"
+      ],
+      "family": "red bull: tropical",
+      "listings": 2,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Volvic Touch of Fruit Sugar Free Mango Passion 1.5L",
+        "Volvic Touch of Fruit Sugar Free Summer Fruits 1.5L"
+      ],
+      "family": "volvic: sugar free",
+      "listings": 2,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Pepsi Cream Soda Flavour Zero Sugar Can 330ml"
+      ],
+      "family": "pepsi: zero",
+      "listings": 1,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Coca-Cola Zero Caffeine Free 500ml"
+      ],
+      "family": "coca cola: free/zero",
+      "listings": 1,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Fanta Crimson Cherry Apple Cherry Taste 1.75L"
+      ],
+      "family": "fanta: cherry",
+      "listings": 1,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Berocca Boost 1 Tube Extra Free, Vitamin C & B12, Effervescent Tablets 45"
+      ],
+      "family": "boost: free",
+      "listings": 1,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Berocca Boost Effervescent Vitamin Tablets with guarana, caffeine, vitamin B12, vitamin C & magnesium. Cherry flavour.  15 tablets."
+      ],
+      "family": "boost: cherry",
+      "listings": 1,
+      "retailers": [
+        "dunnes"
+      ]
+    },
+    {
+      "example_names": [
+        "Ballygowan B Active Tropical Rush Caffeine Water 500ml"
+      ],
+      "family": "ballygowan: tropical",
+      "listings": 1,
+      "retailers": [
+        "dunnes"
+      ]
+    }
+  ]
+}

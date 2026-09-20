@@ -1,0 +1,115 @@
+{
+ "page": "https://www.lidl.ie/c/food-drink/s10068374",
+ "note": "SSR data-grid-data payloads from the Food & Drink range page (product tiles)",
+ "count": 12,
+ "products": [
+  {
+   "title": "Sauce",
+   "erpNumber": "11691034",
+   "price": 3.99,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/sauce/p11691034"
+  },
+  {
+   "title": "Desserts in Glass Twinpack",
+   "erpNumber": "11000291",
+   "price": 1.89,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/caribbean-style-desserts-in-glass-twinpack/p11000291"
+  },
+  {
+   "title": "Ribera del Duero, Spanish",
+   "erpNumber": "11002643",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/hachon-ribera-del-duero-spanish/p11002643"
+  },
+  {
+   "title": "Salad Trio",
+   "erpNumber": "11029747",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/qualite-suisse-salad-trio/p11029747"
+  },
+  {
+   "title": "Edam Slices",
+   "erpNumber": "11063694",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/milbona-edam-slices/p11063694"
+  },
+  {
+   "title": "Conference Pears",
+   "erpNumber": "11150832",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/conference-pears/p11150832"
+  },
+  {
+   "title": "Irish Mushrooms",
+   "erpNumber": "11151171",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/irish-mushrooms/p11151171"
+  },
+  {
+   "title": "Aussie Shampoo & Conditioner",
+   "erpNumber": "11208592",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/procter-gamble-aussie-shampoo-conditioner/p11208592"
+  },
+  {
+   "title": "BIRDSEYE Chicken Dippers",
+   "erpNumber": "11390693",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/birdseye-chicken-dippers/p11390693"
+  },
+  {
+   "title": "GLENISK Organic Low Fat Vanilla Yogurt ",
+   "erpNumber": "11399254",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/glenisk-organic-low-fat-vanilla-yogurt/p11399254"
+  },
+  {
+   "title": "Ancient Grain Roll",
+   "erpNumber": "11399385",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/ancient-grain-roll/p11399385"
+  },
+  {
+   "title": "2 Breaded Cod Fillets ",
+   "erpNumber": "11400332",
+   "price": null,
+   "currency": "EUR",
+   "gs1Attributes": [],
+   "multipack": false,
+   "url": "/p/lighthouse-bay-2-breaded-cod-fillets/p11400332"
+  }
+ ]
+}

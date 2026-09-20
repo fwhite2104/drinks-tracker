@@ -1,0 +1,1694 @@
+{
+ "type": "search",
+ "version": "v2.0.0",
+ "engine": "ldt-searcher",
+ "xPayload": {
+  "keywordResults": {
+   "num_items_found": 1
+  }
+ },
+ "id": "42640f19-26a8-4877-8977-c0485fb10477",
+ "q": "coca cola",
+ "locale": "en_IE",
+ "assortment": "IE",
+ "resultType": "search",
+ "masterQuery": "cola",
+ "numFound": 5,
+ "offset": 0,
+ "fetchsize": 36,
+ "maxfetchsize": 1000,
+ "sort": {
+  "code": "relevancy",
+  "label": "Relevance",
+  "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&sort=relevancy",
+  "link": {
+   "type": "search",
+   "filter": {},
+   "sort": "relevancy",
+   "q": "coca cola"
+  }
+ },
+ "sorts": [
+  {
+   "code": "relevancy",
+   "label": "Relevance",
+   "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&sort=relevancy",
+   "link": {
+    "type": "search",
+    "filter": {},
+    "sort": "relevancy",
+    "q": "coca cola"
+   }
+  },
+  {
+   "code": "price",
+   "label": "Price ascending",
+   "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&sort=price",
+   "link": {
+    "type": "search",
+    "filter": {},
+    "sort": "price",
+    "q": "coca cola"
+   }
+  },
+  {
+   "code": "price-desc",
+   "label": "Price descending",
+   "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&sort=price-desc",
+   "link": {
+    "type": "search",
+    "filter": {},
+    "sort": "price-desc",
+    "q": "coca cola"
+   }
+  },
+  {
+   "code": "firstOnlineDate-desc",
+   "label": "Latest articles first",
+   "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&sort=firstOnlineDate-desc",
+   "link": {
+    "type": "search",
+    "filter": {},
+    "sort": "firstOnlineDate-desc",
+    "q": "coca cola"
+   }
+  },
+  {
+   "code": "percentageDiscount-desc",
+   "label": "Highest discount first",
+   "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&sort=percentageDiscount-desc",
+   "link": {
+    "type": "search",
+    "filter": {},
+    "sort": "percentageDiscount-desc",
+    "q": "coca cola"
+   }
+  }
+ ],
+ "facets": [
+  {
+   "type": "TEXT",
+   "code": "category",
+   "label": "Category",
+   "selector": "REFINE",
+   "rendering": {
+    "style": "TEXT",
+    "searchable": false,
+    "selectedPosition": "BELOW",
+    "renderLabel": true,
+    "collapsible": true
+   },
+   "topvalues": [
+    {
+     "type": "TEXT",
+     "label": "Food & Drink",
+     "selected": false,
+     "count": 5,
+     "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&category=Food+%26+Drink",
+     "link": {
+      "type": "search",
+      "filter": {
+       "category": [
+        "Food & Drink"
+       ]
+      },
+      "q": "coca cola"
+     },
+     "children": [],
+     "value": "10068374"
+    }
+   ],
+   "values": [
+    {
+     "type": "TEXT",
+     "label": "Food & Drink",
+     "selected": false,
+     "count": 5,
+     "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&category=Food+%26+Drink",
+     "link": {
+      "type": "search",
+      "filter": {
+       "category": [
+        "Food & Drink"
+       ]
+      },
+      "q": "coca cola"
+     },
+     "children": [],
+     "value": "10068374"
+    }
+   ]
+  },
+  {
+   "type": "RANGE",
+   "code": "price",
+   "label": "Price",
+   "selector": "REFINE",
+   "rendering": {
+    "style": "TEXT",
+    "searchable": false,
+    "selectedPosition": "BELOW",
+    "renderLabel": true,
+    "collapsible": true
+   },
+   "unit": "\u20ac",
+   "baseURL": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola",
+   "baseLink": {
+    "type": "search",
+    "filter": {},
+    "q": "coca cola"
+   },
+   "globalMin": {
+    "type": "NumericValue",
+    "unit": "\u20ac",
+    "value": 1.0
+   },
+   "globalMax": {
+    "type": "NumericValue",
+    "unit": "\u20ac",
+    "value": 6.0
+   },
+   "min": {
+    "type": "NumericValue",
+    "unit": "\u20ac",
+    "value": 1.0
+   },
+   "max": {
+    "type": "NumericValue",
+    "unit": "\u20ac",
+    "value": 6.0
+   },
+   "selectedMin": {
+    "type": "SelectedNumericValue",
+    "value": 1.0
+   },
+   "selectedMax": {
+    "type": "SelectedNumericValue",
+    "value": 6.0
+   },
+   "values": []
+  },
+  {
+   "type": "SWITCH",
+   "code": "newArticleFlag",
+   "label": "New arrivals",
+   "selector": "REFINE",
+   "rendering": {
+    "style": "TOGGLE",
+    "searchable": false,
+    "selectedPosition": "ABOVE",
+    "renderLabel": true,
+    "collapsible": true
+   },
+   "value": {
+    "label": "New arrivals",
+    "selected": false,
+    "count": 5,
+    "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola&newArticleFlag=1",
+    "link": {
+     "type": "search",
+     "filter": {
+      "newArticleFlag": [
+       "1"
+      ]
+     },
+     "q": "coca cola"
+    }
+   }
+  }
+ ],
+ "items": [
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11258557",
+   "label": "",
+   "url": "",
+   "xPayload": {
+    "metaData": {
+     "relevancyScore": "mIccAoLol5JPKAJZLnDNxc8Suz0s9b3wUJXDMFrCZEfQUHW/ZEC1LLGDQDM=",
+     "keywordScore": "I+XWx46I60P88m/Rx/IoBxZniplTzjujOO+P/P9Nffn9ssRn1cfEJZxQlS4=",
+     "semanticScore": "99PTHEu8nJZQzNSq9K6k0lBHhj85oSxnIPzK/wsRO03E7YV9ne+4VvhEQJk=",
+     "keywordScoreRaw": "t5WNsZtz/q+R4MR7rRBtlE8NOgfky6/wxm19jAC92FhTTDfERRoA99HEysM=",
+     "ratingScore": "2U6rGQJQKv+pTrNRz1rW12lBOJXBiP/2EDhxxVzLmpqBXnCeL9aaRLqctUU=",
+     "freshnessScore": "MLbwRDuM79L4DgI1PQvtQYF6c0uMT6UPP1d2hseCVkPO812KK6FjwmDJkTk=",
+     "searchHubImpressions": "RNua5bKpJpE2i1Ug/DM41+F325u+YV930leAlGFWSCNdaSfIMeZZfn6t/wg=",
+     "searchHubClicks": "EEfgVzxapdWyHhNgxVrvgtCKc0uUtZjF189KqbHXBpC0R/0eFj8nhmqyWc8=",
+     "searchHubCarts": "Z8/wY80QdiQUeABRo1zURGpLjk1Dm+uLas7iRQmR32Mvhu7mZjD73mWtNGg=",
+     "businessRuleFactor": "U7uqfHf1siuO3vCF2al0Mdf+kGk6UOfmKHGcZwO1BTUYKFbJ6t2u/IjF02g="
+    }
+   },
+   "gridbox": {
+    "country": "IE",
+    "sequence": 1789887535491751,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "showBrand": false
+     },
+     "canonicalPath": "/p/hata-cola-drink/p11258557",
+     "canonicalUrl": "/p/hata-cola-drink/p11258557",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11258557_7c052638",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11258557",
+     "flashSales": false,
+     "fullTitle": "HATA Cola Drink",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "6514677"
+     ],
+     "image": "https://www.lidl.ie/assets/gcp660cfee9daf742b18de5b7b946d752fd.png",
+     "image_V1": {
+      "image": "https://www.lidl.ie/assets/gcp660cfee9daf742b18de5b7b946d752fd.png",
+      "accessibility": "Cola flavored soda bottle with a blue and red label."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11258557,
+     "imageList": [
+      "https://www.lidl.ie/assets/gcp660cfee9daf742b18de5b7b946d752fd.png",
+      "https://www.lidl.ie/assets/gcpdfd7e606189b46dd9a16c65a50b6cbe2.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.ie/assets/gcp660cfee9daf742b18de5b7b946d752fd.png",
+       "accessibility": "Cola flavored soda bottle with a blue and red label."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcpdfd7e606189b46dd9a16c65a50b6cbe2.png",
+       "accessibility": "Cola flavored ramune soda bottle with blue and red label."
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "fullTitle": "HATA Cola Drink",
+      "moreDetails": "More details",
+      "title": "HATA Cola Drink",
+      "wonCategoryPrimary": "Worlds of need/Food and near food/Drinks/Soft drinks",
+      "wonCategoryPrimaryPath": "0/17/1720/172012"
+     },
+     "lidlPlus": [],
+     "multipack": false,
+     "nat": "7168780",
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "\u20ac",
+      "currencySymbolSecond": "",
+      "displayedCurrency": "\u20ac",
+      "hasStar": false,
+      "hasVat": false,
+      "price": 1.89,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11258557,
+     "productType": "RETAIL",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "IE Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentPrice": {
+        "basePrice": {
+         "prefix": false
+        },
+        "currencyCode": "EUR",
+        "currencyCodeSecond": "",
+        "currencySymbol": "\u20ac",
+        "currencySymbolSecond": "",
+        "displayedCurrency": "\u20ac",
+        "endDate": "2026-11-11T23:59:59Z",
+        "endDateExclusive": "2026-11-12T00:00Z",
+        "hasStar": false,
+        "hasVat": true,
+        "price": 1.89,
+        "priceTheme": "white_red",
+        "specialTaxes": [],
+        "startDate": "2026-08-26T10:23:25.830Z",
+        "superscript": "",
+        "variantsHaveDifferentPrices": false
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789887535,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "in store 03.09 - 11.11",
+         "type": "IN_STORE_PAST_DATE_RANGE"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "in store 03.09 - 11.11",
+          "type": "IN_STORE_PAST_DATE_RANGE"
+         }
+        ],
+        "validFrom": 1788390000,
+        "validUntil": 1794441599
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 1,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": true,
+     "storeStartDate": 1788390000,
+     "storeEndDate": 1794441599,
+     "title": "HATA Cola Drink",
+     "timezoneId": "Europe/Dublin",
+     "zones": {}
+    },
+    "productId": 11258557,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10066274",
+        "name": "Vitasia Japanese Style",
+        "url": "/c/vitasia-japanese-style/a10066274",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "HATA Cola Drink",
+     "ean": "4902494170022",
+     "retailLists": [
+      [
+       {
+        "id": 3000
+       },
+       {
+        "id": 5053
+       }
+      ]
+     ],
+     "lists": [
+      3000,
+      5053
+     ],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068374",
+        "name": "Food & Drink",
+        "url": "/c/food-drink/s10068374",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10071022",
+        "name": "Drinks",
+        "url": "/h/drinks/h10071022",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10096234",
+        "name": "Soft Drinks",
+        "url": "/h/soft-drinks/h10096234",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "172012",
+       "isMain": true,
+       "name": "Soft drinks",
+       "parent": "1720",
+       "superCategories": [
+        {
+         "code": "1720",
+         "name": "Drinks",
+         "parent": "17"
+        },
+        {
+         "code": "17",
+         "name": "Food and near food",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Worlds of need",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "en",
+    "eventType": "GRIDBOX",
+    "id": "11258557"
+   },
+   "tracking": {
+    "position": 1,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11258557",
+     "searchTrackingTitle": "HATA+Cola+Drink",
+     "searchTrackingPageSize": 36,
+     "searchTrackingPage": 1,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11258557",
+     "searchTrackingQuery": "coca cola",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 1,
+     "searchTrackingOrigPageSize": 36,
+     "searchTrackingChannel": "IE",
+     "category": "Food"
+    }
+   }
+  },
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11407465",
+   "label": "",
+   "url": "",
+   "xPayload": {
+    "metaData": {
+     "relevancyScore": "hhYO4tLyhNIIIfz/ZMcRPvBY1tHrqORNgK+fLC6D58utxf8gtDdWlxwTZ1w=",
+     "keywordScore": "fV8I6OcYvr3I2Oea1X4yHj7RePgEbMQYyoIqOc1bLiMNF2aD1mZO6TstJwU=",
+     "semanticScore": "1TyHC3pe/5ZbjPJW4IFjrgvw7ZQzcJBriO+0ezvbL/8LoJvX2janOgkrBq8=",
+     "keywordScoreRaw": "niFsh/Zm++uCamYwIVyF7b9cz/kux85MifL9qFVCG/LnfFX81fkTAulHHdI=",
+     "ratingScore": "XJSSn0G6tPuQjen5eonw7YAnGCvNa2KuQ8SSkpawqWVhjzRzHWuX4ss8r8U=",
+     "freshnessScore": "MZGFUU3iGc/EGUdDrWdvwsDk7jG5WsL0atwPnt90gxoBk7YTp3ESTSwFhzU=",
+     "searchHubImpressions": "/O4a3No8f4+RocGdvSu8600nakxziiuiLMiRt9MXQe96MRvnlm7r4gpM9yA=",
+     "searchHubClicks": "muU2iaifqUljDZlnAXm+VP92t84NWFZi3THZyirQKtzZSBD+ZT+cVzcU47w=",
+     "searchHubCarts": "UazCryRcIkLneEN7cWtrRRFiTKk40y+kr6fD0v5+vsDnNdrJnSUVxULwhbA=",
+     "businessRuleFactor": "xXZHiuFr7NJdfF+hOaa6HHs23r7X72F6jGRgP1Xg3Z3rr3F21VnX5Q7QqLA="
+    }
+   },
+   "gridbox": {
+    "country": "IE",
+    "sequence": 1789616492059307,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "showBrand": false
+     },
+     "canonicalPath": "/p/nua-naturals-cocoa-powder/p11407465",
+     "canonicalUrl": "/p/nua-naturals-cocoa-powder/p11407465",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11407465_bf57455c",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11407465",
+     "flashSales": false,
+     "fullTitle": "NUA NATURALS Cocoa Powder",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "5312752"
+     ],
+     "image": "https://www.lidl.ie/assets/gcpdc0f8d219dad41cc874d73f351dc32f5.png",
+     "image_V1": {
+      "image": "https://www.lidl.ie/assets/gcpdc0f8d219dad41cc874d73f351dc32f5.png",
+      "accessibility": "100g organic cacao powder pouch with the text 'Nothing more, nothing less'."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11407465,
+     "imageList": [
+      "https://www.lidl.ie/assets/gcpdc0f8d219dad41cc874d73f351dc32f5.png",
+      "https://www.lidl.ie/assets/gcpf246d9ffa05843a69ea3d3447e78fd99.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.ie/assets/gcpdc0f8d219dad41cc874d73f351dc32f5.png",
+       "accessibility": "100g organic cacao powder pouch with the text 'Nothing more, nothing less'."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcpf246d9ffa05843a69ea3d3447e78fd99.png",
+       "accessibility": "100g organic cacao powder pouch with the text 'Nothing more, nothing less'."
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "fullTitle": "NUA NATURALS Cocoa Powder",
+      "moreDetails": "More details",
+      "title": "NUA NATURALS Cocoa Powder",
+      "wonCategoryPrimary": "Worlds of need/Food and near food/Coffee, tea & cocoa",
+      "wonCategoryPrimaryPath": "0/17/1730"
+     },
+     "lidlPlus": [
+      {
+       "price": {
+        "basePrice": {
+         "prefix": false
+        },
+        "discount": {
+         "discountHasStar": false,
+         "fromNormalPriceForLidlPlus": false,
+         "fromRecommendedPrice": false,
+         "showDiscount": false,
+         "showFrom": false,
+         "showPercentage": false,
+         "showUpTo": false
+        },
+        "hasStar": false,
+        "hasVat": false,
+        "price": 6.0,
+        "priceTheme": "red_yellow",
+        "specialTaxes": []
+       },
+       "lidlPlusText": "With Lidl Plus",
+       "highlightText": "Mix 'n' Match 2 for \u20ac12,00"
+      }
+     ],
+     "multipack": false,
+     "nat": "5312752",
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "\u20ac",
+      "currencySymbolSecond": "",
+      "displayedCurrency": "\u20ac",
+      "hasStar": false,
+      "hasVat": false,
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11407465,
+     "productType": "RETAIL",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "IE Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentLidlPlusPrice": {
+        "price": {
+         "basePrice": {
+          "prefix": false
+         },
+         "currencyCode": "EUR",
+         "currencyCodeSecond": "",
+         "currencySymbol": "\u20ac",
+         "currencySymbolSecond": "",
+         "discount": {
+          "deletedPrice": 6.79,
+          "discountHasStar": false,
+          "discountText": "Mix 'n' Match 2 for \u20ac12,00",
+          "fromNormalPriceForLidlPlus": false,
+          "fromRecommendedPrice": false,
+          "hideBargainHint": false,
+          "bargainHintEnabled": false,
+          "bargainHintText": "BargainHint_Text",
+          "showDiscount": true,
+          "showFrom": false,
+          "showPercentage": true,
+          "showUpTo": false
+         },
+         "displayedCurrency": "\u20ac",
+         "endDate": "2026-09-23T22:59:59Z",
+         "endDateExclusive": "2026-09-23T23:00Z",
+         "hasStar": false,
+         "hasVat": true,
+         "oldPrice": 6.79,
+         "price": 6.0,
+         "priceTheme": "white_red",
+         "specialTaxes": [],
+         "startDate": "2026-09-04T14:32:49.461Z",
+         "variantsHaveDifferentPrices": false
+        },
+        "lidlPlusText": "With Lidl Plus",
+        "highlightText": "Mix 'n' Match 2 for \u20ac12,00"
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789616492,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "in store 10.09 - 23.09",
+         "type": "IN_STORE_PAST_DATE_RANGE"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "in store 10.09 - 23.09",
+          "type": "IN_STORE_PAST_DATE_RANGE"
+         }
+        ],
+        "validFrom": 1788994800,
+        "validUntil": 1790204399
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 1,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": true,
+     "storeStartDate": 1788994800,
+     "storeEndDate": 1790204399,
+     "title": "NUA NATURALS Cocoa Powder",
+     "timezoneId": "Europe/Dublin",
+     "zones": {}
+    },
+    "productId": 11407465,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10055272",
+        "name": "Kickstart - Proud To Be Local",
+        "url": "/c/kickstart-proud-to-be-local/a10055272",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "NUA NATURALS Cocoa Powder",
+     "ean": "5391526610114",
+     "retailLists": [
+      [
+       {
+        "id": 3083
+       }
+      ]
+     ],
+     "lists": [
+      3083
+     ],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068374",
+        "name": "Food & Drink",
+        "url": "/c/food-drink/s10068374",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10071683",
+        "name": "Coffee, Tea & Cocoa",
+        "url": "/h/coffee-tea-hot-chocolate/h10071683",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "1730",
+       "isMain": true,
+       "name": "Coffee, tea & cocoa",
+       "parent": "17",
+       "superCategories": [
+        {
+         "code": "17",
+         "name": "Food and near food",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Worlds of need",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "en",
+    "eventType": "GRIDBOX",
+    "id": "11407465"
+   },
+   "tracking": {
+    "position": 2,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11407465",
+     "searchTrackingTitle": "NUA+NATURALS+Cocoa+Powder",
+     "searchTrackingPageSize": 36,
+     "searchTrackingPage": 1,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11407465",
+     "searchTrackingQuery": "coca cola",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 2,
+     "searchTrackingOrigPageSize": 36,
+     "searchTrackingChannel": "IE",
+     "category": "Food"
+    }
+   }
+  },
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11220736",
+   "label": "",
+   "url": "",
+   "xPayload": {
+    "metaData": {
+     "relevancyScore": "1YQ5oWlInLIVBcW0QU+Fo7ecitc/I/BxCXQjy+Yrj8/qagQAmBaAACUMp5g=",
+     "keywordScore": "id81pS4NriHwBIuCWxRhURaXqjZy9dhPbAA56gR8Ry3D2XR/q1qd0rXLw7E=",
+     "semanticScore": "+vgLgtth0tTlUqM/A1Qk1zddlxi2Z9SylG4fk43OAj7Jq1BcmqKYj2V2Y00=",
+     "keywordScoreRaw": "GpzzZJzpVYv7BFzWwhQwaptfPMi4Feci3VjwCWb/2VAElpPKyUp4Yne2wc8=",
+     "ratingScore": "W7DqQlfKPw28a7SBaTHM8xqYtTAT3r4J9IcHApM63RwifobM3CV+d2/Dn+c=",
+     "freshnessScore": "2rTl6O4pUHvpbRXbWm3JqxL5muQfqCIYXKp9oFvLosI51A2z3sOfWsDfC4k=",
+     "searchHubImpressions": "eM8v3uVRoPZh9wza/WSXYKPWAvxd+jZH8G4514AB0lYaL94lzkhLJuWQ6PM=",
+     "searchHubClicks": "jYvXYAwaTfNOkyDO0FmFBqG28g0xa29P9xUcRGA2ofvcD2NbI1xYSANPSzE=",
+     "searchHubCarts": "aG3y41tkIGNMI2dRJam3RMBJwGHIL4lN1Sg6gANd/289eBMSQeLMLheB9uA=",
+     "businessRuleFactor": "KT/khyl0QLQdDC3K4i7aknq5ZpsccUi5e+XbIPKaARydavRzAXuZPi9LzRM="
+    }
+   },
+   "gridbox": {
+    "country": "IE",
+    "sequence": 1789477161438456,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "showBrand": false
+     },
+     "canonicalPath": "/p/hata-watermelon-drink/p11220736",
+     "canonicalUrl": "/p/hata-watermelon-drink/p11220736",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11220736_3642689f",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11220736",
+     "flashSales": false,
+     "fullTitle": "HATA Watermelon Drink",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "6514664"
+     ],
+     "image": "https://www.lidl.ie/assets/gcpcf050230578d4411810cf49d38badd90.png",
+     "image_V1": {
+      "image": "https://www.lidl.ie/assets/gcpcf050230578d4411810cf49d38badd90.png",
+      "accessibility": "Japanese watermelon-flavored soft drink, with a red label and cartoon watermelons."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11220736,
+     "imageList": [
+      "https://www.lidl.ie/assets/gcpcf050230578d4411810cf49d38badd90.png",
+      "https://www.lidl.ie/assets/gcpcc0ff7b939d148a8b413e4a68d4de657.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.ie/assets/gcpcf050230578d4411810cf49d38badd90.png",
+       "accessibility": "Japanese watermelon-flavored soft drink, with a red label and cartoon watermelons."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcpcc0ff7b939d148a8b413e4a68d4de657.png",
+       "accessibility": "Pink soft drink with a red label featuring drawn watermelons and Japanese text."
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "fullTitle": "HATA Watermelon Drink",
+      "moreDetails": "More details",
+      "title": "HATA Watermelon Drink",
+      "wonCategoryPrimary": "Worlds of need/Food and near food/Drinks/Soft drinks",
+      "wonCategoryPrimaryPath": "0/17/1720/172012"
+     },
+     "lidlPlus": [],
+     "multipack": false,
+     "nat": "7168779",
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "\u20ac",
+      "currencySymbolSecond": "",
+      "displayedCurrency": "\u20ac",
+      "hasStar": false,
+      "hasVat": false,
+      "price": 1.89,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11220736,
+     "productType": "RETAIL",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "IE Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentPrice": {
+        "basePrice": {
+         "prefix": false
+        },
+        "currencyCode": "EUR",
+        "currencyCodeSecond": "",
+        "currencySymbol": "\u20ac",
+        "currencySymbolSecond": "",
+        "displayedCurrency": "\u20ac",
+        "endDate": "2026-11-11T23:59:59Z",
+        "endDateExclusive": "2026-11-12T00:00Z",
+        "hasStar": false,
+        "hasVat": true,
+        "price": 1.89,
+        "priceTheme": "white_red",
+        "specialTaxes": [],
+        "startDate": "2026-08-26T10:23:25.827Z",
+        "variantsHaveDifferentPrices": false
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789477161,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "in store 03.09 - 11.11",
+         "type": "IN_STORE_PAST_DATE_RANGE"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "in store 03.09 - 11.11",
+          "type": "IN_STORE_PAST_DATE_RANGE"
+         }
+        ],
+        "validFrom": 1788390000,
+        "validUntil": 1794441599
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 1,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": true,
+     "storeStartDate": 1788390000,
+     "storeEndDate": 1794441599,
+     "title": "HATA Watermelon Drink",
+     "timezoneId": "Europe/Dublin",
+     "zones": {}
+    },
+    "productId": 11220736,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10066274",
+        "name": "Vitasia Japanese Style",
+        "url": "/c/vitasia-japanese-style/a10066274",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "HATA Watermelon Drink",
+     "ean": "4902494130002",
+     "retailLists": [
+      [
+       {
+        "id": 3000
+       },
+       {
+        "id": 5053
+       }
+      ]
+     ],
+     "lists": [
+      3000,
+      5053
+     ],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068374",
+        "name": "Food & Drink",
+        "url": "/c/food-drink/s10068374",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10071022",
+        "name": "Drinks",
+        "url": "/h/drinks/h10071022",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10096234",
+        "name": "Soft Drinks",
+        "url": "/h/soft-drinks/h10096234",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "172012",
+       "isMain": true,
+       "name": "Soft drinks",
+       "parent": "1720",
+       "superCategories": [
+        {
+         "code": "1720",
+         "name": "Drinks",
+         "parent": "17"
+        },
+        {
+         "code": "17",
+         "name": "Food and near food",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Worlds of need",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "en",
+    "eventType": "GRIDBOX",
+    "id": "11220736"
+   },
+   "tracking": {
+    "position": 3,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11220736",
+     "searchTrackingTitle": "HATA+Watermelon+Drink",
+     "searchTrackingPageSize": 36,
+     "searchTrackingPage": 1,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11220736",
+     "searchTrackingQuery": "coca cola",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 3,
+     "searchTrackingOrigPageSize": 36,
+     "searchTrackingChannel": "IE",
+     "category": "Food"
+    }
+   }
+  },
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11691638",
+   "label": "",
+   "url": "",
+   "xPayload": {
+    "metaData": {
+     "relevancyScore": "cm3iuTstfPVUY85I1A8RZ7P6tPs2Ee7+/yIy01JBpci1vTm4slexK8MwMks=",
+     "keywordScore": "DURk+9T66t0b2eEM4XveAu0voH0G6nG8yNh3qX8A0OVbjhQb+ba7Hgl863Y=",
+     "semanticScore": "B29GglC/J9380el2EPIwMYoblQbfFjkoCd/1ssu4o0ffM/w9EQ06aXCSh6A=",
+     "keywordScoreRaw": "Uy+BJw/t7BCSAUxwFWkUHm0c2XFruoAhUA9yiPG6aHMDsoHH+YX6TE4IUao=",
+     "ratingScore": "UOE+J9T3bOAXIiqV8FJKqaxpEsTDa99m6sz2B/JYWiWyWZXVeFHHIkFzmg4=",
+     "freshnessScore": "7M/EX67zE/lBNJVEQgbza5V2B32a11Ndk4g5QrbZrVH1GPkpScNVTT+8lvM=",
+     "searchHubImpressions": "cnH2O6gIeeiqNA9qPvcnNaMDyGtBGYKZxHj1/Ht4+ozPxVOD1qgJ51WIxZc=",
+     "searchHubClicks": "oQTd6kL6Bxz8R65eMu1l60giKTs74bj+rdNWpYjHJZjre4fZZpXJ65iZe3I=",
+     "searchHubCarts": "BpVRIAibQMY0bd1/Jb9zI0X4nzXBEXBecyX9rQzXOQvWlSvXeUGAEN1jHfU=",
+     "businessRuleFactor": "+SVJEupb0/7Nu3e7lL/KTFcZF455hgvnbARUgVi11aVFJgWrI6GRkX37B/o="
+    }
+   },
+   "gridbox": {
+    "country": "IE",
+    "sequence": 1789738932768012,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "showBrand": false
+     },
+     "canonicalPath": "/p/go-bro-coffee/p11691638",
+     "canonicalUrl": "/p/go-bro-coffee/p11691638",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11691638_2fd9d3fb",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11691638",
+     "flashSales": false,
+     "fullTitle": "GO BR\u00d3 Coffee",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "5312749"
+     ],
+     "image": "https://www.lidl.ie/assets/gcpd710fdf71e7d45f4bff22223960effc9.jpg",
+     "image_V1": {
+      "image": "https://www.lidl.ie/assets/gcpd710fdf71e7d45f4bff22223960effc9.jpg",
+      "accessibility": "Coffee beans in a black bag with green and white text, featuring a coffee cup."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11691638,
+     "imageList": [
+      "https://www.lidl.ie/assets/gcpd710fdf71e7d45f4bff22223960effc9.jpg",
+      "https://www.lidl.ie/assets/gcp4110bf0b177644c4aabaedfaf7e1d64e.png",
+      "https://www.lidl.ie/assets/gcp0523a0d6d170446988d063e0b3d57900.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.ie/assets/gcpd710fdf71e7d45f4bff22223960effc9.jpg",
+       "accessibility": "Coffee beans in a black bag with green and white text, featuring a coffee cup."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcp4110bf0b177644c4aabaedfaf7e1d64e.png",
+       "accessibility": "A 200g bag of whole bean coffee blend from Brazil, El Salvador, Ethiopia, Honduras, and India."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcp0523a0d6d170446988d063e0b3d57900.png",
+       "accessibility": "A 200g pack of ground coffee with the inscription Go Br\u00f3."
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "fullTitle": "GO BR\u00d3 Coffee",
+      "moreDetails": "More details",
+      "title": "GO BR\u00d3 Coffee",
+      "wonCategoryPrimary": "Worlds of need/Food and near food/Coffee, tea & cocoa",
+      "wonCategoryPrimaryPath": "0/17/1730"
+     },
+     "lidlPlus": [],
+     "multipack": false,
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "\u20ac",
+      "currencySymbolSecond": "",
+      "displayedCurrency": "\u20ac",
+      "hasStar": false,
+      "hasVat": false,
+      "price": 4.99,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11691638,
+     "productType": "RETAIL_HEAD",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "IE Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentPrice": {
+        "basePrice": {
+         "prefix": false
+        },
+        "currencyCode": "EUR",
+        "currencyCodeSecond": "",
+        "currencySymbol": "\u20ac",
+        "currencySymbolSecond": "",
+        "displayedCurrency": "\u20ac",
+        "endDate": "2026-09-23T22:59:59Z",
+        "endDateExclusive": "2026-09-23T23:00Z",
+        "hasStar": false,
+        "hasVat": true,
+        "price": 4.99,
+        "priceTheme": "white_red",
+        "specialTaxes": [],
+        "startDate": "2026-09-02T08:24:00.504Z",
+        "superscript": "",
+        "variantsHaveDifferentPrices": false
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789738932,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "in store 10.09 - 23.09",
+         "type": "IN_STORE_PAST_DATE_RANGE"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "in store 10.09 - 23.09",
+          "type": "IN_STORE_PAST_DATE_RANGE"
+         }
+        ],
+        "validFrom": 1788994800,
+        "validUntil": 1790204399
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 0,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": true,
+     "storeStartDate": 1788994800,
+     "storeEndDate": 1790204399,
+     "title": "GO BR\u00d3 Coffee",
+     "timezoneId": "Europe/Dublin",
+     "zones": {}
+    },
+    "productId": 11691638,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10055272",
+        "name": "Kickstart - Proud To Be Local",
+        "url": "/c/kickstart-proud-to-be-local/a10055272",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "GO BR\u00d3 Coffee",
+     "ean": "5021965001654",
+     "retailLists": [
+      [
+       {
+        "id": 3083
+       },
+       {
+        "id": 5542
+       }
+      ]
+     ],
+     "lists": [
+      3083,
+      5542
+     ],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068374",
+        "name": "Food & Drink",
+        "url": "/c/food-drink/s10068374",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10071683",
+        "name": "Coffee, Tea & Cocoa",
+        "url": "/h/coffee-tea-hot-chocolate/h10071683",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "1730",
+       "isMain": true,
+       "name": "Coffee, tea & cocoa",
+       "parent": "17",
+       "superCategories": [
+        {
+         "code": "17",
+         "name": "Food and near food",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Worlds of need",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "en",
+    "eventType": "GRIDBOX",
+    "id": "11691638"
+   },
+   "tracking": {
+    "position": 4,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11691638",
+     "searchTrackingTitle": "GO+BR%C3%93+Coffee",
+     "searchTrackingPageSize": 36,
+     "searchTrackingPage": 1,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11691638",
+     "searchTrackingQuery": "coca cola",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 4,
+     "searchTrackingOrigPageSize": 36,
+     "searchTrackingChannel": "IE",
+     "category": "Food"
+    }
+   }
+  },
+  {
+   "resultClass": "product",
+   "type": "product",
+   "code": "11040259",
+   "label": "",
+   "url": "",
+   "xPayload": {
+    "metaData": {
+     "relevancyScore": "zvF11eZ2N5QQjqQEjSDWhXNSGhnbVuRamWJUFzBQJfD2mQCd3YMHXq5BKLw=",
+     "keywordScore": "9uCqcDzPuXOhu5TFHeFOXbz2IWIZHztLZFtPfDj5w0nHw+DrUchktPDx8a4=",
+     "semanticScore": "ZsyBsv11ZvkJyzd971+cw0ELuxhOKL5rEFVCX8fRIFl3q+CW0Ptl8Wl3RN8=",
+     "keywordScoreRaw": "GfDAEM+H9fgUZI1MqLZPazsE4WVex0n4VM+4LdXoJ2tBv91ypIjz3heCz1A=",
+     "ratingScore": "oz/5thKk5dErst3gY1PxwbBTH9yXihoL7yE5xZmHdHRIwdmQoMVDV/AdApk=",
+     "freshnessScore": "/tNjhyaUm6FYP/599RlYfBtJrTOeL5tZEM8cGJ/3z3Ao9CFgkWVF16o5URo=",
+     "searchHubImpressions": "Tudd88bnHqOj3h8bDRt8HlQuvMGddZdx1oqhglNd6L3YC4ha4y0/fvGCPF8=",
+     "searchHubClicks": "CBDtGU6E7hUE6PWtyG8aKNG4d26b0nX/JLEKBh0TmcjkooRC6/IrP02ILSQ=",
+     "searchHubCarts": "WzsbzaRYmlYUJXSgoAz6QgOI+6NOD9aKuCu/J9/bGUpZvxitSzytzTL9EnA=",
+     "businessRuleFactor": "SIUuzIYoEtdBPfviwdlK5W2Xir05FNnucwB4KXnI+wHn9diaNr/97C5gKvU="
+    }
+   },
+   "gridbox": {
+    "country": "IE",
+    "sequence": 1789894346467659,
+    "data": {
+     "ageRestriction": false,
+     "hasColors": false,
+     "awards": [],
+     "brand": {
+      "showBrand": false
+     },
+     "canonicalPath": "/p/smoothie-bowl/p11040259",
+     "canonicalUrl": "/p/smoothie-bowl/p11040259",
+     "category": "Food",
+     "cutoutimageV2": [],
+     "dealOfDay": {
+      "active": false
+     },
+     "designTheme": "default",
+     "disclaimers": [
+      {
+       "id": "code_11040259_3936fe04",
+       "type": "CODE",
+       "value": "Basic"
+      }
+     ],
+     "displayFreeDelivery": false,
+     "energyLabels": [],
+     "erpNumber": "11040259",
+     "flashSales": false,
+     "fullTitle": "Smoothie Bowl",
+     "gs1Attributes": [],
+     "guaranteeLabels": [],
+     "havingPrice": true,
+     "havingThreesixty": false,
+     "havingVideos": false,
+     "highlightedSeals": 0,
+     "ians": [
+      "5910831"
+     ],
+     "image": "https://www.lidl.ie/assets/gcp524dfbbc7ff9410f93942c517f2e8ff7.png",
+     "image_V1": {
+      "image": "https://www.lidl.ie/assets/gcp524dfbbc7ff9410f93942c517f2e8ff7.png",
+      "accessibility": "Caribbean style smoothie bowl with mango, muesli & coconut in a transparent container."
+     },
+     "isLidlGiftCard": false,
+     "isUsedProduct": false,
+     "itemId": 11040259,
+     "imageList": [
+      "https://www.lidl.ie/assets/gcp524dfbbc7ff9410f93942c517f2e8ff7.png",
+      "https://www.lidl.ie/assets/gcpd47c087ab26948db86c29c0536a21821.png",
+      "https://www.lidl.ie/assets/gcp2f2d8d12630240d08552810ba7952660.png"
+     ],
+     "imageList_V1": [
+      {
+       "image": "https://www.lidl.ie/assets/gcp524dfbbc7ff9410f93942c517f2e8ff7.png",
+       "accessibility": "Caribbean style smoothie bowl with mango, muesli & coconut in a transparent container."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcpd47c087ab26948db86c29c0536a21821.png",
+       "accessibility": "Spinach smoothie bowl with blueberries and chia seeds, on a yellow background."
+      },
+      {
+       "image": "https://www.lidl.ie/assets/gcp2f2d8d12630240d08552810ba7952660.png",
+       "accessibility": "Tropical mango smoothie bowl with muesli and coconut, Caribbean style"
+      }
+     ],
+     "keyfacts": {
+      "analyticsCategory": "Food",
+      "fullTitle": "Smoothie Bowl",
+      "moreDetails": "More details",
+      "title": "Smoothie Bowl",
+      "wonCategoryPrimary": "Worlds of need/Food and near food/Frozen food (Frozen food)/Ice cream",
+      "wonCategoryPrimaryPath": "0/17/1716/171610"
+     },
+     "lidlPlus": [],
+     "multipack": false,
+     "online": false,
+     "preventSelling": false,
+     "price": {
+      "currencyCode": "EUR",
+      "currencyCodeSecond": "",
+      "currencySymbol": "\u20ac",
+      "currencySymbolSecond": "",
+      "displayedCurrency": "\u20ac",
+      "hasStar": false,
+      "hasVat": false,
+      "price": 2.29,
+      "priceTheme": "white_red",
+      "specialTaxes": [],
+      "variantsHaveDifferentPrices": false
+     },
+     "productId": 11040259,
+     "productType": "RETAIL_HEAD",
+     "productOrigin": "progress_event",
+     "quickAddToCart": false,
+     "regions": [
+      1
+     ],
+     "regionsV2": {
+      "1": {
+       "regionName": "IE Region 1",
+       "isDefault": true,
+       "regionPriceId": "1",
+       "status": "ONLINE",
+       "hasVat": false,
+       "priceHasZeroVat": false
+      }
+     },
+     "regionsPrices": {
+      "1": {
+       "currentPrice": {
+        "basePrice": {
+         "prefix": false
+        },
+        "currencyCode": "EUR",
+        "currencyCodeSecond": "",
+        "currencySymbol": "\u20ac",
+        "currencySymbolSecond": "",
+        "displayedCurrency": "\u20ac",
+        "endDate": "2026-11-04T23:59:59Z",
+        "endDateExclusive": "2026-11-05T00:00Z",
+        "hasStar": false,
+        "hasVat": true,
+        "price": 2.29,
+        "priceTheme": "white_red",
+        "specialTaxes": [],
+        "startDate": "2026-08-20T10:00:24.740Z",
+        "superscript": "",
+        "variantsHaveDifferentPrices": false
+       },
+       "futureLidlPlusPrices": []
+      }
+     },
+     "ribbons": [],
+     "renderedTs": 1789894346,
+     "seals": [],
+     "stockAvailability": {
+      "availabilityIndicator": 0,
+      "badgeInfo": {
+       "badges": [
+        {
+         "text": "in store 25.06 - 04.11",
+         "type": "IN_STORE_PAST_DATE_RANGE"
+        }
+       ]
+      },
+      "badgeInfoV2": [
+       {
+        "badges": [
+         {
+          "text": "in store 25.06 - 04.11",
+          "type": "IN_STORE_PAST_DATE_RANGE"
+         }
+        ],
+        "validFrom": 1782342000,
+        "validUntil": 1793836799
+       }
+      ],
+      "onlineAvailable": false,
+      "minOrderableQuantity": 0,
+      "backInStockNotification": false,
+      "backInStockNotificationSoldOut": false
+     },
+     "store": true,
+     "storeStartDate": 1782342000,
+     "storeEndDate": 1793836799,
+     "title": "Smoothie Bowl",
+     "timezoneId": "Europe/Dublin",
+     "zones": {}
+    },
+    "productId": 11040259,
+    "meta": {
+     "categoryPaths": [],
+     "campaignPaths": [
+      [
+       {
+        "id": "10101642",
+        "name": "South America  \u2013 Alma Latina",
+        "url": "/c/south-america-alma-latina/a10101642",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "fullTitle": "Smoothie Bowl",
+     "ean": "4056489522362",
+     "retailLists": [
+      [
+       {
+        "id": 2918
+       }
+      ]
+     ],
+     "lists": [
+      2918
+     ],
+     "wonCategoryBreadcrumbs": [
+      [
+       {
+        "id": "10068374",
+        "name": "Food & Drink",
+        "url": "/c/food-drink/s10068374",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10071049",
+        "name": "Frozen",
+        "url": "/h/frozen-food/h10071049",
+        "hiddenCategory": false
+       },
+       {
+        "id": "10096196",
+        "name": "Ice Cream",
+        "url": "/h/ice-cream/h10096196",
+        "hiddenCategory": false
+       }
+      ]
+     ],
+     "worldOfNeeds": [
+      {
+       "code": "171610",
+       "isMain": true,
+       "name": "Ice cream",
+       "parent": "1716",
+       "superCategories": [
+        {
+         "code": "1716",
+         "name": "Frozen food (Frozen food)",
+         "parent": "17"
+        },
+        {
+         "code": "17",
+         "name": "Food and near food",
+         "parent": "0"
+        },
+        {
+         "code": "0",
+         "name": "Worlds of need",
+         "parent": ""
+        }
+       ]
+      }
+     ],
+     "preview": false
+    },
+    "action": "UPDATE",
+    "language": "en",
+    "eventType": "GRIDBOX",
+    "id": "11040259"
+   },
+   "tracking": {
+    "position": 5,
+    "xPayload": {
+     "searchTrackingMasterId": "Product.11040259",
+     "searchTrackingTitle": "Smoothie+Bowl",
+     "searchTrackingPageSize": 36,
+     "searchTrackingPage": 1,
+     "searchTrackingEvent": "click",
+     "list": "search",
+     "searchTrackingId": "Product.11040259",
+     "searchTrackingQuery": "coca cola",
+     "searchTrackingOrigPos": 1,
+     "searchTrackingPos": 5,
+     "searchTrackingOrigPageSize": 36,
+     "searchTrackingChannel": "IE",
+     "category": "Food"
+    }
+   }
+  }
+ ],
+ "breadcrumbs": [
+  {
+   "code": "query",
+   "label": "coca cola",
+   "url": "/q/api/search?assortment=IE&locale=en_IE&version=v2.0.0&q=coca+cola",
+   "link": {
+    "type": "search",
+    "filter": {},
+    "q": "coca cola"
+   }
+  }
+ ],
+ "details": {},
+ "teasers": {},
+ "advisors": []
+}
