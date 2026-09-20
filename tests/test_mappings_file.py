@@ -12,6 +12,7 @@ now fails here.
 """
 
 import hashlib
+import json
 import sqlite3
 import tempfile
 import unittest
@@ -33,7 +34,7 @@ REPO_DATABASE = REPO_ROOT / "data" / "feed.sqlite"
 # intentional (python -m beverage_feed export-mappings) and note it in the
 # commit message. Keeps CI honest: the byte-for-byte SQLite pin below is
 # skipped wherever the 36 MB feed database is absent.
-MAPPINGS_SHA256 = "00d009cf2a88e76fc0351907fbd58b05e0fb6b38a22821532e4be75cba0fa0a3"
+MAPPINGS_SHA256 = "27c94bb586de0344f9276bbcc284719d251c1bea999e58fb1b4527a9d9505e54"
 
 
 def _seed_database(database: str) -> None:
@@ -125,6 +126,47 @@ class MappingsFileTests(unittest.TestCase):
             path = Path(directory) / "mappings.json"
             write_mappings(path, first)
             self.assertEqual(load_mappings(path), first)
+
+    def test_write_mappings_uses_indent2_sorted_keys_plus_trailing_newline(self):
+        with tempfile.TemporaryDirectory() as directory:
+            database = str(Path(directory) / "feed.sqlite")
+            _seed_database(database)
+            mappings = export_mappings(database)
+            path = Path(directory) / "mappings.json"
+            write_mappings(path, mappings)
+            self.assertEqual(
+                path.read_text(),
+                json.dumps(mappings, indent=2, sort_keys=True) + "\n",
+            )
+
+    def test_supervalu_rows_with_dunnes_source_keys_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mappings.json"
+            path.write_text(json.dumps({
+                "supervalu": [{
+                    "catalog_id": "pack-1",
+                    "expected_product_name": "Coke",
+                    "status": "approved",
+                    "source_product_reference": "123:456",
+                }],
+            }))
+            with self.assertRaises(ValueError):
+                load_mappings(path)
+
+    def test_tesco_rows_with_unknown_fields_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "mappings.json"
+            path.write_text(json.dumps({
+                "tesco": [{
+                    "catalog_id": "pack-2",
+                    "expected_product_name": "Zero",
+                    "status": "approved",
+                    "source_tpnb": "92752847",
+                    "source_store_id": "2312",  # drifted field from ticket 17
+                }],
+            }))
+            with self.assertRaises(ValueError):
+                load_mappings(path)
 
 
 if __name__ == "__main__":

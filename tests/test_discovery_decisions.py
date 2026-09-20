@@ -75,6 +75,16 @@ class ExactMatchBrandAliasTests(unittest.TestCase):
     unchanged exact-pack bar (brand, variant, pack count, unit size,
     package type must all be known and equal)."""
 
+    def test_exact_pack_bar_is_never_lowered_on_non_brand_axes(self):
+        # All five exact-pack attributes must match (docs/discovery-and-review.md:8-12);
+        # brand/variant agreement alone never approves: pack count, unit size,
+        # and package type are exact bars too — never lowered for speed.
+        pack = make_pack()
+        self.assertTrue(exact_match(pack, listing()))  # positive control
+        self.assertFalse(exact_match(pack, listing(productName="Coca-Cola Original Taste 2x330ml Can")))
+        self.assertFalse(exact_match(pack, listing(productName="Coca-Cola Original Taste 500ml Can")))
+        self.assertFalse(exact_match(pack, listing(productName="Coca-Cola Original Taste 330ml Bottle")))
+
     def test_translated_brandless_dunnes_record_is_an_exact_match(self):
         pack = BenchmarkPack(
             catalog_id="coca-diet-330-single",
@@ -235,10 +245,15 @@ class DecideCellTests(unittest.TestCase):
 
     def test_at_most_one_approved_mapping_per_cell(self):
         self.decide([listing()])
-        # A second decision for the same cell must not add a second mapping.
-        self.decide([listing()])
+        # A second decision for the same cell must use a different candidate
+        # ref: a distinct exact-pack candidate challenges the existing mapping
+        # instead of adding a second approved mapping row.
+        decision = self.decide([listing(productReference="ref-2", itemId="item-2")])
+
+        self.assertEqual(decision["decision"], "challenge")
         rows = load_mappings(self.mapping_path)["dunnes"]
         self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["matched_source_identity"], "ref-1:item-1")
 
     def test_late_exact_candidate_creates_challenge_without_demoting(self):
         self.decide([listing()])  # approved mapping on ref-1:item-1
@@ -285,6 +300,47 @@ class DecideCellTests(unittest.TestCase):
             state = connection.execute(
                 "SELECT state FROM discovery_cells").fetchone()
         self.assertEqual(state, ("approved",))
+
+    def test_reconcile_operator_decided_mapping_is_not_demoted_by_search_provenance(self):
+        """Operator `decided_by` mapping must not be demoted by agent-sprint /
+        search-provenance state (docs/discovery-and-review.md:89): a later
+        search run's review record is repaired back to the operator's durable
+        approval at reconciliation."""
+        with closing(self.store.connection()) as connection:
+            connection.execute(
+                "INSERT INTO catalog_packs VALUES "
+                "('pack-1', 'Coca-Cola Original Taste 330ml Can', 'Coca-Cola', 'Original Taste', 1, 330, 'can', 'Coca-Cola Original')"
+            )
+            connection.commit()
+        write_mappings(self.mapping_path, {"dunnes": [{
+            "catalog_id": "pack-1",
+            "expected_product_name": "Coca-Cola Original Taste 330ml Can",
+            "source_product_reference": "ref-1",
+            "source_item_id": "item-1",
+            "status": "approved",
+            "decision_kind": "operator",
+            "decided_by": "operator",
+            "decided_at": "2026-09-01T00:00:00Z",
+            "matched_source_identity": "ref-1:item-1",
+            "identity_tier": "composite",
+            "candidate_id": "dunnes:ref-1:item-1",
+            "decision_reason": "operator rubric approved all five attributes",
+        }]})
+        # A search-provenance pass (no exact candidate that run) demotes the
+        # cell state without touching the durable JSON mapping.
+        self.decide([listing(variant=None)])
+        demoted = self.store.connection().execute(
+            "SELECT state, decided_by FROM discovery_cells").fetchone()
+        self.assertEqual(demoted, ("review", "discovery"))
+
+        reconcile_json_decisions(self.store.database, self.mapping_path, self.rejection_path)
+
+        state = self.store.connection().execute(
+            "SELECT state, decided_by FROM discovery_cells").fetchone()
+        self.assertEqual(state, ("approved", "operator"))
+        rows = load_mappings(self.mapping_path)["dunnes"]
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["decided_by"], "operator")
 
     def test_reconcile_rejection_of_competing_candidate_never_demotes_approved_cell(self):
         """Approve a cell, then reject a near-miss candidate in the same cell:

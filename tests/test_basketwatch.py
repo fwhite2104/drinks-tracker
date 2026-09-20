@@ -218,66 +218,110 @@ class BasketWatchIngestTests(unittest.TestCase):
             self.assertIn("collection_runs", tables)
 
     def test_ingest_failure_marks_run_failed_not_running(self):
+        """The run row must end 'failed', never stuck 'running'.
+
+        The failure is triggered through the injected client raising — the
+        real seam — not by patching a private helper counter.
+        """
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             _seed_database(database)
 
             class BoomClient:
                 def fetch_all(self, retailer_slug):
-                    return [MATCHING_RECORD, UNMATCHED_RECORD]
+                    raise RuntimeError("boom fetching snapshot")
 
-            from beverage_feed import basketwatch as bw
-
-            original = bw.normalize_listing
-            calls = {"n": 0}
-
-            def flaky(retailer, record):
-                calls["n"] += 1
-                if calls["n"] >= 2:
-                    raise RuntimeError("boom mid-ingest")
-                return original(retailer, record)
-
-            with patch.object(bw, "normalize_listing", side_effect=flaky):
-                with self.assertRaisesRegex(RuntimeError, "boom mid-ingest"):
-                    ingest_basketwatch_snapshot(
-                        "tesco", database, "test-key",
-                        client_factory=lambda key: BoomClient(),
-                    )
+            with self.assertRaisesRegex(RuntimeError, "boom fetching snapshot"):
+                ingest_basketwatch_snapshot(
+                    "tesco", database, "test-key",
+                    client_factory=lambda key: BoomClient(),
+                )
 
             with closing(sqlite3.connect(database)) as connection:
-                run = connection.execute(
+                rows = connection.execute(
                     "SELECT status, failed_count FROM collection_runs"
-                ).fetchone()
-            self.assertEqual(run, ("failed", 1))
+                ).fetchall()
+                # SPEC: data-model.md — collection_runs holds one row per run with its terminal status.
+            self.assertEqual(rows, [("failed", 1)])
+
+    def test_same_candidate_identity_requeues_upsert_not_duplicate(self):
+        """Two snapshots of the same listing → one candidate row, refreshed."""
+        first = {"tpnb": "92752847", "name": "Mystery Fizzy Drink 330ml Can",
+                 "price": "€1.10"}
+        second = {"tpnb": "92752847", "name": "Mystery Fizzy Drink 330ml Can",
+                  "price": "€1.20"}
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            _seed_database(database)
+
+            summary = ingest_basketwatch_snapshot(
+                "tesco", database, "test-key",
+                client_factory=lambda key: FakeClient([first]),
+            )
+            second_summary = ingest_basketwatch_snapshot(
+                "tesco", database, "test-key",
+                client_factory=lambda key: FakeClient([second]),
+            )
+
+            self.assertEqual(summary["queued_candidates"], 1)
+            self.assertEqual(second_summary["queued_candidates"], 1)
+            with closing(sqlite3.connect(database)) as connection:
+                candidates = connection.execute(
+                    """
+                    SELECT candidate_id, displayed_price, raw_record, status
+                    FROM catalog_candidates
+                    """
+                ).fetchall()
+            self.assertEqual(len(candidates), 1)
+            candidate_id, displayed_price, raw_record, status = candidates[0]
+            self.assertEqual(candidate_id, "tesco:92752847")
+            # The re-queued snapshot refreshed price/raw_record via ON CONFLICT.
+            self.assertEqual(displayed_price, "1.20")
+            self.assertEqual(status, "pending_review")
 
 
 class BasketWatchCliTests(unittest.TestCase):
     """Exit-code and summary-line contract of ``python -m beverage_feed basketwatch``."""
 
     def test_main_prints_the_ingest_summary_and_exits_zero(self):
-        summary = {
-            "run_id": "abc123", "fetched": 10, "ingested": 4,
-            "queued_candidates": 2, "skipped_unmapped": 3,
-            "skipped_invalid_price": 1,
-        }
+        """Real ingest through the CLI path with an injected FakeClient."""
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
-            with patch(
-                "beverage_feed.basketwatch.ingest_basketwatch_snapshot",
-                return_value=summary,
-            ) as ingest, patch.dict(os.environ, {"BASKETWATCH_API_KEY": "k"}):
-                stdout = io.StringIO()
-                with contextlib.redirect_stdout(stdout):
-                    code = basketwatch_main([
-                        "--retailer", "tesco", "--database", str(database),
-                    ])
+            _seed_database(database)
+
+            from beverage_feed import basketwatch as bw
+
+            with patch.dict(os.environ, {"BASKETWATCH_API_KEY": "k"}):
+                with patch.object(
+                    bw, "BasketWatchClient",
+                    side_effect=lambda key: FakeClient(
+                        [MATCHING_RECORD, UNMATCHED_RECORD]
+                    ),
+                ):
+                    stdout = io.StringIO()
+                    with contextlib.redirect_stdout(stdout):
+                        code = basketwatch_main([
+                            "--retailer", "tesco", "--database", str(database),
+                        ])
+
             self.assertEqual(code, 0)
-        ingest.assert_called_once_with("tesco", database, "k")
-        output = stdout.getvalue()
-        self.assertIn("basketwatch ingest: run=abc123", output)
-        self.assertIn("fetched=10 ingested=4", output)
-        self.assertIn("queued_candidates=2", output)
-        self.assertIn("skipped_unmapped=3 skipped_invalid_price=1", output)
+            output = stdout.getvalue()
+            self.assertTrue(output.startswith("basketwatch ingest: run="))
+            self.assertIn("fetched=2 ingested=1", output)
+            self.assertIn("queued_candidates=1", stdout.getvalue())
+            self.assertIn("skipped_unmapped=1 skipped_invalid_price=0",
+                          stdout.getvalue())
+            with closing(sqlite3.connect(database)) as connection:
+                counts = connection.execute(
+                    """
+                    SELECT (SELECT COUNT(*) FROM price_observations),
+                           (SELECT COUNT(*) FROM collection_results),
+                           (SELECT COUNT(*) FROM collection_runs
+                             WHERE status='completed')
+                    """
+                ).fetchone()
+            self.assertEqual(counts, (1, 1, 1))
 
     def test_main_fails_loudly_without_a_configured_api_key(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -1,3 +1,5 @@
+import json
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -6,9 +8,11 @@ from beverage_feed.matching import (
     SourceListing,
     attribute_candidates,
     brand_matches_alias,
+    gtin_matches,
     is_relevant_candidate,
     load_brand_aliases,
     match_catalog,
+    name_matches,
     resolve_brand_alias,
     search_formulations,
 )
@@ -36,6 +40,66 @@ class CatalogMatchingTests(unittest.TestCase):
             unit_size_ml=330,
             package_type="can",
             search_term="Coca-Cola Zero Sugar 6 pack",
+        )
+
+    def test_gtin_equality_is_decisive_despite_name_phrasing(self):
+        """Ticket 18 precedent: equal GTINs are the same pack whatever names say."""
+        pack = BenchmarkPack(
+            catalog_id="monster-ultra-white-500",
+            name="Monster Ultra White 500ml Can",
+            brand="Monster",
+            variant="Ultra White",
+            pack_count=1,
+            unit_size_ml=500,
+            package_type="can",
+            search_term="Monster Ultra White",
+            gtin="5061013942980",
+        )
+        self.assertTrue(
+            name_matches(pack, SourceListing(
+                retailer="tesco", source_product_reference="1",
+                source_item_id="1", name="Monster Energy Ultra Zero Can",
+                gtin="05061013942980",
+            ))
+        )
+
+    def test_gtin_conflict_never_matches(self):
+        pack = BenchmarkPack(
+            catalog_id="coke-zero-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+            gtin="5449000000996",
+        )
+        self.assertFalse(
+            name_matches(pack, SourceListing(
+                retailer="lidl", source_product_reference="1",
+                source_item_id="1", name="Coca-Cola Zero Sugar 330ml Can",
+                gtin="5449000131836",
+            ))
+        )
+
+    def test_gtin_on_one_side_only_changes_nothing(self):
+        pack = BenchmarkPack(
+            catalog_id="coke-zero-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar",
+            gtin="5449000000996",
+        )
+        self.assertFalse(
+            name_matches(pack, SourceListing(
+                retailer="lidl", source_product_reference="1",
+                source_item_id="1", name="Pepsi Max 330ml Can",
+            ))
         )
 
     def test_accepts_alias_and_normalises_litres(self):
@@ -294,6 +358,16 @@ class BrandAliasTests(unittest.TestCase):
 
         self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
 
+    def test_case_and_hyphen_variance_matches_through_the_public_matcher(self):
+        # Case/hyphen insensitivity is exercised end to end through
+        # match_catalog, not just the dictionary helper.
+        result = match_catalog(
+            [self.diet_two_litre],
+            self.listing(brand="DIET-COKE", name="DIET-COKE Bottle 2L"),
+        )
+
+        self.assertEqual((result.status, result.catalog_id), ("approved", "coca-diet-2000"))
+
     def test_cross_variant_pack_alias_does_not_match_the_brand(self):
         # A mis-curated cross-variant pack alias ("Diet Coke" on the Zero
         # Sugar pack) can never bridge the brand check: translating through
@@ -311,6 +385,27 @@ class BrandAliasTests(unittest.TestCase):
         )
 
         self.assertFalse(brand_matches_alias(zero_pack, "Diet Coke"))
+
+    def test_cross_variant_guard_holds_through_match_catalog_from_the_bad_alias_pack(self):
+        # The guard direction not covered above: the mis-curated alias lives
+        # on the catalog pack and every exact-pack attribute agrees — yet the
+        # full public matcher must still refuse, because the alias translates
+        # to a different variant than the pack carries.
+        zero_pack = BenchmarkPack(
+            catalog_id="coca-zero-2000-bad-alias",
+            name="Coca-Cola Zero Sugar 2L Bottle",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=2000,
+            package_type="bottle",
+            search_term="Coca-Cola Zero Sugar",
+            aliases=("Diet Coke",),  # curated error: a Diet alias on a Zero pack
+        )
+
+        result = match_catalog([zero_pack], self.listing(variant="Zero Sugar"))
+
+        self.assertEqual((result.status, result.catalog_id), ("unmapped", None))
 
 
 class CuratedBrandAliasDictionaryTests(unittest.TestCase):
@@ -335,10 +430,20 @@ class CuratedBrandAliasDictionaryTests(unittest.TestCase):
         self.assertEqual((translation.brand, translation.variant), ("Coca-Cola", None))
 
     def test_longest_phrase_wins(self):
+        # "Coca-Cola Zero Sugar" contains both "coca cola" (variant None) and
+        # "coca cola zero" (Zero Sugar): the longest curated phrase must win,
+        # so the text resolves to the Zero Sugar variant — not the bare brand.
         translation = resolve_brand_alias("Coca-Cola Zero Sugar 330ml")
 
-        self.assertEqual(translation.phrase, "coca cola zero")
-        self.assertEqual(translation.variant, "Zero Sugar")
+        self.assertEqual((translation.brand, translation.variant), ("Coca-Cola", "Zero Sugar"))
+
+    def test_longest_phrase_wins_over_a_shorter_variant_alias(self):
+        # Same longest-first rule from the other direction: the longer
+        # "coke original taste" beats the shorter "coke" (variant None) and
+        # "coke original" inside a longer name.
+        translation = resolve_brand_alias("Coke Original Taste 2L Bottle")
+
+        self.assertEqual((translation.brand, translation.variant), ("Coca-Cola", "Original Taste"))
 
     def test_matching_is_case_and_hyphen_insensitive(self):
         self.assertEqual(resolve_brand_alias("DIET-COKE").variant, "Diet")
@@ -347,14 +452,46 @@ class CuratedBrandAliasDictionaryTests(unittest.TestCase):
         for junk in ("POWERCUT Zip Hoodie", "LED Desk Lamp 5W", "Cola Sweets Bag", "", None):
             self.assertIsNone(resolve_brand_alias(junk))
 
-    def test_dictionary_loads_from_the_data_file(self):
-        # CONTRIBUTING §10: curated inputs live in data/ files; the alias
-        # dictionary is loaded from data/brand_aliases.json like the catalog.
-        table = load_brand_aliases(Path("data") / "brand_aliases.json")
+    def test_dictionary_valid_entry_round_trips_from_a_temp_file(self):
+        # CONTRIBUTING §8: input validation raises ValueError. The loader
+        # contract: a valid entry round-trips (null variant → None), from any
+        # path — not just the committed data file.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "brand_aliases.json"
+            path.write_text(json.dumps({
+                "Diet Coke": ["Coca-Cola", "Diet"],
+                "coke": ["Coca-Cola", None],
+            }))
+
+            table = load_brand_aliases(path)
 
         self.assertEqual(table.get("diet coke"), ("Coca-Cola", "Diet"))
-        self.assertEqual(table.get("coke zero"), ("Coca-Cola", "Zero Sugar"))
         self.assertEqual(table.get("coke"), ("Coca-Cola", None))
+
+    def test_dictionary_malformed_entry_raises_value_error(self):
+        # CONTRIBUTING §8: malformed data files fail loudly with ValueError,
+        # not silently with a partial table.
+        for bad in (
+            {"diet coke": "Coca-Cola"},          # not a [brand, variant] pair
+            {"diet coke": ["Coca-Cola"]},        # missing the variant slot
+            {"diet coke": ["Coca-Cola", "Diet", "extra"]},
+            {"diet coke": [7, "Diet"]},          # brand must be a string
+        ):
+            with self.subTest(entry=bad):
+                with tempfile.TemporaryDirectory() as directory:
+                    path = Path(directory) / "brand_aliases.json"
+                    path.write_text(json.dumps(bad))
+
+                    with self.assertRaises(ValueError):
+                        load_brand_aliases(path)
+
+    def test_dictionary_non_object_file_raises_value_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "brand_aliases.json"
+            path.write_text(json.dumps(["diet coke"]))
+
+            with self.assertRaises(ValueError):
+                load_brand_aliases(path)
 
     def test_missing_dictionary_file_falls_back_to_empty(self):
         # Consistent with mappings.json handling: a missing file degrades to
@@ -569,6 +706,25 @@ class SearchFormulationTests(unittest.TestCase):
         self.assertIn("Coca-Cola Diet 2 litre", search_formulations(bottle))
 
     def test_formulations_are_unique_and_order_preserving(self):
+        # discovery-and-review.md (ff-14): search term → curated aliases →
+        # count-explicit → size-explicit. Assert the exact ordered tuple for
+        # the multipack fixture: uniqueness alone passes a shuffled list, so
+        # the spec order and the rediscovery max-4 slice are pinned too.
+        from beverage_feed.discovery_run import REDISCOVERY_MAX_FORMULATIONS
+
         terms = search_formulations(self.multipack())
 
+        self.assertEqual(terms, (
+            "Coca-Cola Zero Sugar",          # search term
+            "Coke Zero",                     # curated alias
+            "Coca-Cola Zero Sugar 8 pack",   # count-explicit (canonical head)
+            "Coke Zero 8 pack",              # count-explicit (alias head)
+            "Coca-Cola Zero Sugar 330ml",    # size-explicit (canonical head)
+            "Coke Zero 330ml",               # size-explicit (alias head)
+        ))
         self.assertEqual(len(terms), len(set(terms)))
+        # The max-4 cap lives in the rediscovery consumption: at most 4 of the
+        # generated alternates are ever searched per cell (budgets cap per
+        # search); the generator itself is exhaustive for these four classes.
+        self.assertEqual(REDISCOVERY_MAX_FORMULATIONS, 4)
+        self.assertEqual(len(terms[:REDISCOVERY_MAX_FORMULATIONS]), 4)

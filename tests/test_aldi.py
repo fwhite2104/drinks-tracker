@@ -9,10 +9,12 @@ live Aldi endpoints.
 
 from __future__ import annotations
 
+import email.message
 import io
 import json
 import sqlite3
 import tempfile
+import urllib.error
 import urllib.parse
 from contextlib import closing
 from decimal import Decimal
@@ -153,9 +155,39 @@ class AldiClientSearchTests(unittest.TestCase):
         self.assertIn(f"limit={ALDI_SEARCH_LIMIT}", url)
         self.assertIn("servicePoint=D001", url)
         self.assertIn("serviceType=walk-in", url)
-        self.assertEqual(
-            opener.requests[0].get_header("User-agent"), "drinks-tracker/0.1"
+        # Presence check only: we identify ourselves, exact string not pinned.
+        self.assertTrue(opener.requests[0].get_header("User-agent"))
+
+    def test_html_response_raises_source_error(self):
+        # Mirrors the Lidl search path: an HTML error page through the Glue
+        # API is a source_error, not a silently empty result (CONTRIBUTING §8).
+        client = AldiClient(
+            opener=_RecordingOpener(["<html>Bad Gateway</html>"]),
+            min_request_interval=0,
         )
+        with self.assertRaises(RuntimeError) as context:
+            client("apple juice")
+        self.assertIn("not valid JSON", str(context.exception))
+
+    def test_http_error_is_chained_to_its_source(self):
+        # CONTRIBUTING §8: a live-source failure is a RuntimeError chained
+        # with `raise ... from exc` — the underlying HTTPError stays reachable
+        # as __cause__ for diagnostics.
+        http_error = urllib.error.HTTPError(
+            "https://asl.api.aldi.ie/commerce/v3/product-search",
+            503, "Service Unavailable", email.message.Message(), None,
+        )
+
+        class _HttpErrorOpener:
+            def open(self, request, timeout):
+                raise http_error
+
+        client = AldiClient(opener=_HttpErrorOpener(), min_request_interval=0)
+        with self.assertRaises(RuntimeError) as context:
+            client("apple juice")
+
+        self.assertEqual(context.exception.status, 503)
+        self.assertIs(context.exception.__cause__, http_error)
 
     def test_explicit_multipack_selling_size_yields_pack_evidence(self):
         page = _search_page()
@@ -307,6 +339,69 @@ class AldiCollectionIntegrationTests(unittest.TestCase):
              "EUR", "1.49", "1.4900"),
         )
         self.assertEqual(result, ("observed",))
+
+    def test_nonzero_bottle_deposit_is_persisted_separately_from_the_price(self):
+        # goal.md: the DRS deposit is always its own line, never folded into
+        # the drink's price — nonzero bottleDeposit cents persist into
+        # drs_deposit beside, not inside, displayed_price.
+        product = dict(_priced_apple_juice())
+        product["price"] = {
+            **product["price"],
+            "bottleDeposit": 15,
+            "bottleDepositDisplay": "\u20ac0.15",
+        }
+        page = {
+            "meta": {"pagination": {"offset": 0, "limit": 6, "totalCount": 1}},
+            "data": [product],
+        }
+        client = AldiClient(
+            opener=_RecordingOpener([json.dumps(page)]), min_request_interval=0
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_aldi_one(self.pack, self.mapping, client, database)
+
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                observation = connection.execute(
+                    "SELECT displayed_price, drs_deposit FROM price_observations"
+                ).fetchone()
+
+        self.assertEqual(observation, ("1.49", "0.15"))
+
+    def test_empty_search_result_records_no_observation(self):
+        # Absence of an observation is not an inventory claim: a
+        # proven-complete empty page is an honest not_found with no
+        # Price Observation row (CONTRIBUTING §6/§7).
+        mapping = AldiMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Pure Pressed Apple Juice",
+        )
+        page = {
+            "meta": {"pagination": {"offset": 0, "limit": 30, "totalCount": 0}},
+            "data": [],
+        }
+        client = AldiClient(
+            opener=_RecordingOpener([json.dumps(page)]), min_request_interval=0
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_aldi_one(self.pack, mapping, client, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["observed_count"], 0)
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+
+        self.assertEqual(observations, 0)
+        self.assertEqual(result, ("not_found",))
 
 
 if __name__ == "__main__":

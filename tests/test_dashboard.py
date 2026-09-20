@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import socket
+import sqlite3
 import tempfile
 import threading
 import unittest
 import urllib.error
 import urllib.request
+from contextlib import closing
 from http.client import HTTPResponse
 from pathlib import Path
 
@@ -107,11 +109,10 @@ class HandleRequestTests(unittest.TestCase):
         text = body.decode("utf-8")
         self.assertEqual(status, 200)
         self.assertIn("text/html", content_type)
-        self.assertIn("Overview", text)
-        self.assertIn("Benchmark Catalog", text)
-        self.assertIn("Consumer feed", text)
-        self.assertIn("Feed not initialized", text)
-        self.assertIn("Read-only mode", text)
+        # Seeded operator facts, server-rendered into the boot payload.
+        self.assertIn('"catalog_packs": 1', text)
+        self.assertIn('"approved_mappings": 1', text)
+        self.assertIn('"workspace_state": "no_database"', text)
 
     def test_overview_api_truthful_empty_state(self) -> None:
         status, body, _ = handle_request(self.app, "GET", "/api/overview", {})
@@ -157,8 +158,6 @@ class HandleRequestTests(unittest.TestCase):
 
     def test_coverage_and_discovery_endpoints(self) -> None:
         for path in (
-            "/api/coverage",
-            "/api/discovery",
             "/api/collection",
             "/api/catalog",
             "/api/retailers",
@@ -168,6 +167,83 @@ class HandleRequestTests(unittest.TestCase):
             status, body, _ = handle_request(self.app, "GET", path, {})
             self.assertEqual(status, 200, path)
             json.loads(body.decode("utf-8"))
+
+    def test_coverage_api_reports_json_mapping_facts(self) -> None:
+        status, body, _ = handle_request(self.app, "GET", "/api/coverage", {})
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(status, 200)
+        # Independently seeded operator fact: the workspace approves exactly
+        # one mapping (PACK × aldi); a {} stub cannot satisfy this.
+        self.assertEqual(payload["approved_mappings"], 1)
+        pack = next(
+            p for p in payload["packs"] if p["catalog_id"] == PACK.catalog_id
+        )
+        self.assertTrue(pack["cells"]["aldi"]["approved"])
+        self.assertFalse(pack["cells"]["tesco"]["approved"])
+
+    def test_discovery_api_truthful_empty_state(self) -> None:
+        status, body, _ = handle_request(self.app, "GET", "/api/discovery", {})
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["summary"]["state"], "no_discovery_run")
+        self.assertEqual(payload["summary"]["label"], "No discovery run yet")
+        self.assertEqual(payload["coverage"]["approved_mappings"], 1)
+
+    def test_feed_api_source_error_after_observation_serves_temporarily_unavailable(
+        self,
+    ) -> None:
+        from beverage_feed.collector import ensure_schema
+
+        database = self.root / "data" / "feed.sqlite"
+        collect_aldi_one(
+            PACK,
+            AldiMapping(
+                catalog_id=PACK.catalog_id, expected_product_name="Still Water"
+            ),
+            lambda _: {
+                "items": [
+                    {
+                        "productId": "336021",
+                        "name": "Still Water",
+                        "brand": "COMERAGH",
+                        "price": "€1.45",
+                    }
+                ]
+            },
+            database,
+        )
+        # Latest run errors: the HTTP cell must move to temporarily_unavailable.
+        with closing(sqlite3.connect(database)) as connection:
+            ensure_schema(connection)
+            connection.execute(
+                """
+                INSERT INTO collection_runs
+                    (run_id, started_at, finished_at, status, observed_count,
+                     failed_count, summary)
+                VALUES ('run-err', '2099-01-02T00:00:00Z',
+                        '2099-01-02T00:01:00Z', 'ok', 0, 1, '{}')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO collection_results
+                    (run_id, catalog_id, retailer, status, error, recorded_at)
+                VALUES ('run-err', ?, 'aldi', 'source_error', 'timeout',
+                        '2099-01-02T00:00:30Z')
+                """,
+                (PACK.catalog_id,),
+            )
+            connection.commit()
+        app = DashboardApp(self.root)
+
+        status, body, _ = handle_request(app, "GET", "/api/feed", {})
+        payload = json.loads(body.decode("utf-8"))
+        self.assertEqual(status, 200)
+        pack = next(p for p in payload["packs"] if p["catalog_id"] == PACK.catalog_id)
+        aldi = next(c for c in pack["retailers"] if c["retailer"] == "aldi")
+        self.assertEqual(aldi["state"], "temporarily_unavailable")
+        self.assertEqual(aldi["label"], "Temporarily unavailable")
+        self.assertIsNone(aldi["displayed_price"])  # 1.45 withheld
 
     def test_raw_endpoint_truthful_empty_state(self) -> None:
         status, body, _ = handle_request(self.app, "GET", "/api/raw", {})
@@ -245,7 +321,9 @@ class LiveServerTests(unittest.TestCase):
         status, body, headers = _http_get(self.base + "/")
         self.assertEqual(status, 200)
         self.assertIn("text/html", headers.get("content-type", ""))
-        self.assertIn("pourpoint", body.lower())
+        # Seeded operator fact from the live server-shell boot payload: the
+        # workspace has exactly one collected observation.
+        self.assertIn('"observation_count": 1', body)
 
         status, body, _ = _http_get(self.base + "/api/feed")
         self.assertEqual(status, 200)

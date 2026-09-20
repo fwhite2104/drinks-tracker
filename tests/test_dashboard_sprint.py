@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 from http.client import HTTPResponse
 from pathlib import Path
+import sqlite3
 
 from beverage_feed.dashboard import DEFAULT_HOST
 from beverage_feed.dashboard_sprint import (
@@ -192,10 +193,11 @@ class SprintWorkspaceTests(unittest.TestCase):
         text = body.decode("utf-8")
         self.assertEqual(status, 200)
         self.assertIn("text/html", content_type)
-        self.assertIn("Review sprint", text)
-        self.assertIn("Side-by-side", text)
-        self.assertIn("Audit trail", text)
-        self.assertIn("sprint-tester", text)
+        # Seeded facts server-rendered into the boot payload: the workspace's
+        # pack count, the deciding operator, and the discovery store itself.
+        self.assertIn('"catalog_packs": 2', text)
+        self.assertIn('"sprint-tester"', text)
+        self.assertIn("discovery.sqlite", text)
 
     def test_queue_serves_classified_items_with_comparison(self) -> None:
         status, body, _ = handle_request(self.app, "GET", "/api/sprint/queue", {})
@@ -331,6 +333,81 @@ class SprintWorkspaceTests(unittest.TestCase):
         self.assertEqual(record["state"], "do_not_map")
         self.assertEqual(record["retailer"], "dunnes")
 
+    def test_block_writes_retailer_block_json_and_reports_cells_cleared(self) -> None:
+        """ff-15 sprint surface: `B` blocks the listing across all cells."""
+        self.store.associate_candidate(
+            "dunnes:333:444", "coca-diet-330", "Diet Coke", retailer="dunnes"
+        )
+        status, out = self._decide(
+            action="block", retailer="dunnes", catalog_id="coca-original-330",
+            candidate_id="dunnes:333:444", reason="agent-sprint: cola sweets, not a beverage",
+        )
+        self.assertEqual(status, 200)
+        result = json.loads(out)
+        self.assertEqual(result["action"], "block")
+        # The seam reports how many associated cells the block cleared.
+        self.assertEqual(result["result"]["status"], "blocked")
+        self.assertEqual(result["result"]["cells_cleared"], 2)
+        rejections = json.loads((self.root / "data" / "rejections.json").read_text())
+        record = rejections["retailer_blocks"][0]
+        self.assertEqual(record["canonical_key"], "dunnes:333:444")
+        self.assertEqual(record["retailer"], "dunnes")
+        self.assertEqual(record["state"], "blocked")
+        self.assertEqual(record["decided_by"], "sprint-tester")
+
+    def test_block_defaults_reason_and_never_takes_variant_semantics(self) -> None:
+        """Reason is required; the default states the narrow block semantics."""
+        status, out = self._decide(
+            action="block", retailer="dunnes", catalog_id="coca-original-330",
+            candidate_id="dunnes:333:444",
+        )
+        self.assertEqual(status, 200)
+        rejections = json.loads((self.root / "data" / "rejections.json").read_text())
+        record = rejections["retailer_blocks"][0]
+        self.assertEqual(
+            record["reason"],
+            "not a beverage / not a real product candidate",
+        )
+
+    def test_block_requires_the_candidate_id(self) -> None:
+        status, _ = self._decide(
+            action="block", retailer="dunnes", catalog_id="coca-original-330",
+            reason="no candidate given",
+        )
+        self.assertEqual(status, 400)
+
+    def test_block_is_idempotent_for_an_already_blocked_candidate(self) -> None:
+        self.store.associate_candidate(
+            "dunnes:333:444", "coca-diet-330", "Diet Coke", retailer="dunnes"
+        )
+        self._decide(
+            action="block", retailer="dunnes", catalog_id="coca-original-330",
+            candidate_id="dunnes:333:444", reason="first",
+        )
+        status, out = self._decide(
+            action="block", retailer="dunnes", catalog_id="coca-diet-330",
+            candidate_id="dunnes:333:444", reason="second",
+        )
+        self.assertEqual(status, 200)
+        result = json.loads(out)
+        self.assertTrue(result["result"].get("idempotent"))
+        rejections = json.loads((self.root / "data" / "rejections.json").read_text())
+        self.assertEqual(len(rejections["retailer_blocks"]), 1)
+
+    def test_unknown_candidate_block_returns_400(self) -> None:
+        status, _ = self._decide(
+            action="block", retailer="dunnes", catalog_id="coca-original-330",
+            candidate_id="dunnes:999:999", reason="ghost",
+        )
+        self.assertEqual(status, 400)
+
+    def test_shell_advertises_the_block_key(self) -> None:
+        status, body, _ = handle_request(self.app, "GET", "/", {})
+        text = body.decode("utf-8")
+        self.assertEqual(status, 200)
+        self.assertIn('<span class="keycap">B</span>', text)
+        self.assertIn("block everywhere", text)
+
     def test_challenge_keep_resolves_through_the_decision_core(self) -> None:
         _write_json(
             self.root / "data" / "mappings.json",
@@ -398,11 +475,79 @@ class SprintWorkspaceTests(unittest.TestCase):
         self.assertEqual(result["applied"], 1)
         self.assertEqual(result["skipped"], 1)
         mappings = json.loads((self.root / "data" / "mappings.json").read_text())
+        # Durable per-item outcome: the two batch items are judged on what
+        # landed — mapping JSON + cell state for the applied one, and zero
+        # writes for the skipped one — not on an audit-event label.
         self.assertEqual(mappings["dunnes"][0]["status"], "approved")
-        # Batch action itself is on the audit trail.
-        status, body, _ = handle_request(self.app, "GET", "/api/sprint/audit", {})
-        events = [row["event"] for row in json.loads(body.decode("utf-8"))["diagnostics"]]
-        self.assertIn("sprint_batch", events)
+        self.assertEqual(mappings["dunnes"][0]["candidate_id"], "dunnes:111:222")
+        self.assertNotIn("aliens", mappings)  # skipped item wrote nothing
+        with self.app.store().connection() as connection:
+            state = connection.execute(
+                "SELECT state FROM discovery_cells "
+                "WHERE retailer='dunnes' AND catalog_id='coca-diet-330'"
+            ).fetchone()[0]
+            missing = connection.execute(
+                "SELECT COUNT(*) FROM discovery_cells "
+                "WHERE retailer='aliens'"
+            ).fetchone()[0]
+        self.assertEqual(state, "approved")
+        self.assertEqual(missing, 0)
+
+    def test_sprint_decision_never_writes_to_the_price_feed_database(self) -> None:
+        """A sprint approve must flow through the discovery seam only."""
+        from beverage_feed.collector import ensure_schema
+
+        feed = self.root / "data" / "feed.sqlite"
+        with sqlite3.connect(feed) as connection:
+            ensure_schema(connection)
+            connection.execute(
+                """
+                INSERT INTO collection_runs
+                    (run_id, started_at, finished_at, status, observed_count,
+                     failed_count, summary)
+                VALUES ('run-feed', '2026-01-01T00:00:00Z',
+                        '2026-01-01T00:01:00Z', 'ok', 1, 0, '{}')
+                """
+            )
+            connection.execute(
+                """
+                INSERT INTO price_observations
+                    (run_id, catalog_id, retailer, source_product_reference,
+                     source_item_id, source_product_name, displayed_price,
+                     currency, pack_count, unit_size_ml, package_type,
+                     observed_at)
+                VALUES ('run-feed', 'coca-diet-330', 'dunnes', 'ref', 'item',
+                        'Diet Coke 330ml Can', '2.50', 'EUR', 1, 330, 'can',
+                        '2026-01-01T00:00:45Z')
+                """
+            )
+            connection.commit()
+        before = feed.read_bytes()
+
+        status, _ = self._decide(
+            action="approve", retailer="dunnes", catalog_id="coca-diet-330",
+            candidate_id="dunnes:111:222", reason="clean class A",
+        )
+        self.assertEqual(status, 200)
+
+        self.assertEqual(feed.read_bytes(), before)  # file bytes untouched
+        with sqlite3.connect(feed, uri=True) as connection:
+            rows = connection.execute(
+                "SELECT COUNT(*) FROM price_observations"
+            ).fetchone()[0]
+            tables = {
+                row[0] for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table'"
+                )
+            }
+        # Row counts unchanged and no discovery tables smuggled in.
+        self.assertEqual(rows, 1)
+        self.assertEqual(
+            tables,
+            {"catalog_candidates", "catalog_mappings", "catalog_packs",
+             "collection_diagnostics", "collection_results", "collection_runs",
+             "price_observations", "retailers", "sqlite_sequence"},
+        )
 
     def test_batch_requires_items_and_known_action(self) -> None:
         for payload in (

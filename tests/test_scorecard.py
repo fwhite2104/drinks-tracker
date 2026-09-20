@@ -139,3 +139,34 @@ class ScorecardTests(unittest.TestCase):
         self.assertIn("pack-b", report)
         self.assertIn("proven comparable", report)
         self.assertIn("no retailer has ever returned a candidate", report)
+
+    def test_missing_database_fails_cleanly_without_creating_it(self):
+        missing = self.root / "absent.sqlite"
+        code = 0
+        try:
+            code = main([
+                "--catalog", str(self.catalog),
+                "--database", str(missing),
+                "--output", str(self.root / "scorecard.md"),
+            ])
+        except sqlite3.Error:
+            self.fail(  # SPEC: CONTRIBUTING §9 — a bad database path fails cleanly with a nonzero exit.
+                "scorecard CLI must fail with a nonzero exit, not a traceback"
+            )
+        self.assertNotEqual(code, 0)
+        self.assertFalse(missing.exists(), "mode=ro must never create the file")
+
+    def test_a_run_leaves_the_database_and_catalog_bytes_unchanged(self):
+        before_catalog = (self.root / "catalog.json").read_bytes()
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.commit()
+        before_db = self.database.read_bytes()
+
+        main([
+            "--catalog", str(self.catalog),
+            "--database", str(self.database),
+            "--output", str(self.root / "scorecard.md"),
+        ])
+
+        self.assertEqual((self.root / "catalog.json").read_bytes(), before_catalog)
+        self.assertEqual(self.database.read_bytes(), before_db)

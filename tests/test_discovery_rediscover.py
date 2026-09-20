@@ -90,15 +90,18 @@ class FakeAdapter(DiscoveryAdapter):
         "composite": Capability("composite", True, "fixture", "fixture path"),
     })
 
-    def __init__(self, by_term=None, error=None):
+    def __init__(self, by_term=None, error=None, fail_calls=0):
         self.by_term = by_term or {}
         self.error = error
+        self.fail_calls = fail_calls
         self.calls = []
 
     def search(self, pack):
         self.calls.append(pack.search_term)
-        if self.error:
-            raise self.error
+        if self.error or self.fail_calls > 0:
+            if self.fail_calls > 0:
+                self.fail_calls -= 1
+            raise self.error or RuntimeError("source unavailable")
         return self.by_term.get(pack.search_term, result([]))
 
 
@@ -202,14 +205,21 @@ class RunRediscoveryTests(unittest.TestCase):
         self.assertEqual(kinds, ["rediscovery"] * 4)
 
     def test_formulations_are_alternate_and_capped(self):
+        # The pack's search term differs from its brand+variant identity, so
+        # the expected list pins the documented order independently:
+        # search term → aliases → count-explicit → size-explicit, max 4
+        # (docs/discovery-and-review.md:28-32). With no aliases, the only
+        # head is the canonical brand+variant identity.
+        distinct = replace(pack("pack-1"), search_term="Coke Zero", aliases=())
         self.store.set_cell_state("dunnes", "pack-1", "inconclusive", decided_by="discovery")
         adapter = FakeAdapter()
-        run_rediscovery(
-            [pack("pack-1")], {"dunnes": adapter}, self.store, max_formulations=2,
-        )
+        run_rediscovery([distinct], {"dunnes": adapter}, self.store)
 
-        # Order: search term first, then alias — count/size formulations wait.
-        self.assertEqual(adapter.calls, ["Coca-Cola Zero Sugar", "Coke Zero"])
+        self.assertEqual(adapter.calls, [
+            "Coke Zero",
+            "Coca-Cola Zero Sugar 8 pack",
+            "Coca-Cola Zero Sugar 330ml",
+        ])
 
     def test_already_searched_terms_are_not_reissued(self):
         adapter = FakeAdapter()
@@ -294,22 +304,55 @@ class RunRediscoveryTests(unittest.TestCase):
 
         self.assertEqual(summary["status"], "budget_exhausted")
         self.assertEqual(summary["retailers_exhausted"], ["dunnes"])
-        self.assertLess(len(adapter.calls), 6)
+        # Exactly the cap's two searches were consumed, no more, no less.
+        self.assertEqual(len(adapter.calls), 2)
+        # The single target cell is the one pending cell.
+        self.assertEqual(summary["pending"], 1)
 
-    def test_source_failure_pauses_and_keeps_cell_pending(self):
+    def test_a_single_rediscovery_failure_continues_to_the_next_target(self):
+        # SPEC: docs/discovery-and-review.md:25-26 — the failure-pause policy
+        # stops a rediscovery pass on *repeat* failures rather than the first
+        # one.
         self.store.set_cell_state("dunnes", "pack-1", "pending", decided_by="discovery")
-        adapter = FakeAdapter(error=RuntimeError("rate limited"))
-        summary = run_rediscovery([pack("pack-1")], {"dunnes": adapter}, self.store)
+        self.store.set_cell_state("dunnes", "pack-2", "pending", decided_by="discovery")
+        pepsi = other_pack("pack-2", "Pepsi", "Max", "Pepsi Max")
+        adapter = FakeAdapter(fail_calls=1)
+        summary = run_rediscovery(
+            [pack("pack-1"), pepsi], {"dunnes": adapter}, self.store,
+        )
+
+        self.assertEqual(summary["status"], "complete")
+        self.assertEqual(summary["failures"], 1)
+        self.assertIn("Coke Zero", adapter.calls)
+        self.assertIn("Pepsi Max", adapter.calls)
+        states = dict(self.store.connection().execute(
+            "SELECT catalog_id, state FROM discovery_cells").fetchall())
+        self.assertEqual(states["pack-1"], "pending")
+        self.assertEqual(states["pack-2"], "unmapped")
+
+    def test_repeat_rediscovery_failures_pause_the_run(self):
+        # SPEC: docs/discovery-and-review.md:25-26 — a run pauses on repeat
+        # failures rather than hammering a blocking retailer.
+        self.store.set_cell_state("dunnes", "pack-1", "pending", decided_by="discovery")
+        self.store.set_cell_state("dunnes", "pack-2", "pending", decided_by="discovery")
+        pepsi = other_pack("pack-2", "Pepsi", "Max", "Pepsi Max")
+        adapter = FakeAdapter(fail_calls=2)
+        summary = run_rediscovery(
+            [pack("pack-1"), pepsi], {"dunnes": adapter}, self.store,
+        )
 
         self.assertEqual(summary["status"], "paused")
-        self.assertEqual(summary["failures"], 1)
+        self.assertEqual(summary["failures"], 2)
         state = self.store.connection().execute(
-            "SELECT state FROM discovery_cells").fetchone()
+            "SELECT state FROM discovery_cells WHERE catalog_id='pack-1'"
+        ).fetchone()
         self.assertEqual(state, ("pending",))
 
     def test_duplicate_formulations_are_deduplicated(self):
         # search_term already contains the count formulation; the pass must
-        # not issue the same query twice for one cell.
+        # not issue the same query twice for one cell, keeping the documented
+        # order: search term → aliases → count-explicit → size-explicit,
+        # deduplicated by phrasing.
         repeated = replace(
             pack("pack-1"), search_term="Coke Zero 8 pack",
         )
@@ -317,7 +360,13 @@ class RunRediscoveryTests(unittest.TestCase):
         adapter = FakeAdapter()
         run_rediscovery([repeated], {"dunnes": adapter}, self.store)
 
-        self.assertEqual(len(adapter.calls), len(set(adapter.calls)))
+        self.assertEqual(adapter.calls, [
+            # Capped at the documented max of 4 formulations per cell.
+            "Coke Zero 8 pack",
+            "Coke Zero",
+            "Coca-Cola Zero Sugar 8 pack",
+            "Coca-Cola Zero Sugar 330ml",
+        ])
 
 
 class RediscoveryCliTests(unittest.TestCase):

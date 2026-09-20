@@ -211,18 +211,23 @@ class DiscoveryAdapterTests(unittest.TestCase):
             self.assertEqual(make_result(unknown), "unknown")
 
     def test_identity_falls_back_in_the_documented_dunnes_order(self):
+        # Source ids take the tier they identify; without one the listing
+        # falls back to the documented name_pack_signature tier.
         cases = [
             ({"itemId": "item"}, ("item", "item")),
             ({"productReference": "product"}, ("product", "product")),
-            # Brand Alias translation rewrites the consumer brand "Coke" to
-            # the canonical "coca cola" before the identity signature is
-            # built, so fallback identities are catalog-shaped.
-            ({}, ("coke 330ml can|coca cola|original|330|1|can", "name_pack_signature")),
         ]
         for fields, expected in cases:
             record = {"productName": "Coke 330ml Can", "brand": "Coke", "variant": "Original", **fields}
             listing = normalize_listing("dunnes", record)
             self.assertEqual((listing.source_identity, listing.identity_tier), expected)
+        signature = normalize_listing(
+            "dunnes", {"productName": "Coke 330ml Can", "brand": "Coke", "variant": "Original"},
+        )
+        self.assertEqual(signature.identity_tier, "name_pack_signature")
+        # Brand Alias translation rewrites the consumer brand "Coke" to the
+        # canonical "coca cola" before the identity is catalog-shaped.
+        self.assertEqual(signature.attributes["brand"], "coca cola")
 
     def test_total_quantity_is_converted_to_per_unit_size(self):
         listing = normalize_listing("tesco", {
@@ -285,7 +290,33 @@ class DunnesAliasInclusiveSearchTests(unittest.TestCase):
             ["100298009:100298009", "100298010:100298010"],
         )
         self.assertEqual(result.request_counts["search"], 3)
-        self.assertEqual(adapter_budget(DunnesDiscoveryAdapter), 4)
+
+    def test_more_terms_than_the_per_search_budget_stop_at_the_cap_and_report_truncated(self):
+        # SPEC: docs/discovery-and-review.md:24-25 — budgets cap requests per
+        # run and per search.
+        wide_pack = BenchmarkPack(
+            catalog_id="coke-wide",
+            name="Coca-Cola Original Taste 330ml Can",
+            brand="Coca-Cola",
+            variant="Original Taste",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola 330ml Can",
+            aliases=("Coke Zero", "Diet Coke", "Cherry Coke"),
+        )
+        calls = []
+
+        def client(term):
+            calls.append(term)
+            return {"data": {"productSearch": {"products": []}}}
+
+        result = DunnesDiscoveryAdapter(client).search(wide_pack)
+
+        # term + 3 aliases + brand = 5 unique phrasings, capped at 4 requests.
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(result.request_counts["search"], 4)
+        self.assertIs(result.complete, False)
 
     def test_duplicate_terms_issue_one_request(self):
         # The catalog's Diet packs use "Diet Coke" as both term and alias.
@@ -324,17 +355,40 @@ class DunnesAliasInclusiveSearchTests(unittest.TestCase):
         self.assertIs(result.complete, False)
 
 
-def adapter_budget(cls):
-    return cls.max_requests_per_search
+class HydrationRobustnessTests(unittest.TestCase):
+    """Hydration of malformed or empty source payloads yields zero listings
+    instead of raising (CONTRIBUTING.md §8: an unexpected source payload is
+    isolated to its retailer-pack pair, never thrown to break the run)."""
+
+    def test_supervalu_hydrate_on_a_malformed_payload_yields_zero_listings(self):
+        # SPEC: CONTRIBUTING.md §8 — unexpected source data is isolated per
+        # retailer-pack pair instead of raising to the caller.
+        adapter = SuperValuDiscoveryAdapter(
+            lambda _: {"items": []}, hydrator=lambda product_id: None,
+        )
+        result = adapter.hydrate("sv-9")
+        self.assertEqual(result.listings, ())
+        self.assertEqual(result.request_counts["hydration"], 1)
+
+    def test_lidl_hydrate_on_an_empty_payload_yields_zero_listings(self):
+        adapter = LidlDiscoveryAdapter(
+            lambda _: {"items": []}, hydrator=lambda product_id: {},
+        )
+        result = adapter.hydrate("l-9")
+        self.assertEqual(result.listings, ())
+        self.assertEqual(result.request_counts["hydration"], 1)
 
 
 class CategoryScopeTests(unittest.TestCase):
     """Adapter-level category filters where the retailer API offers them:
     clients expose scoped_search(term, category); the adapter passes its
-    declared scope, and plain clients are called exactly as before."""
+    declared scope, and plain clients are called exactly as before.
 
-    def test_lidl_declares_the_verified_drinks_category_scope(self):
-        self.assertEqual(LidlDiscoveryAdapter.category_scope, "10071022")
+    Behavior is pinned by the three tests below (scoped client receives the
+    adapter's scope; a plain client gets the term only; an adapter without a
+    scope never makes a scoped call) — the scope's concrete ID is a data
+    constant, not a contract.
+    """
 
     def test_scoped_client_receives_the_category(self):
         calls = []

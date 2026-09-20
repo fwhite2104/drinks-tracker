@@ -1,5 +1,7 @@
 """Tests for the passive freshness snapshot (beverage_feed/freshness.py)."""
 
+import contextlib
+import io
 import sqlite3
 import tempfile
 import unittest
@@ -7,12 +9,8 @@ from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from beverage_feed.collector import ensure_schema
-from beverage_feed.freshness import freshness_snapshot
-
-
-def _iso(dt: datetime) -> str:
-    return dt.isoformat(timespec="seconds").replace("+00:00", "Z")
+from beverage_feed.collector import _iso, ensure_schema
+from beverage_feed.freshness import freshness_snapshot, main
 
 
 class FreshnessTests(unittest.TestCase):
@@ -58,6 +56,8 @@ class FreshnessTests(unittest.TestCase):
                     1,
                     500,
                     "bottle",
+                    # Use the production timestamp format the collector writes,
+                    # so as_datetime is verified against real persisted values.
                     _iso(self.now - timedelta(days=2)),
                 ),
             )
@@ -77,6 +77,30 @@ class FreshnessTests(unittest.TestCase):
             rows["dunnes"]["freshest_observation"],
             _iso(self.now - timedelta(days=2)),
         )
+
+    def test_cli_prints_never_observed_and_always_exits_zero(self) -> None:
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = main(["--database", self.database])
+
+        output = stdout.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("retailers=2", output)
+        self.assertIn("never_observed=supervalu", output)
+
+    def test_cli_with_no_observations_reports_never_observed_and_exits_zero(self) -> None:
+        with closing(sqlite3.connect(self.database)) as connection:
+            connection.execute("DELETE FROM price_observations")
+            connection.commit()
+
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = main(["--database", self.database])
+
+        output = stdout.getvalue()
+        self.assertEqual(code, 0)
+        self.assertIn("no observations", output)
+        self.assertIn("never_observed=dunnes,supervalu", output)
 
 
 if __name__ == "__main__":

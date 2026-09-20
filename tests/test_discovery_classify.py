@@ -9,6 +9,7 @@ a fixture catalog, no live retailer calls.
 from __future__ import annotations
 
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,7 +17,6 @@ from pathlib import Path
 from beverage_feed.collector import BenchmarkPack
 from beverage_feed.discovery import DiscoveryStore
 from beverage_feed.discovery_classify import (
-    classify_candidate_cell,
     classify_evidence,
     format_classification,
 )
@@ -151,6 +151,7 @@ class ClassificationPassTests(unittest.TestCase):
         self.assertEqual(report["counts"]["cells"]["A"], 1)  # type: ignore[index]
 
     def test_class_a_batch_spot_check_samples_about_ten_percent(self) -> None:
+        # SPEC: docs/discovery-and-review.md:52 — spot-check is ⌈10%⌉ (min 1); 25 candidates → 3.
         for index in range(25):
             self._seed(
                 candidate_id=f"dunnes:{index}:222",
@@ -162,11 +163,31 @@ class ClassificationPassTests(unittest.TestCase):
         batch = report["batches"]["A"]  # type: ignore[index]
         self.assertEqual(len(batch), 25)
         sample = report["spot_check"]  # type: ignore[index]
-        self.assertEqual(len(sample), 2)  # max(1, 25 // 10), evenly spaced
         self.assertEqual(
-            [entry["candidate_id"] for entry in sample],
-            [batch[index * 25 // 2]["candidate_id"] for index in range(2)],
+            len(sample),
+            max(1, math.ceil(len(batch) * 0.1)),
         )
+        sample_ids = {entry["candidate_id"] for entry in sample}
+        batch_ids = {entry["candidate_id"] for entry in batch}
+        self.assertLessEqual(sample_ids, batch_ids)
+        second_report = self._classify()
+        self.assertEqual(
+            [entry["candidate_id"] for entry in second_report["spot_check"]],  # type: ignore[index]
+            [entry["candidate_id"] for entry in sample],
+        )
+
+    def test_class_a_batch_of_at_most_ten_samples_exactly_one(self) -> None:
+        # SPEC: docs/discovery-and-review.md:52 — ⌈10%⌉ with a floor of one.
+        for index in range(10):
+            self._seed(
+                candidate_id=f"dunnes:S{index}:222",
+                name="Diet Coke 330ml Can",
+                catalog_id="coca-diet-330",
+                raw_record=_dunnes_record("Diet Coke 330ml Can", productReference=f"S{index}"),
+            )
+        report = self._classify()
+        self.assertEqual(len(report["batches"]["A"]), 10)  # type: ignore[index]
+        self.assertEqual(len(report["spot_check"]), 1)  # type: ignore[index]
 
     # -- excluded (junk gate) -----------------------------------------------
 
@@ -185,6 +206,8 @@ class ClassificationPassTests(unittest.TestCase):
         for classification in ("A", "B", "C", "D"):
             self.assertEqual(report["batches"][classification], [])  # type: ignore[index]
         self.assertEqual(len(report["excluded"]), 1)  # type: ignore[index]
+        excluded = report["excluded"][0]  # type: ignore[index]
+        self.assertIn("junk gate", excluded["reasons"][0])
         # No classifiable evidence on a non-terminal cell: it is thin.
         self.assertEqual(report["counts"]["cells"]["unclassified"], 1)  # type: ignore[index]
         self.assertEqual(
@@ -485,17 +508,53 @@ class ClassificationPassTests(unittest.TestCase):
 
     # -- unit-level classifier ----------------------------------------------
 
-    def test_classify_candidate_cell_applies_the_junk_gate(self) -> None:
-        facts = type(
-            "Facts", (),
-            {"name": "POWCUT Hoodie", "attributes": {}, "inference_basis": {},
-             "attribute_diffs": {}, "price_status": "valid"},
-        )()
-        classification, reasons = classify_candidate_cell(
-            CATALOG[0], facts, list(CATALOG),  # type: ignore[arg-type]
+    # (The duck-typed `classify_candidate_cell` junk-gate unit test was deleted:
+    # the junk gate's integration path is covered above via the excluded
+    # reasons assertion and `test_report_is_json_serializable`.)
+
+    def test_class_b_siblings_rollup_before_class_d(self) -> None:
+        # One B entry (name disagreement) plus one D entry (price missing) on
+        # the same cell rolls up to B: documented `else B` precedence after
+        # "any C → C; clean-only → A" (docs/discovery-and-review.md:58).
+        self._seed(
+            candidate_id="dunnes:B1:222",
+            name="Coca-Cola Diet 330ml Can",
+            catalog_id="coca-diet-330",
+            raw_record=_dunnes_record(
+                "Coca-Cola Diet 330ml Can", brand="Coca-Cola", variant="Diet",
+            ),
         )
-        self.assertEqual(classification, "excluded")
-        self.assertIn("junk gate", reasons[0])
+        self._seed(
+            candidate_id="dunnes:D1:222",
+            name="Diet Coke 330ml Can",
+            catalog_id="coca-diet-330",
+            raw_record=_dunnes_record("Diet Coke 330ml Can", price=None),
+            price_status="missing",
+            price_value=None,
+        )
+        report = self._classify()
+        self.assertEqual(report["counts"]["candidate_cells"]["B"], 1)  # type: ignore[index]
+        self.assertEqual(report["counts"]["candidate_cells"]["D"], 1)  # type: ignore[index]
+        self.assertEqual(report["counts"]["cells"]["B"], 1)  # type: ignore[index]
+        self.assertEqual(report["counts"]["cells"]["D"], 0)  # type: ignore[index]
+        # Per-item, not a Class-D re-run target.
+        self.assertEqual(report["rerun_targets"], [])  # type: ignore[index]
+
+    def test_classification_never_writes_price_observations(self) -> None:
+        # Discovery records evidence and mapping decisions only (CONTRIBUTING §7):
+        # classify/rollup must never create a Price Observation.
+        self._seed(
+            candidate_id="dunnes:OBS:222",
+            name="Diet Coke 330ml Can",
+            catalog_id="coca-diet-330",
+            raw_record=_dunnes_record("Diet Coke 330ml Can"),
+        )
+        report = self._classify()
+        self.assertEqual(report["counts"]["candidate_cells"]["A"], 1)  # type: ignore[index]
+        observations = self.store.connection().execute(
+            "SELECT COUNT(*) FROM price_observations"
+        ).fetchone()[0]
+        self.assertEqual(observations, 0)
 
     # -- formatting ---------------------------------------------------------
 
@@ -518,11 +577,26 @@ class ClassificationPassTests(unittest.TestCase):
             catalog_id="coca-original-330",
             raw_record=_dunnes_record("POWCUT Hoodie"),
         )
+        self._seed(
+            candidate_id="dunnes:MMM:333",
+            name="Diet Coke 330ml Can",
+            catalog_id="coca-diet-330",
+            raw_record=_dunnes_record("Diet Coke 330ml Can"),
+        )
         self.store.set_cell_state(
             "dunnes", "fanta-orange-330", "inconclusive", decided_by="test",
         )
-        # Must not raise.
-        json.dumps(self._classify())
+        report = self._classify()
+        restored = json.loads(json.dumps(report))
+        # Round-trips losslessly with the real class labels.
+        self.assertEqual(restored, report)
+        self.assertEqual(
+            set(restored["counts"]["candidate_cells"]),
+            {"A", "B", "C", "D", "excluded", "skipped", "total"},
+        )
+        self.assertEqual(restored["batches"]["A"][0]["class"], "A")
+        self.assertEqual(restored["excluded"][0]["class"], "excluded")
+        self.assertIn("junk gate", restored["excluded"][0]["reasons"][0])
 
 
 if __name__ == "__main__":

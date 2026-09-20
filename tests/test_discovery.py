@@ -37,6 +37,7 @@ class DiscoveryStateTests(unittest.TestCase):
                 "state": "rejected",
             }],
             "cells": [],
+            "retailer_blocks": [],
         }
         with tempfile.TemporaryDirectory() as directory:
             mapping_path = Path(directory) / "mappings.json"
@@ -53,6 +54,37 @@ class DiscoveryStateTests(unittest.TestCase):
 
             with self.assertRaises(ValueError):
                 write_mappings(mapping_path, {"dunnes": [{"catalog_id": "bad"}]})
+
+    def test_load_rejects_malformed_mapping_and_rejection_files(self):
+        # Load-side validation: a hand-edited JSON file with an extra field or
+        # a bad row must fail loudly (CONTRIBUTING §8), not load silently.
+        with tempfile.TemporaryDirectory() as directory:
+            mapping_path = Path(directory) / "mappings.json"
+            rejection_path = Path(directory) / "rejections.json"
+            mapping_path.write_text(json.dumps({
+                "dunnes": [{
+                    "catalog_id": "pack-1",
+                    "expected_product_name": "Cola 330ml Can",
+                    "status": "approved",
+                    "source_notes": "hand-added field the schema never defined",
+                }]
+            }))
+            rejection_path.write_text(json.dumps({
+                "listings": [{
+                    "canonical_key": "dunnes:sku-1:item-1",
+                    "retailer": "dunnes",
+                    "catalog_id": "pack-1",
+                    "rejected_at": "2025-01-01T00:00:00Z",
+                    "decided_by": "operator",
+                    "state": "withdrawn",
+                }],
+                "cells": [],
+            }))
+
+            with self.assertRaises(ValueError):
+                load_mappings(mapping_path)
+            with self.assertRaises(ValueError):
+                load_rejections(rejection_path)
 
     def test_store_persists_candidates_associations_history_and_state(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -197,6 +229,164 @@ class DiscoveryStateTests(unittest.TestCase):
             "dunnes:rejected-pack": "rejected",
             "tesco:excluded-pack": "do_not_map",
         })
+
+    def test_reconcile_does_not_resurrect_a_superseded_rejection(self):
+        # A durable superseded row must stay superseded across reconciliation:
+        # the replay never flips state back to a live rejection.
+        rejections = {"listings": [{
+            "canonical_key": "dunnes:sku-1:item-1",
+            "retailer": "dunnes",
+            "catalog_id": "pack-1",
+            "rejected_at": "2025-01-01T00:00:00Z",
+            "decided_by": "operator",
+            "reason": "wrong pack",
+            "state": "superseded",
+            "superseded_at": "2025-01-02T00:00:00Z",
+        }], "cells": []}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapping_path = root / "mappings.json"
+            rejection_path = root / "rejections.json"
+            write_mappings(mapping_path, {})
+            write_rejections(rejection_path, rejections)
+            store = DiscoveryStore(root / "discovery.sqlite")
+            store.upsert_candidate(
+                "dunnes:sku-1:item-1", retailer="dunnes", identity_key="sku-1:item-1",
+                identity_basis="product_reference:item_id", identity_tier="composite",
+                source_product_reference="sku-1", source_item_id="item-1",
+                source_product_name="Cola 330ml Can",
+            )
+            store.set_cell_state("dunnes", "pack-1", "pending")
+
+            reconcile_json_decisions(store.database, mapping_path, rejection_path)
+            first = store.connection().execute(
+                "SELECT state FROM discovery_rejections "
+                "WHERE canonical_key='dunnes:sku-1:item-1'"
+            ).fetchall()
+            cell = store.connection().execute(
+                "SELECT state FROM discovery_cells "
+                "WHERE retailer='dunnes' AND catalog_id='pack-1'"
+            ).fetchone()
+            status = store.connection().execute(
+                "SELECT status FROM catalog_candidates WHERE candidate_id='dunnes:sku-1:item-1'"
+            ).fetchone()
+
+            reconcile_json_decisions(store.database, mapping_path, rejection_path)
+            second = store.connection().execute(
+                "SELECT state FROM discovery_rejections "
+                "WHERE canonical_key='dunnes:sku-1:item-1'"
+            ).fetchall()
+
+        self.assertEqual(first, [("superseded",)])
+        self.assertEqual(second, first)
+        self.assertEqual(cell, ("pending",))
+        self.assertEqual(status, ("pending_review",))
+
+    def test_reconcile_same_second_rejections_for_one_identity_collapse_but_stay_keyed(self):
+        # The PK (section, canonical_key, rejected_at) collapses two rejections
+        # of the same candidate identity in the same second (INSERT OR IGNORE,
+        # docs/discovery-and-review.md) — without error — while a different
+        # candidate identity at the same second still gets its own row.
+        rejections = {"listings": [
+            {
+                "canonical_key": "dunnes:sku-1:item-1",
+                "retailer": "dunnes",
+                "catalog_id": "pack-1",
+                "rejected_at": "2025-01-01T00:00:00Z",
+                "decided_by": "operator",
+                "reason": "first copy",
+                "state": "rejected",
+            },
+            {
+                "canonical_key": "dunnes:sku-1:item-1",
+                "retailer": "dunnes",
+                "catalog_id": "pack-2",
+                "rejected_at": "2025-01-01T00:00:00Z",
+                "decided_by": "operator",
+                "reason": "same-second duplicate for another cell",
+                "state": "rejected",
+            },
+            {
+                "canonical_key": "dunnes:sku-2:item-2",
+                "retailer": "dunnes",
+                "catalog_id": "pack-1",
+                "rejected_at": "2025-01-01T00:00:00Z",
+                "decided_by": "operator",
+                "reason": "different identity, same second",
+                "state": "rejected",
+            },
+        ], "cells": []}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapping_path = root / "mappings.json"
+            rejection_path = root / "rejections.json"
+            write_mappings(mapping_path, {})
+            write_rejections(rejection_path, rejections)
+            store = DiscoveryStore(root / "discovery.sqlite")
+
+            reconcile_json_decisions(store.database, mapping_path, rejection_path)
+
+            rows = store.connection().execute(
+                "SELECT canonical_key, catalog_id FROM discovery_rejections ORDER BY canonical_key"
+            ).fetchall()
+
+        self.assertEqual(rows, [
+            ("dunnes:sku-1:item-1", "pack-1"),
+            ("dunnes:sku-2:item-2", "pack-1"),
+        ])
+
+    def test_reconcile_operator_approved_mapping_outranks_search_provenance(self):
+        # Operator approval outranks search provenance (docs/discovery-and-review.md):
+        # an operator-decided approved mapping in SQLite must survive
+        # reconciliation even when the JSON rejections disagree — the mapping
+        # guard short-circuits the rejection's cell demotion.
+        mappings = {"dunnes": [{
+            "catalog_id": "pack-1",
+            "expected_product_name": "Cola 330ml Can",
+            "source_product_reference": "sku-1",
+            "source_item_id": "item-1",
+            "status": "approved",
+            "decision_kind": "operator",
+            "decided_by": "alice",
+            "decided_at": "2025-01-01T00:00:00Z",
+        }]}
+        rejections = {"listings": [{
+            "canonical_key": "dunnes:sku-2:item-2",
+            "retailer": "dunnes",
+            "catalog_id": "pack-1",
+            "rejected_at": "2025-01-01T00:00:01Z",
+            "decided_by": "agent-sprint",
+            "reason": "search provenance claims a competing identity",
+            "state": "rejected",
+        }], "cells": []}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            mapping_path = root / "mappings.json"
+            rejection_path = root / "rejections.json"
+            write_mappings(mapping_path, mappings)
+            write_rejections(rejection_path, rejections)
+            store = DiscoveryStore(root / "discovery.sqlite")
+            with closing(store.connection()) as connection:
+                connection.execute(
+                    "INSERT INTO catalog_packs VALUES "
+                    "('pack-1', 'Cola 330ml Can', 'Cola', 'Original', 1, 330, 'can', 'Cola')"
+                )
+                connection.commit()
+
+            reconcile_json_decisions(store.database, mapping_path, rejection_path)
+
+            with closing(store.connection()) as connection:
+                mapping_state = connection.execute(
+                    "SELECT status, decided_by FROM catalog_mappings "
+                    "WHERE retailer='dunnes' AND catalog_id='pack-1'"
+                ).fetchone()
+                cell_state = connection.execute(
+                    "SELECT state, decided_by FROM discovery_cells "
+                    "WHERE retailer='dunnes' AND catalog_id='pack-1'"
+                ).fetchone()
+
+        self.assertEqual(mapping_state, ("approved", "alice"))
+        self.assertEqual(cell_state, ("approved", "alice"))
 
     def test_reconciliation_repairs_sqlite_from_json_and_preserves_observation_tables(self):
         mappings = {"dunnes": [{

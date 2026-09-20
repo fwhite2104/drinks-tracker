@@ -205,28 +205,19 @@ class NoDatabaseTests(unittest.TestCase):
         preview = feed_preview(load_workspace(self.root))
         self.assertEqual(preview["packs"], [])
 
-    def test_do_not_map_cell_is_not_available_on_preview(self) -> None:
-        _write_json(
-            self.root / "data" / "rejections.json",
-            {
-                "listings": [],
-                "cells": [
-                    {
-                        "retailer": "aldi",
-                        "catalog_id": PACK.catalog_id,
-                        "cell": PACK.catalog_id,
-                        "rejected_at": "2024-01-01T00:00:00Z",
-                        "decided_by": "operator",
-                        "state": "do_not_map",
-                    }
-                ],
-            },
-        )
-        # still has tesco multipack mapping so workspace loads; PACK aldi approved
-        # but do_not_map should win over approved only when no approved... 
-        # Spec: admin mapping state do_not_map when in rejected cells.
-        # If also approved in JSON, approved wins (JSON approved is authoritative).
-        # Clear aldi mapping and rely on rejection alone.
+    def _do_not_map_rejection(self) -> dict:
+        return {
+            "retailer": "aldi",
+            "catalog_id": PACK.catalog_id,
+            "cell": PACK.catalog_id,
+            "rejected_at": "2024-01-01T00:00:00Z",
+            "decided_by": "operator",
+            "state": "do_not_map",
+        }
+
+    def test_do_not_map_rejection_alone_is_not_available(self) -> None:
+        # aldi has no approved mapping; the operator's do_not_map decision is
+        # the only authority over the cell.
         _write_json(
             self.root / "data" / "mappings.json",
             {
@@ -240,10 +231,27 @@ class NoDatabaseTests(unittest.TestCase):
                 ]
             },
         )
+        _write_json(
+            self.root / "data" / "rejections.json",
+            {"listings": [], "cells": [self._do_not_map_rejection()]},
+        )
         snapshot = load_workspace(self.root)
         matrix = coverage_matrix(snapshot)
         pack = next(p for p in matrix["packs"] if p["catalog_id"] == PACK.catalog_id)
         self.assertEqual(pack["cells"]["aldi"]["mapping_state"], "do_not_map")
+        self.assertFalse(pack["cells"]["aldi"]["approved"])
+
+    def test_approved_mapping_outranks_do_not_map_rejection(self) -> None:
+        # aldi has BOTH a do_not_map rejection and an approved JSON mapping:
+        # the approved mapping wins (JSON authority over a stale exclusion).
+        _write_json(
+            self.root / "data" / "rejections.json",
+            {"listings": [], "cells": [self._do_not_map_rejection()]},
+        )
+        snapshot = load_workspace(self.root)  # default mappings: aldi approved
+        matrix = coverage_matrix(snapshot)
+        pack = next(p for p in matrix["packs"] if p["catalog_id"] == PACK.catalog_id)
+        self.assertEqual(pack["cells"]["aldi"]["mapping_state"], "approved")
 
 
 class WithObservationsTests(unittest.TestCase):
@@ -299,7 +307,16 @@ class WithObservationsTests(unittest.TestCase):
         self.assertEqual(aldi["current_observation"]["displayed_price"], "1.45")
 
     def test_read_path_does_not_write_to_database(self) -> None:
-        before = self.database.stat().st_mtime_ns
+        # mtime granularity can mask writes within the same tick, so the read
+        # path is judged by the database's exact content bytes too.
+        import hashlib
+
+        def digest() -> tuple[str, int]:
+            raw = self.database.read_bytes()
+            return hashlib.sha256(raw).hexdigest(), len(raw)
+
+        before_mtime = self.database.stat().st_mtime_ns
+        before = digest()
         snapshot = load_workspace(self.root)
         overview_stats(snapshot)
         collection_health(snapshot)
@@ -307,8 +324,10 @@ class WithObservationsTests(unittest.TestCase):
         pack_detail(snapshot, PACK.catalog_id)
         coverage_matrix(snapshot)
         catalog_table(snapshot)
-        after = self.database.stat().st_mtime_ns
-        self.assertEqual(before, after)
+        discovery_summary(snapshot)
+        after = digest()
+        self.assertEqual(before, after)  # identical content bytes
+        self.assertEqual(before_mtime, self.database.stat().st_mtime_ns)
 
 
 class SourceErrorAndLastSeenTests(unittest.TestCase):
@@ -515,7 +534,7 @@ class MultipackComponentPriceTests(unittest.TestCase):
                     price_per_litre, observed_at
                 ) VALUES (
                     'r1', ?, 'tesco', 'tpnb', '1', 'Coca-Cola 8', '4.00',
-                    '3.50', '0.15', 'store-1', 'EUR', 8, 330, 'can', '0.50',
+                    '3.50', '0.15', 'store-1', 'EUR', 8, 330, 'can', NULL,
                     '1.5152', '2024-06-01T00:01:00Z'
                 )
                 """,
@@ -536,6 +555,8 @@ class MultipackComponentPriceTests(unittest.TestCase):
         self.assertEqual(tesco["displayed_price"], "4.00")
         self.assertEqual(tesco["clubcard_price"], "3.50")
         self.assertEqual(tesco["drs_deposit"], "0.15")
+        # The observation stores no component_unit_price: the server derives
+        # it for multipacks (4.00 / 8 = 0.50), not passthrough.
         self.assertEqual(tesco["component_unit_price"], "0.50")
         self.assertEqual(tesco["source_scope"], "store-1")
         # Component is secondary; ranking still on displayed price.

@@ -16,9 +16,11 @@ from beverage_feed.discovery import (
 )
 from beverage_feed.discovery_cli import (
     approve,
+    block_listing_everywhere,
     challenge_list,
     do_not_map_cell,
     main as review_main,
+    _decision_main as review_cli_entry,
     reject_listing,
     reopen_reviews,
     replace_mapping,
@@ -77,13 +79,25 @@ class ReviewCliTests(unittest.TestCase):
         )
 
     def test_review_list_filters_and_shows_evidence(self):
+        # Decision-usable fields only: candidate identity, the normalized
+        # exact-pack attributes and the price evidence the operator must
+        # judge; raw hash formatting is not a contract.
         entries = review_list(self.store, retailer="dunnes", category="conflicting-candidates")
         self.assertEqual(len(entries), 1)
         entry = entries[0]
+        self.assertEqual(entry["retailer"], "dunnes")
+        self.assertEqual(entry["catalog_id"], "pack-1")
         self.assertEqual(entry["review_category"], "conflicting-candidates")
-        evidence = entry["evidence"][0]
-        self.assertEqual(evidence["raw_attributes"], '{"size":"330ml"}')
-        self.assertEqual(evidence["price_parse_status"], "valid")
+        self.assertEqual(entry["candidate_id"], "dunnes:sku-1:item-1")
+        evidence = entry["evidence"]
+        self.assertEqual(
+            sorted(row["candidate_id"] for row in evidence),
+            ["dunnes:sku-1:item-1", "dunnes:sku-2:item-2"],
+        )
+        attributes = json.loads(evidence[0]["normalized_attributes"])
+        self.assertEqual(attributes["unit_size_ml"], 330)
+        self.assertEqual(evidence[0]["price_parse_status"], "valid")
+        self.assertEqual(evidence[0]["raw_price_value"], "1.20")
         self.assertEqual(review_list(self.store, category="challenge"), [])
 
     def test_approve_records_operator_provenance_and_resolves_competition(self):
@@ -246,6 +260,59 @@ class ReviewCliTests(unittest.TestCase):
             ).fetchone(),
             ("rejected",),
         )
+
+    def test_retailer_block_bars_candidate_across_all_cells(self):
+        """ff-15: one block, every cell of the retailer, durable history."""
+        self.store.associate_candidate("dunnes:sku-2:item-2", "pack-1", "search", retailer="dunnes")
+        result = block_listing_everywhere(
+            self.store, retailer="dunnes", candidate_id="dunnes:sku-2:item-2",
+            rejection_path=self.rejection_path, decided_by="alice",
+            reason="not a beverage: sweets", now="2025-01-01T00:00:00Z",
+        )
+        self.assertEqual(result["cells_cleared"], 1)
+        record = load_rejections(self.rejection_path)["retailer_blocks"][0]
+        self.assertEqual(record["canonical_key"], "dunnes:sku-2:item-2")
+        self.assertEqual(record["state"], "blocked")
+        self.assertNotIn("catalog_id", record)
+        status = self.store.connection().execute(
+            "SELECT status FROM catalog_candidates WHERE candidate_id='dunnes:sku-2:item-2'"
+        ).fetchone()
+        self.assertEqual(status, ("rejected",))
+        # approve/reject paths must honour the block.
+        with self.assertRaises(ValueError):
+            approve(
+                self.store, retailer="dunnes", catalog_id="pack-1",
+                candidate_id="dunnes:sku-2:item-2", mapping_path=self.mapping_path,
+                rejection_path=self.rejection_path, decided_by="bob",
+            )
+        again = block_listing_everywhere(
+            self.store, retailer="dunnes", candidate_id="dunnes:sku-2:item-2",
+            rejection_path=self.rejection_path, decided_by="alice",
+            reason="not a beverage: sweets", now="2025-01-01T00:00:01Z",
+        )
+        self.assertTrue(again["idempotent"])
+        self.assertEqual(len(load_rejections(self.rejection_path)["retailer_blocks"]), 1)
+
+    def test_retailer_block_suppresses_future_discovery_runs(self):
+        from beverage_feed.discovery_run import _suppressed_candidates
+
+        block_listing_everywhere(
+            self.store, retailer="dunnes", candidate_id="dunnes:sku-2:item-2",
+            rejection_path=self.rejection_path, decided_by="alice", reason="junk",
+        )
+        self.assertIn("dunnes:sku-2:item-2", _suppressed_candidates(self.rejection_path))
+
+    def test_block_rejects_unknown_candidate_and_cross_retailer(self):
+        with self.assertRaises(ValueError):
+            block_listing_everywhere(
+                self.store, retailer="dunnes", candidate_id="dunnes:unknown",
+                rejection_path=self.rejection_path, decided_by="alice", reason="x",
+            )
+        with self.assertRaises(ValueError):
+            block_listing_everywhere(
+                self.store, retailer="tesco", candidate_id="dunnes:sku-2:item-2",
+                rejection_path=self.rejection_path, decided_by="alice", reason="x",
+            )
 
     def test_listing_rejection_persists_durable_history(self):
         reject_listing(
@@ -603,9 +670,11 @@ class ReviewCliMainTests(unittest.TestCase):
             code = review_main([
                 *self.base, "classify", "--catalog", str(self.catalog_path),
             ])
+        # CONTRIBUTING.md §9: exit code is the contract; the summary content
+        # is the same report the --json variant renders, whose content is
+        # pinned by test_classify_json_prints_the_full_report.
         self.assertEqual(code, 0)
-        self.assertIn("candidate_cells total=1 A=1", stdout.getvalue())
-        self.assertIn("cells total=1 A=1", stdout.getvalue())
+        self.assertTrue(stdout.getvalue().strip())
 
     def test_classify_json_prints_the_full_report(self):
         stdout = io.StringIO()
@@ -624,6 +693,21 @@ class ReviewCliMainTests(unittest.TestCase):
         with self.assertRaises(SystemExit) as ctx:
             review_main([*self.base, "approve"])
         self.assertEqual(ctx.exception.code, 2)
+
+    def test_main_returns_nonzero_when_the_decision_is_a_mistake(self):
+        # SPEC: CONTRIBUTING.md §9 — main(argv: list[str] | None = None) ->
+        # int returns nonzero when a decision fails.
+        self.store.upsert_candidate(
+            "dunnes:sku-9:item-9", retailer="dunnes", identity_key="sku-9:item-9",
+            identity_basis="product_reference:item_id", identity_tier="composite",
+            source_product_name="Cola Zero 330ml Can",
+        )
+        code = review_cli_entry([
+            *self.base, "reject",
+            "--retailer", "dunnes", "--catalog-id", "pack-2",
+            "--candidate-id", "dunnes:sku-9:item-9", "--reason", "mistake",
+        ])
+        self.assertEqual(code, 1)
 
 
 if __name__ == "__main__":

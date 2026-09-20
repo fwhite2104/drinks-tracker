@@ -90,6 +90,17 @@ class DiscoveryMergeTests(unittest.TestCase):
                 "INSERT INTO discovery_rejections(section, canonical_key, retailer, rejected_at, decided_by, state) "
                 "VALUES ('junk', 'k-1', 'supervalu', '2026-09-04T19:31:00Z', 'agent-sprint', 'rejected')"
             )
+            # Same (section, canonical_key, rejected_at) on both sides with
+            # different states: the target marked it superseded, the CI source
+            # still carries the stale `rejected` verdict.  The target wins.
+            con.execute(
+                "INSERT INTO discovery_rejections(section, canonical_key, retailer, rejected_at, decided_by, state) "
+                "VALUES ('listings', 'k-sup', 'supervalu', '2026-09-04T19:31:00Z', 'agent-sprint', 'rejected')"
+            )
+            dst.execute(
+                "INSERT INTO discovery_rejections(section, canonical_key, retailer, rejected_at, decided_by, state, superseded_at) "
+                "VALUES ('listings', 'k-sup', 'supervalu', '2026-09-04T19:31:00Z', 'human', 'superseded', '2026-09-05T00:00:00Z')"
+            )
             con.execute(
                 "INSERT INTO catalog_candidates(candidate_id, retailer, source_product_reference, "
                 "source_item_id, source_product_name, displayed_price, raw_record, status, "
@@ -130,10 +141,26 @@ class DiscoveryMergeTests(unittest.TestCase):
         self.assertEqual(counts["catalog_candidates"], 1)  # cand-1; cand-keep deduped
 
     def test_merge_reassigns_autoincrement_ids(self) -> None:
+        # Property, not literal ids: after the merge every copied search-history
+        # and evidence row keeps a fresh, unique, nonzero surrogate id, and the
+        # evidence rows still join to their cells by natural key.
         merge_discovery_database(self.source, self.target)
         with closing(sqlite3.connect(self.target)) as con:
-            ids = [row[0] for row in con.execute("SELECT search_id FROM discovery_search_history")]
-        self.assertEqual(ids, [1])  # target-assigned id, not the source's
+            search_ids = [row[0] for row in con.execute("SELECT search_id FROM discovery_search_history")]
+            evidence_ids = [row[0] for row in con.execute("SELECT evidence_id FROM discovery_candidate_evidence")]
+            joined = con.execute(
+                "SELECT COUNT(*) FROM discovery_candidate_evidence e "
+                "JOIN discovery_candidate_cells c ON "
+                "c.candidate_id=e.candidate_id AND c.retailer=e.retailer "
+                "AND c.catalog_id=e.catalog_id"
+            ).fetchone()[0]
+        self.assertEqual(len(search_ids), len(set(search_ids)))
+        self.assertTrue(all(search_id is not None and search_id > 0 for search_id in search_ids))
+        self.assertEqual(len(evidence_ids), len(set(evidence_ids)))
+        self.assertTrue(all(evidence_id is not None and evidence_id > 0 for evidence_id in evidence_ids))
+        self.assertEqual(len(search_ids), 1)
+        self.assertEqual(joined, len(evidence_ids))
+        self.assertEqual(joined, 1)
 
     def test_merge_never_overwrites_existing_target_decisions(self) -> None:
         merge_discovery_database(self.source, self.target)
@@ -172,9 +199,50 @@ class DiscoveryMergeTests(unittest.TestCase):
         self.assertEqual(copied, ("Coca-Cola Zero 330ml", "discovered"))
         self.assertEqual(kept, ("Coca-Cola 330ml (local rename)", "approved"))
 
+    def test_merge_keeps_locally_superseded_rejection_over_source_rejected(self) -> None:
+        """The target's `superseded` rejection is not overwritten by a source
+        row with the same natural key carrying a stale `rejected` state."""
+        counts = merge_discovery_database(self.source, self.target)
+        self.assertEqual(counts["discovery_rejections"], 1)  # only the 'junk' row; k-sup deduped
+        with closing(sqlite3.connect(self.target)) as con:
+            state, decided_by = con.execute(
+                "SELECT state, decided_by FROM discovery_rejections "
+                "WHERE section='listings' AND canonical_key='k-sup'"
+            ).fetchone()
+        self.assertEqual((state, decided_by), ("superseded", "human"))
+
     def test_merge_rejects_missing_source(self) -> None:
         with self.assertRaises(ValueError):
             merge_discovery_database(self.target.parent / "nope.sqlite", self.target)
+
+    def test_merge_into_a_missing_target_raises_value_error(self) -> None:
+        # SPEC: CONTRIBUTING.md §8 — invalid arguments raise ValueError; a
+        # merge must never silently create the supposed target database.
+        missing = self.target.parent / "missing-target.sqlite"
+        with self.assertRaises(ValueError):
+            merge_discovery_database(self.source, missing)
+        self.assertFalse(missing.exists())
+
+    def test_cli_reports_printed_counts_and_leaves_db_unchanged_when_nothing_new(self) -> None:
+        import contextlib
+        import io
+
+        from beverage_feed.discovery_merge import main
+
+        merge_discovery_database(self.source, self.target)
+        tables = ("discovery_runs", "discovery_attempts", "discovery_cells",
+                  "discovery_rejections", "catalog_candidates")
+        before = {table: self._count(self.target, table) for table in tables}
+
+        buffer = io.StringIO()
+        with contextlib.redirect_stdout(buffer):
+            self.assertEqual(
+                main(["--source", str(self.source), "--target", str(self.target)]), 0,
+            )
+        self.assertIn("merged 0 rows", buffer.getvalue())
+        self.assertIn("nothing new", buffer.getvalue())
+        after = {table: self._count(self.target, table) for table in tables}
+        self.assertEqual(after, before)
 
     def test_cli_reports_zero_when_nothing_new(self) -> None:
         from beverage_feed.discovery_merge import main

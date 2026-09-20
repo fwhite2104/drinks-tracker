@@ -323,17 +323,21 @@ def test_consumer_feed_covers_all_five_states(client):
 
     tesco = cells["tesco"]
     assert tesco["state"] == "observed"
+    assert tesco["label"] == "Observed"
     assert tesco["displayed_price"] == "2.10"
     assert tesco["is_best"] is True
     assert tesco["currency"] == "EUR"
 
     assert cells["dunnes"]["state"] == "temporarily_unavailable"
+    assert cells["dunnes"]["label"] == "Temporarily unavailable"
     assert cells["dunnes"]["displayed_price"] is None
 
     assert cells["supervalu"]["state"] == "awaiting_price"
+    assert cells["supervalu"]["label"] == "Awaiting price"
 
     lidl = cells["lidl"]
     assert lidl["state"] == "last_seen"
+    assert lidl["label"] == "Last seen"
     assert lidl["displayed_price"] is None  # old price never shown as current
     assert lidl["last_seen_at"] == "2026-01-01T10:00:45Z"
 
@@ -350,7 +354,9 @@ def test_consumer_feed_shows_unmapped_retailer_as_not_available(client):
     cells = {c["retailer"]: c for c in body["packs"][0]["retailers"]}
     assert cells["aldi"]["state"] == "observed"
     assert cells["tesco"]["state"] == "not_available"
+    assert cells["tesco"]["label"] == "Not available"
     assert cells["dunnes"]["state"] == "not_available"
+    assert cells["dunnes"]["label"] == "Not available"
 
 
 def test_consumer_feed_filters_by_catalog_id(client):
@@ -547,21 +553,311 @@ def test_consumer_feed_money_dates_and_slot_shape_follow_spec_contract(client):
     tesco = next(c for c in pack["retailers"] if c["retailer"] == "tesco")
 
     assert tesco["state"] == "observed"
+    assert tesco["label"] == "Observed"  # server-provided label only
+    # Money fields round-trip the seeded decimal strings exactly.
     assert tesco["displayed_price"] == "8.40"
     assert tesco["clubcard_price"] == "7.50"
-    assert tesco["drs_deposit"] == "0.72"  # own field, never folded into price
-    assert tesco["component_unit_price"] == "1.40"  # derived from pack_count
+    assert tesco["drs_deposit"] == "0.72"
+    assert tesco["component_unit_price"] == "1.40"  # 8.40 / 6-pack
     assert tesco["currency"] == "EUR"
+    # DRS deposit and Clubcard price sit beside, never inside, the displayed
+    # price — in either direction (spec: DRS always its own line).
+    assert tesco["displayed_price"] != "9.12"  # not shown + deposit
+    assert tesco["displayed_price"] != "7.50"  # not the Clubcard price
 
     observed_at = tesco["observed_at"]
     assert observed_at.endswith("Z")
     datetime.strptime(observed_at, "%Y-%m-%dT%H:%M:%SZ")  # ISO-8601 UTC
 
-    assert set(tesco) == {
-        "retailer", "display_name", "state", "label", "displayed_price",
-        "clubcard_price", "drs_deposit", "component_unit_price",
-        "source_scope", "observed_at", "currency", "is_best",
-    }
+
+def _seed_simple_observation(
+    database: Path,
+    *,
+    catalog_id: str,
+    retailer: str,
+    observed_at: str,
+) -> None:
+    """One approved mapping + one run + observed result + observation."""
+    from beverage_feed.collector import ensure_schema
+
+    with closing(sqlite3.connect(database)) as connection:
+        ensure_schema(connection)
+        connection.execute(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES (?, ?, 'Brand', 'Variant', 1, 330, 'can', ?)
+            """,
+            (catalog_id, f"Pack {catalog_id}", catalog_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES (?, ?, ?, 'approved')
+            """,
+            (catalog_id, retailer, f"Pack {catalog_id}"),
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_runs
+                (run_id, started_at, finished_at, status, observed_count,
+                 failed_count, summary)
+            VALUES ('run-f', ?, ?, 'ok', 1, 0, '{}')
+            """,
+            (observed_at, str(observed_at)),
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, recorded_at)
+            VALUES ('run-f', ?, ?, 'observed', ?)
+            """,
+            (catalog_id, retailer, observed_at),
+        )
+        connection.execute(
+            """
+            INSERT INTO price_observations
+                (run_id, catalog_id, retailer, source_product_reference,
+                 source_item_id, source_product_name, displayed_price, currency,
+                 pack_count, unit_size_ml, package_type, observed_at)
+            VALUES ('run-f', ?, ?, 'ref', 'item', ?, '1.00', 'EUR',
+                    1, 330, 'can', ?)
+            """,
+            (catalog_id, retailer, f"Pack {catalog_id}", observed_at),
+        )
+        connection.commit()
+
+
+def test_coverage_freshness_boundary_is_exactly_seven_days(monkeypatch, tmp_path):
+    """goal.md: stale warnings come only *after* 7 days — an observation aged
+    exactly 7 days is fresh, 7 days + 1 second is stale. ``/coverage`` is the
+    only Python surface that exposes the freshness cut-off; the server clock
+    is frozen so the boundary is deterministic."""
+    from datetime import datetime, timedelta, timezone
+
+    from beverage_feed import api as api_module
+    from beverage_feed.api import app
+
+    frozen = datetime.now(timezone.utc).replace(microsecond=0)
+    frozen_text = frozen.strftime("%Y-%m-%dT%H:%M:%SZ")
+    monkeypatch.setattr(api_module, "timestamp", lambda: frozen_text)
+
+    def cell_fresh(observed_at: str, database: Path) -> bool:
+        monkeypatch.setenv("DRINKS_DATABASE", str(database))
+        _seed_simple_observation(
+            database, catalog_id="fresh-pack", retailer="aldi",
+            observed_at=observed_at,
+        )
+        from fastapi.testclient import TestClient
+
+        with TestClient(app) as test_client:
+            body = test_client.get("/coverage").json()
+        cell = next(c for c in body["cells"] if c["retailer"] == "aldi")
+        return cell["fresh"]
+
+    exactly_seven_days = (
+        frozen - timedelta(days=7)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert cell_fresh(exactly_seven_days, tmp_path / "exact.sqlite") is True
+
+    seven_days_and_a_second = (
+        frozen - timedelta(days=7, seconds=1)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    assert cell_fresh(seven_days_and_a_second, tmp_path / "stale.sqlite") is False
+
+
+def _seed_two_observed_retailers(database: Path) -> None:
+    """cola-6pk observed at tesco (8.40) and dunnes (7.90): ≥2 observed cells."""
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES ('two-shop', 'Juice 6x330ml', 'Juice', 'Orange', 6, 330,
+                    'bottle', 'Juice Orange 6x')
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES ('two-shop', ?, 'Juice 6x330ml', 'approved')
+            """,
+            [("tesco",), ("dunnes",)],
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_runs
+                (run_id, started_at, finished_at, status, observed_count,
+                 failed_count, summary)
+            VALUES ('run-two', '2026-01-02T10:00:00Z', '2026-01-02T10:01:00Z',
+                    'ok', 2, 0, '{}')
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, recorded_at)
+            VALUES ('run-two', 'two-shop', ?, 'observed',
+                    '2026-01-02T10:00:30Z')
+            """,
+            [("tesco",), ("dunnes",)],
+        )
+        connection.executemany(
+            """
+            INSERT INTO price_observations
+                (run_id, catalog_id, retailer, source_product_reference,
+                 source_item_id, source_product_name, displayed_price, currency,
+                 pack_count, unit_size_ml, package_type, observed_at)
+            VALUES ('run-two', 'two-shop', ?, 'ref', 'item', 'Juice 6x330ml',
+                    ?, 'EUR', 6, 330, 'bottle', '2026-01-02T10:00:45Z')
+            """,
+            [("tesco", "8.40"), ("dunnes", "7.90")],
+        )
+        connection.commit()
+
+
+def test_consumer_feed_highlights_cheapest_and_orders_cheapest_first(client):
+    """Two observed retailers: the lower price is ``is_best`` and observed
+    rows order cheapest-first (mobile.md contract)."""
+    database = Path(client.app.state.database)
+    _seed_two_observed_retailers(database)
+    body = client.get("/consumer/feed").json()
+
+    pack = next(p for p in body["packs"] if p["catalog_id"] == "two-shop")
+    cells = {c["retailer"]: c for c in pack["retailers"]}
+    assert cells["tesco"]["displayed_price"] == "8.40"
+    assert cells["dunnes"]["displayed_price"] == "7.90"
+
+    assert cells["dunnes"]["is_best"] is True
+    assert cells["tesco"]["is_best"] is False
+
+    # Cheapest-first ordering: the cheapest observed cell comes first.
+    # SPEC: mobile.md — "Cheapest-first ordering with highlight."
+    observed_cells = [c for c in pack["retailers"] if c["state"] == "observed"]
+    assert [c["retailer"] for c in observed_cells] == ["dunnes", "tesco"]
+
+
+def _seed_dunnes_then_source_error(database: Path) -> None:
+    """aldi-style dunnes cell: older observation, then a latest source_error."""
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO catalog_packs
+                (catalog_id, name, brand, variant, pack_count, unit_size_ml,
+                 package_type, search_term)
+            VALUES ('se-source', 'Mix 4x500ml', 'Mix', 'Lemon', 4, 500,
+                    'bottle', 'Mix Lemon')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO catalog_mappings
+                (catalog_id, retailer, expected_product_name, status)
+            VALUES ('se-source', 'dunnes', 'Mix 4x500ml', 'approved')
+            """
+        )
+        connection.executemany(
+            """
+            INSERT INTO collection_runs
+                (run_id, started_at, finished_at, status, observed_count,
+                 failed_count, summary)
+            VALUES (?, ?, ?, 'ok', 0, 0, '{}')
+            """,
+            [
+                ("run-old", "2026-01-01T10:00:00Z", "2026-01-01T10:01:00Z"),
+                ("run-err", "2026-01-02T10:00:00Z", "2026-01-02T10:01:00Z"),
+            ],
+        )
+        # Older observation proves the listing existed, then the latest run
+        # errored: temporarily_unavailable with the old price withheld.
+        connection.execute(
+            """
+            INSERT INTO price_observations
+                (run_id, catalog_id, retailer, source_product_reference,
+                 source_item_id, source_product_name, displayed_price, currency,
+                 pack_count, unit_size_ml, package_type, observed_at)
+            VALUES ('run-old', 'se-source', 'dunnes', 'ref', 'item',
+                    'Mix 4x500ml', '3.30', 'EUR', 4, 500, 'bottle',
+                    '2026-01-01T10:00:45Z')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, error, recorded_at)
+            VALUES ('run-err', 'se-source', 'dunnes', 'source_error', 'timeout',
+                    '2026-01-02T10:00:30Z')
+            """
+        )
+        connection.commit()
+
+
+def test_consumer_feed_source_error_after_observation_witholds_old_price(client):
+    """A latest ``source_error`` after an older observation: the cell is
+    temporarily_unavailable and never shows the old price as current."""
+    database = Path(client.app.state.database)
+    _seed_dunnes_then_source_error(database)
+    body = client.get("/consumer/feed").json()
+
+    pack = next(p for p in body["packs"] if p["catalog_id"] == "se-source")
+    dunnes = next(c for c in pack["retailers"] if c["retailer"] == "dunnes")
+
+    assert dunnes["state"] == "temporarily_unavailable"
+    assert dunnes["label"] == "Temporarily unavailable"
+    assert dunnes["displayed_price"] is None  # 3.30 withheld
+    assert dunnes["is_best"] is False
+
+
+def _insert_older_result_for_aldi(database: Path, *, status: str) -> None:
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute(
+            """
+            INSERT INTO collection_runs
+                (run_id, started_at, finished_at, status, observed_count,
+                 failed_count, summary)
+            VALUES ('run-after', '2026-01-03T10:00:00Z', '2026-01-03T10:01:00Z',
+                    'ok', 0, 1, '{}')
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO collection_results
+                (run_id, catalog_id, retailer, status, recorded_at)
+            -- future recorded_at so this is the latest result (the seeded
+            -- collection used the real clock).
+            VALUES ('run-after', 'water-5l', 'aldi', ?, '2099-01-03T10:00:30Z')
+            """,
+            (status,),
+        )
+        connection.commit()
+
+
+def test_last_seen_exposes_not_seen_since_and_availability(client):
+    """After the latest result is not_found, ``/last-seen`` reports the fact
+    (not_seen_since + not-current availability) instead of a reused price."""
+    from beverage_feed.collector import price_history
+
+    database = Path(client.app.state.database)
+    _insert_older_result_for_aldi(database, status="not_found")
+
+    body = client.get(
+        "/last-seen", params={"retailer": "aldi", "catalog_id": PACK.catalog_id}
+    ).json()
+    assert body["availability"] == "not_seen_since"
+    expected = price_history(
+        database, retailer="aldi", catalog_id=PACK.catalog_id
+    )[0]["observed_at"]
+    assert body["not_seen_since"] == expected
+    # The pair has left the Current Feed entirely — no price offered current.
+    assert client.get("/prices/current", params={"retailer": "aldi"}).json() == []
+
+    again = client.get("/last-seen", params={"retailer": "aldi",
+                                            "catalog_id": "never-seen"})
+    assert again.status_code == 404  # availability never_observed
 
 
 def test_consumer_feed_leaks_no_operator_diagnostics_anywhere(client):

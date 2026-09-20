@@ -18,11 +18,11 @@ class CoverageReportTests(unittest.TestCase):
         self.rejection_path = Path(self.tmp.name) / "rejections.json"
         write_rejections(self.rejection_path, {"listings": [], "cells": []})
 
-    def report(self, catalog_count=4, **kwargs):
+    def report(self, catalog_count=4, retailers=("dunnes", "tesco"), **kwargs):
         return coverage_report(
             self.store, catalog_count=catalog_count,
             mapping_path=self.mapping_path,
-            retailers=("dunnes", "tesco"), now="2025-07-01T00:00:00Z",
+            retailers=retailers, now="2025-07-01T00:00:00Z",
             **kwargs,
         )
 
@@ -35,21 +35,36 @@ class CoverageReportTests(unittest.TestCase):
         self.assertEqual(report["overall"]["total_cells"], 8)
 
     def test_partial_matrix_counts_states_and_denominators(self):
+        # Seeded independently per the strict bar
+        # (docs/discovery-and-review.md:6-13): a "done" cell is an approved
+        # mapping, an explicit exclusion/rejection, or a resolution — nothing
+        # silently missing. The report's own label set counts the buckets;
+        # do-not-map leaves the active denominator; an honest unmapped cell
+        # is a resolved eligible decision, not silent absence; inconclusive
+        # stays its own work-state bucket outside the denominator.
         self.store.set_cell_state("dunnes", "p1", "approved", decided_by="discovery")
-        self.store.set_cell_state("dunnes", "p2", "review", review_category="missing")
-        self.store.set_cell_state("dunnes", "p3", "review", review_category="challenge")
-        self.store.set_cell_state("dunnes", "p4", "inconclusive")
-        report = self.report()
+        self.store.set_cell_state("dunnes", "p2", "unmapped", decided_by="discovery")
+        self.store.set_cell_state("dunnes", "p3", "rejected", decided_by="operator")
+        self.store.set_cell_state("dunnes", "p4", "inconclusive", decided_by="discovery")
+        self.store.set_cell_state("dunnes", "p5", "do_not_map", decided_by="operator")
+        report = self.report(catalog_count=5, retailers=("dunnes",))
         dunnes = report["per_retailer"][0]
+        self.assertEqual(dunnes["total_cells"], 5)
         self.assertEqual(dunnes["approved"], 1)
-        self.assertEqual(dunnes["review"], 2)
-        self.assertEqual(dunnes["review_missing"], 1)
-        self.assertEqual(dunnes["review_challenge"], 1)
+        self.assertEqual(dunnes["unmapped"], 1)
+        self.assertEqual(dunnes["rejected"], 1)
         self.assertEqual(dunnes["inconclusive"], 1)
+        self.assertEqual(dunnes["do_not_map"], 1)
+        # Explicit exclusion removes the cell from the active denominator,
+        # never counts as pending or availability evidence.
         self.assertEqual(dunnes["active"], 4)
-        self.assertEqual(dunnes["eligible"], 1)  # only approved is terminally decided
-        self.assertEqual(dunnes["coverage"], 0.25)
+        self.assertEqual(dunnes["pending"], 0)
+        # Eligible = resolved decisions: approved + honest unmapped +
+        # explicit rejection; do-not-map and inconclusive are outside.
+        self.assertEqual(dunnes["eligible"], 3)
+        self.assertEqual(dunnes["coverage"], 0.25)  # 1 approved / 4 active
         self.assertEqual(dunnes["inconclusive_rate"], 0.25)
+        self.assertEqual(report["overall"]["total_cells"], 5)
 
     def test_explicit_exclusion_leaves_active_denominator(self):
         self.store.set_cell_state("dunnes", "p1", "approved", decided_by="discovery")
@@ -182,13 +197,24 @@ class ReportRenderingTests(unittest.TestCase):
         text = format_report(report)
         lines = text.splitlines()
         self.assertTrue(lines[0].startswith("discovery coverage report generated="))
-        self.assertIn("retailer total active approved coverage", lines[1])
-        self.assertTrue(lines[2].startswith("dunnes 2 "))
-        self.assertEqual(lines[2].split()[:4], ["dunnes", "2", "2", "1"])
-        # Overall row is always the final metric row.
-        self.assertTrue(lines[3].startswith("overall "))
-        self.assertIn("requests_consumed=hydration=2,search=5", lines[4])
-        self.assertIn("cells_advanced=0", lines[4])
+        # The header declares the documented metric set as tokens, without
+        # pinning positional column order.
+        self.assertEqual(
+            frozenset(lines[1].split()),
+            frozenset({
+                "retailer", "total", "active", "approved", "coverage", "review",
+                "missing", "conflicting", "conflicting-candidates", "challenge",
+                "unmapped", "pending", "inconclusive", "identity-unstable",
+                "do-not-map", "eligible", "auto-rate", "inconclusive-rate",
+            }),
+        )
+        # Source rows first, overall row last.
+        self.assertEqual(lines[2].split()[0], "dunnes")
+        self.assertTrue(lines[-2].startswith("overall "))
+        # The consumption line reports what the runs consumed (CONTRIBUTING
+        # §9: verbose detail goes to diagnostics, not operator columns).
+        self.assertIn("requests_consumed=hydration=2,search=5", lines[-1])
+        self.assertIn("cells_advanced=0", lines[-1])
 
     def test_format_report_omits_empty_consumption(self):
         lines = format_report(self._report()).splitlines()

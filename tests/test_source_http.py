@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import time as time_module
 import unittest
+import urllib.request
 from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 from beverage_feed import source_http
 from beverage_feed.source_http import (
     CircuitBreaker,
+    RetailerTransport,
     SourceHTTPError,
     backoff_delay,
     failure_metadata,
@@ -51,6 +53,90 @@ class SourceHTTPErrorTests(unittest.TestCase):
 
     def test_is_a_runtime_error_for_existing_handlers(self):
         self.assertIsInstance(status_error("Lidl", 503), RuntimeError)
+
+    def test_transport_failure_messages_must_redact_credentials(self):
+        error = transport_error(
+            "Dunnes", ConnectionError("token abc-secret-token leaked")
+        )
+        self.assertNotIn(
+            "abc-secret-token", str(error)
+        )  # SPEC: source_http.py module docstring — messages carry no credentials, cookies, or sensitive headers.
+
+
+class RetailerTransportSendTests(unittest.TestCase):
+    """The single throttle + error-mapping path (urllib branch)."""
+
+    def _transport(self, opener):
+        return RetailerTransport(
+            "Dunnes", opener=opener, min_request_interval=0.0
+        )
+
+    class Response:
+        def __init__(self, status=200, body=b"{}", headers=None):
+            self.status = status
+            self._body = body
+            self.headers = headers or {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return False
+
+        def read(self):
+            return self._body
+
+    class Opener:
+        def __init__(self, response):
+            self.response = response
+            self.request = None
+
+        def open(self, request, timeout):
+            self.request = request
+            return self.response
+
+    def test_429_becomes_retryable_status_error_with_retry_after(self):
+        opener = self.Opener(
+            self.Response(429, b"{}", headers={"Retry-After": "9"})
+        )
+        with self.assertRaises(SourceHTTPError) as context:
+            self._transport(opener).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
+        self.assertEqual(context.exception.status, 429)
+        self.assertEqual(context.exception.retry_after, 9.0)
+        self.assertTrue(is_retryable_failure(context.exception))
+        self.assertEqual(str(context.exception), "Dunnes HTTP 429")
+
+    def test_http_400_body_branch_is_not_retryable(self):
+        opener = self.Opener(self.Response(404, b'{"missing": true}'))
+        with self.assertRaises(SourceHTTPError) as context:
+            self._transport(opener).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
+        self.assertEqual(context.exception.status, 404)
+        self.assertFalse(context.exception.retryable)
+        self.assertIsNone(context.exception.retry_after)
+
+    def test_transport_failure_maps_to_retryable_status_none(self):
+        class BrokenOpener:
+            def open(self, request, timeout):
+                raise ConnectionError("connection reset")
+
+        with self.assertRaises(SourceHTTPError) as context:
+            self._transport(BrokenOpener()).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
+        self.assertIsNone(context.exception.status)
+        self.assertTrue(is_retryable_failure(context.exception))
+        self.assertIn("Dunnes request failed", str(context.exception))
+
+    def test_invalid_json_degrades_to_a_plain_runtime_error(self):
+        opener = self.Opener(self.Response(200, b"not-json"))
+        with self.assertRaisesRegex(RuntimeError, "not valid JSON"):
+            self._transport(opener).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
 
 
 class ParseRetryAfterTests(unittest.TestCase):
@@ -133,38 +219,60 @@ class FailureMetadataTests(unittest.TestCase):
 
 
 class BackoffDelayTests(unittest.TestCase):
-    """Bounded exponential backoff with jitter, honoring Retry-After."""
+    """Bounded exponential backoff with jitter, honoring Retry-After.
 
-    def test_delay_grows_exponentially_within_the_jitter_band(self):
-        with patch("beverage_feed.source_http.random.uniform", return_value=0.0):
-            self.assertEqual(backoff_delay(0.5, 0, None), 0.5)
-            self.assertEqual(backoff_delay(0.5, 1, None), 1.0)
-            self.assertEqual(backoff_delay(0.5, 2, None), 2.0)
+    Pinned by observable behavior — the real jitter is left enabled and the
+    delay is asserted against its growth band, not a patched random value.
+    """
 
-    def test_jitter_is_bounded_to_a_fraction_of_the_exponential(self):
-        delay = backoff_delay(0.5, 1, None)
-        self.assertGreaterEqual(delay, 1.0)
-        self.assertLessEqual(delay, 1.0 * 1.25)
+    def test_delay_grows_exponentially_between_attempts(self):
+        base = 0.5
+        previous = None
+        for attempt in range(4):
+            delay = backoff_delay(base, attempt, None)
+            lower = base * (2 ** attempt)
+            self.assertGreaterEqual(delay, lower)
+            self.assertLessEqual(delay, lower * 1.25)
+            self.assertGreaterEqual(delay, previous or 0.0)
+            previous = delay
 
-    def test_retry_after_overrides_the_backoff(self):
+    def test_retry_after_is_honored_only_when_it_exceeds_the_exponential(self):
         self.assertEqual(backoff_delay(0.5, 0, 10.0), 10.0)
+        # attempt 5 exponentiates past the Retry-After (0.5 * 2**5 = 16s), so
+        # the delay must exceed the Retry-After bound rather than follow it.
+        self.assertGreaterEqual(backoff_delay(0.5, 5, 10.0), 16.0)
 
     def test_zero_backoff_stays_zero_without_retry_after(self):
         self.assertEqual(backoff_delay(0.0, 3, None), 0.0)
 
 
 class SpacingDelayTests(unittest.TestCase):
-    """Per-retailer request spacing."""
+    """Per-retailer request spacing, observed through real timing."""
 
     def test_first_request_has_no_delay(self):
         self.assertEqual(spacing_delay(None, 1.0), 0.0)
 
     def test_recent_request_waits_out_the_interval(self):
-        with patch("beverage_feed.source_http.time.monotonic", return_value=100.0):
-            self.assertAlmostEqual(spacing_delay(99.5, 1.0), 0.5)
+        delay = spacing_delay(time_module.monotonic(), 5.0)
+        self.assertGreater(delay, 4.5)
+        self.assertLessEqual(delay, 5.0)
 
     def test_elapsed_interval_has_no_delay(self):
         self.assertEqual(spacing_delay(0.0, 1.0), 0.0)
+
+    def test_transport_spaces_consecutive_requests_by_the_interval(self):
+        opener = RetailerTransportSendTests.Opener(
+            RetailerTransportSendTests.Response(200, b"{}", headers={})
+        )
+        transport = RetailerTransport(
+            "Tesco", opener=opener, min_request_interval=0.05
+        )
+        request = urllib.request.Request("https://tesco.test/api")
+        transport.send(request)
+        started = time_module.monotonic()
+        transport.send(request)
+        elapsed = time_module.monotonic() - started
+        self.assertGreaterEqual(elapsed, 0.05 - 0.01)
 
 
 class CircuitBreakerTests(unittest.TestCase):

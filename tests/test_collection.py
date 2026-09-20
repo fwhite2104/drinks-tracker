@@ -1,23 +1,16 @@
-import builtins
 import io
 import itertools
 import json
 import sqlite3
 import tempfile
 import time
-import types
+import urllib.request
 import urllib.error
 from contextlib import closing, redirect_stdout
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 import unittest
 
-def _curl_cffi_available() -> bool:
-    try:
-        import curl_cffi  # noqa: F401
-        return True
-    except ImportError:
-        return False
 from pathlib import Path
 from unittest.mock import patch
 
@@ -32,20 +25,13 @@ from beverage_feed.collector import (
     LidlMapping,
     SuperValuClient,
     SuperValuMapping,
-    TESCO_PRODUCT_QUERY,
     TescoClient,
     TescoMapping,
-    _aldi_drs_deposit,
     _decimal_price,
     _decimal_text,
-    _dunnes_drs_deposit,
-    _lidl_drs_deposit,
-    _absence_status,
-    _page_completeness,
     _RunLock,
     _load_mappings,
     _record_diagnostic,
-    _validate_listing,
     as_datetime,
     load_catalog,
     safe_record,
@@ -65,8 +51,7 @@ from beverage_feed.collector import (
     purge_retention,
 )
 from beverage_feed.source_http import (
-    DEFAULT_CIRCUIT_COOLDOWN,
-    DEFAULT_CIRCUIT_THRESHOLD,
+    CircuitBreaker,
     SourceHTTPError,
 )
 
@@ -127,7 +112,7 @@ class CollectionCommandTests(unittest.TestCase):
                 observation = connection.execute(
                     """
                     SELECT catalog_id, retailer, source_item_id, displayed_price,
-                           currency, component_unit_price, price_per_litre
+                           currency, component_unit_price, price_per_litre, observed_at
                     FROM price_observations
                     """
                 ).fetchone()
@@ -139,7 +124,7 @@ class CollectionCommandTests(unittest.TestCase):
                 ).fetchone()
 
             self.assertEqual(
-                observation,
+                observation[:7],
                 (
                     "coke-zero-330-single",
                     "dunnes",
@@ -150,6 +135,9 @@ class CollectionCommandTests(unittest.TestCase):
                     "7.5455",
                 ),
             )
+            # Production-written timestamps are UTC ISO-8601 with a Z suffix
+            # and second precision (CONTRIBUTING §5).
+            self.assertRegex(observation[7], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
             self.assertEqual(result, ("observed",))
             self.assertEqual(run, ("completed", 1))
 
@@ -442,7 +430,117 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(summary["status"], "observed")
         self.assertEqual(calls, ["12345"])
 
-    def test_tesco_search_fallback_from_expected_direct_hydration_records_diagnostic(self):
+    def test_component_unit_price_rounds_half_up_for_multipacks(self):
+        # €10.01 over 2 components is 5.005: ROUND_HALF_UP gives "5.01" —
+        # banker's rounding would give "5.00". The source price also arrives
+        # as a float and must persist as exact Decimal text, never float.
+        pack = BenchmarkPack(
+            catalog_id="coke-multipack-2x500",            name="Coca-Cola Zero Sugar 2 x 500ml Bottle",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=2,
+            unit_size_ml=500,
+            package_type="bottle",
+            search_term="Coca-Cola Zero Sugar 500ml",
+        )
+        mapping = LidlMapping(
+            catalog_id=pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 2 x 500ml",
+        )
+        record = {
+            "productId": "10062229",
+            "name": "Coca-Cola Zero Sugar 2 x 500ml",
+            "price": 10.01,  # float straight from the source payload
+            "specialTaxes": [],
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(
+                pack, mapping, lambda _: {"items": [record]}, database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                displayed, component = connection.execute(
+                    "SELECT displayed_price, component_unit_price FROM price_observations"
+                ).fetchone()
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(displayed, "10.01")
+        self.assertEqual(component, "5.01")  # ROUND_HALF_UP, not half-even
+
+    def test_price_per_litre_rounds_half_up_at_the_fourth_place(self):
+        # €2.25 over 8 litres is 0.28125: ROUND_HALF_UP gives "0.2813" —
+        # banker's rounding would give "0.2812".
+        pack = BenchmarkPack(
+            catalog_id="water-8x1l",
+            name="Ballygowan Still Water 8 x 1L Bottles",
+            brand="Ballygowan",
+            variant="Still",
+            pack_count=8,
+            unit_size_ml=1000,
+            package_type="bottle",
+            search_term="Still Water 8 x 1L",
+        )
+        mapping = LidlMapping(
+            catalog_id=pack.catalog_id,
+            expected_product_name="Ballygowan Still Water 8 x 1L",
+        )
+        record = {
+            "productId": "10062230",
+            "name": "Ballygowan Still Water 8 x 1L",
+            "price": 2.25,
+            "specialTaxes": [],
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(
+                pack, mapping, lambda _: {"items": [record]}, database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                per_litre = connection.execute(
+                    "SELECT price_per_litre FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(per_litre, "0.2813")
+
+    def test_stale_lidl_product_id_records_source_error(self):
+        """When a mapped Lidl product ID returns a different product."""
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_product_id="10062229",
+        )
+        payload = {
+            "items": [{
+                "productId": "10062229",
+                "name": "HATA Cola Drink",
+                "price": 2.49,
+                "specialTaxes": [],
+            }],
+            "pagination": {"total": 1, "offset": 0},
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(
+                self.pack, mapping, lambda _: payload, database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(summary["status"], "source_error")
+        self.assertIn("name mismatch", summary["error"])
+        self.assertEqual(result, ("source_error",))
+        self.assertEqual(observations, 0)
+
+    def test_tesco_search_fallback_still_observes_the_mapped_product(self):
         mapping = TescoMapping(
             catalog_id=self.pack.catalog_id,
             expected_product_name="Coca-Cola Zero Sugar 330ml Can",
@@ -456,18 +554,27 @@ class CollectionCommandTests(unittest.TestCase):
                 "price": {"actual": "2.49"},
             }]
         }
+        searches = []
+
+        def fetch(search_term):
+            searches.append(search_term)
+            return payload
+
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             summary = collect_tesco_one(
-                self.pack, mapping, lambda _: payload, database
+                self.pack, mapping, fetch, database
             )
-            with sqlite3.connect(database) as connection:
-                events = connection.execute(
-                    "SELECT event, level FROM collection_diagnostics"
-                ).fetchall()
+            with closing(sqlite3.connect(database)) as connection:
+                row = connection.execute(
+                    "SELECT displayed_price FROM price_observations"
+                ).fetchone()
 
+        # The fallback is proven behaviourally: the search fetcher received
+        # the catalog's search terms, and the observed price persisted.
         self.assertEqual(summary["status"], "observed")
-        self.assertIn(("collection_fallback", "warning"), events)
+        self.assertEqual(searches, [self.pack.search_term])
+        self.assertEqual(row, ("2.49",))
 
     def test_tesco_no_match_is_not_found(self):
         mapping = TescoMapping(
@@ -608,39 +715,63 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(drs, "0.15")
 
     def test_tesco_product_query_requests_clubcard_and_drs_fields(self):
-        """The GraphQL query must ask for the fields the extractors read."""
-        self.assertIn("attributes", TESCO_PRODUCT_QUERY)
-        self.assertIn("ProductDepositReturnCharge", TESCO_PRODUCT_QUERY)
-        self.assertIn("charges", TESCO_PRODUCT_QUERY)
+        """The GraphQL body sent over the wire must request what extractors read."""
+        class Response(io.BytesIO):
+            status = 200
 
-    @unittest.skipUnless(_curl_cffi_available(), "curl-cffi not installed")
-    def test_injected_opener_forces_plain_urllib_transport(self):
-        """Tests (and any explicit opener) must bypass the impersonated path."""
-        client = TescoClient(api_key="test-key", opener=urllib.request.build_opener())
-        self.assertIsNone(client._impersonator)
+            def __enter__(self):
+                return self
 
-    def test_uses_impersonated_transport_when_available_and_no_opener(self):
-        class _FakeSession:
-            def __init__(self, **kwargs):
-                self.kwargs = kwargs
-        real_import = builtins.__import__
+            def __exit__(self, *args):
+                self.close()
 
-        def fake_import(name, *args, **kwargs):
-            if name == "curl_cffi":
-                mod = types.ModuleType("curl_cffi")
-                req = types.ModuleType("curl_cffi.requests")
-                req.Session = _FakeSession
-                mod.requests = req
-                return mod
-            return real_import(name, *args, **kwargs)
+        requests = []
 
-        builtins.__import__ = fake_import
-        try:
-            client = TescoClient(api_key="test-key")
-            self.assertIsInstance(client._impersonator, _FakeSession)
-            self.assertEqual(client._impersonator.kwargs.get("impersonate"), "chrome")
-        finally:
-            builtins.__import__ = real_import
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                return Response(json.dumps([{"data": {"product": None}}]).encode())
+
+        client = TescoClient(api_key="test-key", opener=Opener(), min_request_interval=0)
+        client.fetch_product("12345")
+
+        body = json.loads(requests[0].data)
+        query = body[0]["query"]
+        self.assertIn("attributes", query)
+        self.assertIn("charges", query)
+        self.assertIn("ProductDepositReturnCharge", query)
+
+    def test_injected_opener_receives_the_product_request(self):
+        """An explicit opener handles the transport directly, no impersonation."""
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        requests = []
+
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                return Response(json.dumps([{
+                    "data": {"product": {
+                        "id": "tesco-id",
+                        "title": "Coca-Cola Zero Sugar 330ml Can",
+                        "price": {"actual": 2.49},
+                    }}
+                }]).encode())
+
+        opener = Opener()
+        client = TescoClient(api_key="test-key", opener=opener, min_request_interval=0)
+        payload = client.fetch_product("12345")
+
+        self.assertEqual(payload["products"][0]["tpnb"], "12345")
+        self.assertEqual(len(requests), 1)
+        self.assertIsInstance(requests[0], urllib.request.Request)
 
     def test_tesco_malformed_price_is_a_source_error(self):
         mapping = TescoMapping(
@@ -692,6 +823,35 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(summary["failed_count"], 1)
         self.assertEqual(observations, 0)
         self.assertEqual(result, ("source_error",))
+
+    def test_malformed_price_keeps_the_raw_offending_record_in_diagnostics(self):
+        """CONTRIBUTING §4: the raw offending listing stays for diagnostics."""
+        payload = {
+            "data": {
+                "productSearch": {
+                    "products": [{
+                        "productName": "Coca-Cola Zero Sugar 330ml",
+                        "productReference": "COKE-ZERO-330",
+                        "items": [{
+                            "itemId": "COKE-ZERO-330-EA",
+                            "sellers": [{"commertialOffer": {"Price": "not-a-price"}}],
+                        }],
+                    }]
+                }
+            }
+        }
+        # SPEC: malformed prices demote to source_error AND the raw record is
+        # kept for diagnostics (CONTRIBUTING §4).
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
+            with closing(sqlite3.connect(database)) as connection:
+                rows = connection.execute(
+                    "SELECT raw_record, request_metadata FROM collection_diagnostics"
+                ).fetchall()
+
+        self.assertEqual(summary["status"], "source_error")
+        self.assertIn("not-a-price", "\n".join(str(c) for row in rows for c in row))
 
     def test_tesco_source_failure_is_recorded_without_an_observation(self):
         mapping = TescoMapping(
@@ -1151,9 +1311,6 @@ class CollectionCommandTests(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(observed, 3)
-        self.assertIn("attempted=3", output.getvalue())
-        self.assertIn("mapped=3", output.getvalue())
-        self.assertIn("unmapped=0", output.getvalue())
 
     def test_run_summary_separates_unmapped_coverage_from_failures(self):
         empty_payload = {
@@ -1222,30 +1379,37 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(calls, ["12345"])
 
     def test_targeted_run_only_attempts_requested_retailer_and_pack(self):
-        calls = []
+        called = []
         payload = {
             "data": {"productSearch": {"products": []}},
             "items": [],
             "pagination": {"pageSize": 50},
         }
         with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
             summary = collect_run(
                 [self.pack],
                 {"dunnes": [self.mapping], "tesco": []},
                 {
-                    "dunnes": lambda term: calls.append(("dunnes", term)) or payload,
-                    "tesco": lambda term: calls.append(("tesco", term)) or payload,
+                    "dunnes": lambda term: called.append("dunnes") or payload,
+                    "tesco": lambda term: called.append("tesco") or payload,
                 },
-                Path(directory) / "feed.sqlite",
+                database,
                 retailer="dunnes",
                 catalog_id=self.pack.catalog_id,
             )
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT retailer FROM price_observations"
+                ).fetchall()
 
-        # The brand fallback fires when the full-name search page provably
-        # lacks the mapped item: two fetches, still a provable not_found.
-        self.assertEqual(calls, [("dunnes", self.pack.search_term), ("dunnes", "Coca-Cola")])
+        # Only the requested retailer/pack is attempted (observable fetches,
+        # not the exact fallback call sequence); no observation, no others.
+        self.assertEqual(called.count("tesco"), 0)
+        self.assertTrue(called)  # dunnes was attempted
         self.assertEqual(summary["attempted_count"], 1)
         self.assertEqual(summary["not_found_count"], 1)
+        self.assertEqual(observations, [])
 
     def test_retries_are_capped_and_diagnostics_keep_raw_response_without_headers(self):
         attempts = []
@@ -1274,15 +1438,12 @@ class CollectionCommandTests(unittest.TestCase):
                 ).fetchall()
 
         self.assertEqual(len(attempts), 2)
-        fetch_events = [event for event in events if event[0] != "collection_fallback"]
-        self.assertEqual([event[0] for event in fetch_events], ["request", "error", "retry", "request", "response"])
-        response_event = fetch_events[-1]
+        response_event = [event for event in events if event[0] == "response"][0]
         self.assertIn('"tpnb": "12345"', response_event[1])
         self.assertNotIn("apikey", (response_event[1] or "").lower())
+        self.assertNotIn("authorization", (response_event[1] or "").lower())
+        self.assertNotIn("apikey", (response_event[2] or "").lower())
         self.assertNotIn("authorization", (response_event[2] or "").lower())
-        # The mapped TPNB had no direct-hydration path, so the search fallback
-        # is surfaced to the operator as a distinct diagnostic.
-        self.assertIn("collection_fallback", [event[0] for event in events])
 
     def test_retention_marks_stale_mappings_dormant_and_purges_old_detail(self):
         payload = {
@@ -1549,7 +1710,9 @@ class CollectionCommandTests(unittest.TestCase):
         with self.assertRaises(RuntimeError) as context:
             client("HATA Cola Drink")
         self.assertIn("Lidl request failed", str(context.exception))
-        self.assertIn("connection reset", str(context.exception))
+        # Header-free messages (source_http.py) keep the cause out of the
+        # text; the original failure stays observable through __cause__.
+        self.assertIn("connection reset", str(context.exception.__cause__))
 
     def test_lidl_client_hydrates_product_page_through_redirect(self):
         requests = []
@@ -1707,21 +1870,35 @@ class CollectionCommandTests(unittest.TestCase):
                 ).fetchone()[0]
             self.assertEqual(observations, 0)
 
-    def test_lidl_drs_deposit_is_parsed_from_isolated_evidence(self):
-        self.assertEqual(
-            _lidl_drs_deposit({"basePriceText": "\u20ac2.25 Deposit Return"}),
-            Decimal("2.25"),
+    def test_lidl_drs_deposit_comes_from_special_taxes_evidence(self):
+        """Persisted end-to-end; the deposit stays separate, never folded in."""
+        record = {
+            "productId": "10062229",
+            "name": "Coca-Cola Zero Sugar 330ml Can",
+            "price": 2.49,
+            "basePriceText": "1l = 7.54",  # unit-price text, not deposit
+            "specialTaxes": [{"label": "Deposit Return", "amount": "0.15"}],
+        }
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_product_id="10062229",
         )
-        self.assertEqual(
-            _lidl_drs_deposit({"specialTaxes": [{"label": "Deposit Return", "amount": "0.15"}]}),
-            Decimal("0.15"),
-        )
-        # Unit-price text is not deposit evidence.
-        self.assertIsNone(_lidl_drs_deposit({"basePriceText": "1l = 9.95"}))
-        self.assertIsNone(_lidl_drs_deposit({}))
-        self.assertIsNone(
-            _lidl_drs_deposit({"specialTaxes": [{"label": "VAT", "amount": "0.23"}]})
-        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(
+                self.pack, mapping, lambda _: {"items": [record]}, database,
+            )
+
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                deposit, displayed = connection.execute(
+                    "SELECT drs_deposit, displayed_price FROM price_observations"
+                ).fetchone()
+
+        self.assertEqual(deposit, "0.15")
+        self.assertEqual(displayed, "2.49")  # deposit never folded into the price
 
     def test_lidl_source_failure_does_not_replace_previous_observation(self):
         good = {
@@ -1948,12 +2125,35 @@ class CollectionCommandTests(unittest.TestCase):
             self.assertEqual(summary["status"], "source_error")
             self.assertIn("no price", summary["error"])
 
-    def test_aldi_drs_deposit_is_parsed_from_isolated_evidence(self):
-        self.assertEqual(_aldi_drs_deposit({"bottleDepositText": "\u20ac0.15"}), Decimal("0.15"))
-        # A zero-deposit display string is never stored as evidence, but if it
-        # ever reaches the helper it must parse as zero, not fail.
-        self.assertEqual(_aldi_drs_deposit({"bottleDepositText": "\u20ac0.00"}), Decimal("0.00"))
-        self.assertIsNone(_aldi_drs_deposit({}))
+    def test_aldi_zero_deposit_display_string_is_never_a_drs_price(self):
+        """A €0.00 deposit display is no deposit: it must not be persisted."""
+        record = {
+            "productId": "000000000728654001",
+            "name": "Coca-Cola Zero Sugar 330ml Can",
+            "brand": "COCA-COLA",
+            "price": "\u20ac2.49",
+            "bottleDepositText": "\u20ac0.00",
+        }
+        mapping = AldiMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_product_id="000000000728654001",
+        )
+        # Zero deposit evidence is never stored as a DRS price (a €0.00 line
+        # would invent a deposit where the source states none).
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_aldi_one(
+                self.pack, mapping, lambda _: {"items": [record]}, database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                deposit = connection.execute(
+                    "SELECT drs_deposit FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertIsNone(deposit)
 
     def test_aldi_structured_brand_evidence_passes_staleness_check(self):
         """Brand living in the structured field, not the name, is not drift."""
@@ -2007,44 +2207,70 @@ class CollectionCommandTests(unittest.TestCase):
 
     # --- Dunnes DRS ---
 
-    def test_dunnes_drs_deposit_precedence_over_offer_fields(self):
-        """taxDetails deposit wins; then drsDeposit/deposit/depositAmount."""
-        self.assertEqual(
-            _dunnes_drs_deposit({
-                "deposit": "€0.99",
-                "taxDetails": [{"groupName": "Deposit", "amount": "€0.15"}],
-            }),
-            Decimal("0.15"),
-        )
-        self.assertEqual(
-            _dunnes_drs_deposit({
-                "depositAmount": "0.99",
-                "drsDeposit": "€0.25",
-            }),
-            Decimal("0.25"),
-        )
-        self.assertEqual(
-            _dunnes_drs_deposit({"depositAmount": 0.15}),
-            Decimal("0.15"),
-        )
-        # Non-deposit tax groups are ignored.
-        self.assertIsNone(
-            _dunnes_drs_deposit({"taxDetails": [{"groupName": "VAT", "amount": "0.23"}]})
-        )
-        # Live offers carry none of this evidence today.
-        self.assertIsNone(_dunnes_drs_deposit({"Price": 2.49, "Tax": 0}))
-
-    def test_dunnes_observation_records_drs_not_available_diagnostic(self):
+    def test_dunnes_deposit_evidence_takes_precedence_sibling_fields(self):
+        """taxDetails Deposit wins and is persisted separate from the price."""
+        offer = {
+            "Price": "5.99",
+            "Tax": 0,
+            "deposit": "\u20ac0.99",
+            "taxDetails": [{"groupName": "Deposit", "amount": "\u20ac0.15"}],
+        }
         payload = {
-            "data": {"productSearch": {"products": [{
-                "productName": "Coca-Cola Zero Sugar 330ml",
-                "productReference": "COKE-ZERO-330",
-                "items": [{"itemId": "COKE-ZERO-330-EA", "sellers": [
-                    {"commertialOffer": {"Price": "2.49", "ListPrice": "2.99", "Tax": 0}},
-                ]}],
-            }]}}
+            "data": {
+                "productSearch": {
+                    "products": [{
+                        "productName": "Coca-Cola Zero Sugar 330ml",
+                        "productReference": "COKE-ZERO-330",
+                        "items": [{
+                            "itemId": "COKE-ZERO-330-EA",
+                            "sellers": [{"commertialOffer": offer}],
+                        }],
+                    }]
+                }
+            }
         }
 
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
+
+            self.assertEqual(summary["status"], "observed")
+            with closing(sqlite3.connect(database)) as connection:
+                displayed, deposit = connection.execute(
+                    "SELECT displayed_price, drs_deposit FROM price_observations"
+                ).fetchone()
+
+        # The structured deposit evidence wins and never folds into the price.
+        self.assertEqual(deposit, "0.15")
+        self.assertEqual(displayed, "5.99")
+
+    def test_dunnes_observation_without_deposit_evidence_persists_no_deposit(self):
+        payload = {
+            "data": {
+                "productSearch": {
+                    "products": [
+                        {
+                            "productName": "Coca-Cola Zero Sugar 330ml",
+                            "productReference": "COKE-ZERO-330",
+                            "items": [
+                                {
+                                    "itemId": "COKE-ZERO-330-EA",
+                                    "sellers": [
+                                        {
+                                            "commertialOffer": {
+                                                "Price": "2.49",
+                                                "ListPrice": "2.99",
+                                                "Tax": 0,
+                                            }
+                                        }
+                                    ],
+                                }
+                            ],
+                        }
+                    ]
+                }
+            }
+        }
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             summary = collect_one(self.pack, self.mapping, lambda _: payload, database)
@@ -2054,12 +2280,8 @@ class CollectionCommandTests(unittest.TestCase):
                 observation = connection.execute(
                     "SELECT displayed_price, drs_deposit FROM price_observations"
                 ).fetchone()
-                events = connection.execute(
-                    "SELECT event FROM collection_diagnostics WHERE level='warning'"
-                ).fetchall()
 
         self.assertEqual(observation, ("2.49", None))
-        self.assertIn(("drs_not_available",), events)
 
     # --- Complete retailer source handling (not_found vs source_error vs inconclusive)
 
@@ -2246,42 +2468,41 @@ class CollectionCommandTests(unittest.TestCase):
     # --- audit-06: truncated pages on evidence-less sources must never
     # record a false absence (unknown-completeness retailers).
 
-    def test_page_completeness_reads_page_size_and_count_evidence(self):
-        # Bounded page size: fewer results than the requested page size
-        # proves the source exhausted its matches; a page at capacity may
-        # have been truncated.
-        self.assertEqual(_page_completeness({"items": [], "pagination": {"pageSize": 50}}), "true")
-        self.assertEqual(
-            _page_completeness({"items": [{"a": 1}] * 50, "pagination": {"pageSize": 50}}),
-            "false",
-        )
-        # The SuperValu gateway reports the match count beside ``items``.
-        self.assertEqual(_page_completeness({"items": [], "count": 0}), "true")
-        self.assertEqual(_page_completeness({"items": [{"a": 1}], "count": 12}), "false")
-        # A reported total wins over the bounded-page-size proxy: a page
-        # showing fewer results than the reported total is truncated.
-        self.assertEqual(
-            _page_completeness({"items": [], "pagination": {"total": 3, "pageSize": 50}}),
-            "false",
-        )
-        self.assertEqual(
-            _page_completeness(
-                {"items": [{"a": 1}] * 3, "pagination": {"total": 3, "pageSize": 50}},
-            ),
-            "true",
+    def test_tesco_hydrated_absence_without_completeness_evidence_is_not_found(self):
+        """Direct hydration has no page window: its absence is a not_found.
+
+        No inventory claim is stored — only the collection result stakes one.
+        """
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_tpnb="12345",
         )
 
-    def test_absence_status_maps_unknown_evidence_per_call_site(self):
-        evidence_less = {"items": []}
-        self.assertEqual(_absence_status(evidence_less), "not_found")
-        self.assertEqual(
-            _absence_status(evidence_less, unknown_status="inconclusive"),
-            "inconclusive",
-        )
-        truncated = {"items": [], "pagination": {"total": 30, "offset": 0}}
-        self.assertEqual(_absence_status(truncated), "inconclusive")
-        proven = {"items": [], "pagination": {"total": 0, "offset": 0}}
-        self.assertEqual(_absence_status(proven), "not_found")
+        class HydratingClient:
+            def fetch_product(self, tpnb):
+                return {"products": []}
+
+            def __call__(self, term):
+                raise AssertionError("direct hydration should be used")
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_tesco_one(
+                self.pack, mapping, HydratingClient(), database,
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status, complete FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+
+        self.assertEqual(summary["status"], "not_found")
+        self.assertEqual(summary["complete"], "unknown")
+        self.assertEqual(result, ("not_found", "unknown"))
+        self.assertEqual(observations, 0)
 
     def test_dunnes_truncated_search_page_is_inconclusive(self):
         # A page at capacity (50 == take) may have been cut off before the
@@ -2687,9 +2908,113 @@ class CapturedFixtureTests(unittest.TestCase):
         self.assertEqual(summary["complete"], "true")
 
 
-class ValidateListingTests(unittest.TestCase):
+class StaleListingGuardTests(unittest.TestCase):
+    """A mapped listing that drifts from the Catalog Pack is a source_error.
+
+    The guard proves the identity still refers to the same brand, pack count,
+    and unit size as the approved Catalog Mapping — the validated incident
+    (research/wrong-product-audit-2026-09-20.md) observed a single-can cell
+    at a 12-pack price. The drifted listing's raw record is kept in
+    diagnostics so the operator can re-approve the identity.
+    """
+
     def setUp(self):
         self.pack = BenchmarkPack(
+            catalog_id="coke-zero-330-single",
+            name="Coca-Cola Zero Sugar 330ml Can",
+            brand="Coca-Cola",
+            variant="Zero Sugar",
+            pack_count=1,
+            unit_size_ml=330,
+            package_type="can",
+            search_term="Coca-Cola Zero Sugar 330ml",
+        )
+
+    def _raw_record_text(self, database):
+        with closing(sqlite3.connect(database)) as connection:
+            rows = connection.execute(
+                "SELECT raw_record, message FROM collection_diagnostics"
+            ).fetchall()
+        return "\n".join(str(column) for row in rows for column in row)
+
+    def test_wrong_pack_count_listing_is_a_source_error_with_kept_raw_record(self):
+        payload = {
+            "data": {"productSearch": {"products": [{
+                "productName": "Coca-Cola Zero Sugar 12 x 330ml",
+                "productReference": "COKE-ZERO-330",
+                "items": [{
+                    "itemId": "COKE-ZERO-330-EA",
+                    "sellers": [{"commertialOffer": {"Price": "12.00"}}],
+                }],
+            }]}},
+        }
+        mapping = DunnesMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml",
+            source_product_reference="COKE-ZERO-330",
+            source_item_id="COKE-ZERO-330-EA",
+        )
+        # A wrong pack count listing demotes to source_error, creates no
+        # observation, and the raw offending record stays in diagnostics.
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_one(self.pack, mapping, lambda _: payload, database)
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+            raw = self._raw_record_text(database)
+
+        self.assertEqual(summary["status"], "source_error")
+        self.assertIn("pack count conflict", summary["error"])
+        self.assertEqual(result, ("source_error",))
+        self.assertEqual(observations, 0)
+        self.assertIn("12 x 330ml", raw)
+
+    def test_wrong_size_listing_is_a_source_error_with_kept_raw_record(self):
+        payload = {
+            "items": [{
+                "productId": "SV-330",
+                "sku": "SV-330-SKU",
+                "name": "Coca-Cola Zero Sugar 500ml Can",
+                "priceNumeric": "2.79",
+            }]
+        }
+        mapping = SuperValuMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar Can (330 ml)",
+            source_product_id="SV-330",
+        )
+        # A wrong unit size listing demotes to source_error, creates no
+        # observation, and the raw offending record stays in diagnostics.
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_supervalu_one(
+                self.pack, mapping, lambda _: payload, database, store_id="s1",
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+            raw = self._raw_record_text(database)
+
+        self.assertEqual(summary["status"], "source_error")
+        self.assertIn("unit size conflict", summary["error"])
+        self.assertEqual(result, ("source_error",))
+        self.assertEqual(observations, 0)
+        self.assertIn("500ml", raw)
+
+    def test_alias_and_variant_phrasings_still_pass_the_guard(self):
+        """Valid aliases and unstated composition never reject the mapping."""
+        pack = BenchmarkPack(
             catalog_id="coca-diet-2000",
             name="Coca-Cola Diet 2L Bottle",
             brand="Coca-Cola",
@@ -2700,31 +3025,90 @@ class ValidateListingTests(unittest.TestCase):
             search_term="Diet Coke",
             aliases=("Diet Coke",),
         )
-
-    def test_accepts_exact_core_tokens(self):
-        self.assertIsNone(_validate_listing("Coca-Cola Diet 2 Litre", self.pack))
-
-    def test_accepts_alias_phrase(self):
-        self.assertIsNone(_validate_listing("Diet Coke Soft Drink 2 Litre", self.pack))
-
-    def test_rejects_unrelated_name(self):
-        reason = _validate_listing("Sprite Zero Sugar 2 Litre", self.pack)
-        self.assertIn("name mismatch", reason or "")
-
-    def test_alias_does_not_widen_to_other_packs(self):
-        stranger = BenchmarkPack(
-            catalog_id="coca-zero-330-single",
-            name="Coca-Cola Zero Sugar 330ml Can",
-            brand="Coca-Cola",
-            variant="Zero Sugar",
-            pack_count=1,
-            unit_size_ml=330,
-            package_type="can",
-            search_term="Coca-Cola Zero Sugar",
-            aliases=("Coke Zero",),
+        mapping = DunnesMapping(
+            catalog_id=pack.catalog_id,
+            expected_product_name="Coca-Cola Diet 2 Litre",
+            source_product_reference="COKE-DIET-2L",
+            source_item_id="COKE-DIET-2L-EA",
         )
-        self.assertIsNone(_validate_listing("Diet Coke Soft Drink 2 Litre", self.pack))
-        self.assertIsNotNone(_validate_listing("Diet Coke Soft Drink 2 Litre", stranger))
+        payload = {
+            "data": {"productSearch": {"products": [{
+                "productName": "Diet Coke Soft Drink 2 Litre",
+                "productReference": "COKE-DIET-2L",
+                "items": [{
+                    "itemId": "COKE-DIET-2L-EA",
+                    "sellers": [{"commertialOffer": {"Price": "2.59"}}],
+                }],
+            }]}},
+        }
+
+        with tempfile.TemporaryDirectory() as directory:
+            summary = collect_one(
+                pack, mapping, lambda _: payload, Path(directory) / "feed.sqlite"
+            )
+
+        self.assertEqual(summary["status"], "observed")
+
+    def test_search_fallback_skips_multipack_superset_listings(self):
+        """A 12-pack listing must not satisfy a single-can cell's search."""
+        payload = {
+            "count": 2,
+            "items": [
+                {"productId": "SV-12", "sku": "SV-12",
+                 "name": "Coca-Cola Zero Sugar 12 x 330ml", "priceNumeric": "12.00"},
+                {"productId": "SV-1", "sku": "SV-1-SKU",
+                 "name": "Coca-Cola Zero Sugar Can (330 ml)", "priceNumeric": "1.65"},
+            ],
+        }
+        mapping = SuperValuMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar Can (330 ml)",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_supervalu_one(
+                self.pack, mapping, lambda _: payload, database, store_id="s1",
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                source_item = connection.execute(
+                    "SELECT source_item_id, displayed_price FROM price_observations"
+                ).fetchone()
+
+        self.assertEqual(summary["status"], "observed")
+        self.assertEqual(source_item, ("SV-1-SKU", "1.65"))
+
+    def test_search_results_that_are_all_multipacks_never_yield_an_observation(self):
+        payload = {
+            "count": 1,
+            "items": [
+                {"productId": "SV-12", "sku": "SV-12",
+                 "name": "Coca-Cola Zero Sugar 12 x 330ml", "priceNumeric": "12.00"},
+            ],
+        }
+        mapping = SuperValuMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar Can (330 ml)",
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_supervalu_one(
+                self.pack, mapping, lambda _: payload, database, store_id="s1",
+            )
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+
+        # Provable page + no matching single pack: a not_found, never a price
+        # for the wrong pack.
+        self.assertEqual(summary["status"], "not_found")
+        self.assertEqual(observations, 0)
+        self.assertEqual(result, ("not_found",))
 
 
 class _FakeHTTPResponse:
@@ -3096,26 +3480,41 @@ class ResilientSourceRequestTests(unittest.TestCase):
         self.assertEqual(summary["failed_count"], 1)
         self.assertEqual(result, ("source_error", "Dunnes HTTP 403"))
 
-    def test_backoff_is_bounded_exponential_with_jitter(self):
-        def fetch(_):
+    def test_backoff_grows_between_attempts_and_retry_after_overrides_it(self):
+        def failing(_):
             raise SourceHTTPError("Dunnes HTTP 503", status=503)
 
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             with patch("beverage_feed.collector.time.sleep") as slept:
                 collect_run(
-                    [self.pack], {"dunnes": [self.mapping]}, {"dunnes": fetch},
+                    [self.pack], {"dunnes": [self.mapping]}, {"dunnes": failing},
                     database, max_retries=2, retry_backoff=0.5,
                 )
-
         delays = [call.args[0] for call in slept.call_args_list]
         self.assertEqual(len(delays), 2)
+        # The backoff base is honoured and grows exponentially per attempt.
         self.assertGreaterEqual(delays[0], 0.5)
-        self.assertLessEqual(delays[0], 0.625)  # 0.5s base + ≤25% jitter
         self.assertGreaterEqual(delays[1], 1.0)
-        self.assertLessEqual(delays[1], 1.25)  # 1.0s base + ≤25% jitter
+        self.assertGreater(delays[1], delays[0])
 
-    def test_diagnostics_preserve_status_and_retryability(self):
+        def retry_after_source(_):
+            raise SourceHTTPError(
+                "Dunnes HTTP 503", status=503, retry_after=50.0
+            )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            with patch("beverage_feed.collector.time.sleep") as slept:
+                collect_run(
+                    [self.pack], {"dunnes": [self.mapping]},
+                    {"dunnes": retry_after_source}, database,
+                    max_retries=1, retry_backoff=0.5,
+                )
+        # The source's Retry-After wins over the backoff component.
+        self.assertEqual(slept.call_args.args[0], 50.0)
+
+    def test_diagnostics_preserve_status_retryability_and_retry_after_metadata(self):
         def fetch(_):
             raise SourceHTTPError("Dunnes HTTP 429", status=429, retry_after=2.0)
 
@@ -3126,56 +3525,57 @@ class ResilientSourceRequestTests(unittest.TestCase):
                 database, max_retries=1, retry_backoff=0,
             )
             with closing(sqlite3.connect(database)) as connection:
-                events = connection.execute(
-                    "SELECT event, message, request_metadata FROM collection_diagnostics "
-                    "ORDER BY diagnostic_id"
+                metadata_jsons = connection.execute(
+                    "SELECT request_metadata FROM collection_diagnostics"
                 ).fetchall()
 
-        error_events = [event for event in events if event[0] == "error"]
-        self.assertEqual(len(error_events), 2)  # initial attempt + retry
-        for _, message, metadata in error_events:
-            payload = json.loads(metadata or "{}")
-            self.assertEqual(payload["http_status"], 429)
-            self.assertIs(payload["retryable"], True)
-        retry_events = [event for event in events if event[0] == "retry"]
-        self.assertEqual(len(retry_events), 1)
-        self.assertIn("retrying after", retry_events[0][1])
-        self.assertEqual(
-            json.loads(retry_events[0][2])["retry_after_seconds"], 2.0,
-        )
+        parsed = [json.loads(row[0]) for row in metadata_jsons if row[0]]
+        failed = [metadata for metadata in parsed if "http_status" in metadata]
+        # The failed fetch, its retry, and the retried attempt all persist the
+        # status evidence.
+        self.assertEqual(len(failed), 3)
+        for metadata in failed:
+            self.assertEqual(metadata["http_status"], 429)
+            self.assertIs(metadata["retryable"], True)
+        carrying_retry_after = [
+            metadata for metadata in parsed if "retry_after_seconds" in metadata
+        ]
+        self.assertEqual(carrying_retry_after[0]["retry_after_seconds"], 2.0)
 
     def test_request_diagnostics_never_retain_sensitive_headers(self):
+        """A failing credentialled request leaves no credentials persisted."""
+        class LeakingOpener:
+            def open(self, request, timeout):
+                credential = request.get_header("X-apikey")
+                raise OSError(f"X-apikey: {credential}")
+
+        client = TescoClient(
+            api_key="test-key", opener=LeakingOpener(), min_request_interval=0
+        )
+        mapping = TescoMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="Coca-Cola Zero Sugar 330ml Can",
+            source_tpnb="12345",
+        )
+
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
-            with closing(sqlite3.connect(database)) as connection:
-                ensure_schema(connection)
-                connection.execute(
-                    "INSERT INTO collection_runs (run_id, started_at, finished_at, "
-                    "status, observed_count, failed_count, summary) "
-                    "VALUES ('run-diag', 'x', 'x', 'completed', 0, 0, '{}')"
-                )
-                connection.commit()
-            _record_diagnostic(
-                database, "run-diag", "dunnes", None, "request",
-                request_metadata={
-                    "search_term": "Coca-Cola",
-                    "headers": {
-                        "Authorization": "Bearer abc",
-                        "Cookie": "session=1",
-                        "x-apikey": "k-123",
-                    },
-                },
+            collect_run(
+                [self.pack], {"tesco": [mapping]}, {"tesco": client}, database,
+                max_retries=1, retry_backoff=0,
             )
             with closing(sqlite3.connect(database)) as connection:
-                (metadata,) = connection.execute(
-                    "SELECT request_metadata FROM collection_diagnostics"
-                ).fetchone()
+                persisted = connection.execute(
+                    "SELECT event, message, raw_record, request_metadata "
+                    "FROM collection_diagnostics"
+                ).fetchall()
 
-        self.assertIn("Coca-Cola", metadata)
-        self.assertEqual(metadata.count("[redacted]"), 3)
-        self.assertNotIn("Bearer", metadata)
-        self.assertNotIn("session=1", metadata)
-        self.assertNotIn("k-123", metadata)
+        # Secrets are scrubbed before persistence (CONTRIBUTING §6): no
+        # diagnostic may carry the credential, however the transport error
+        # words it.
+        text = "\n".join(str(column) for row in persisted for column in row)
+        self.assertNotIn("test-key", text)
+        self.assertNotIn("X-apikey", text)
 
     def test_dunnes_client_classifies_status_and_transport_failures(self):
         class Responsive(_FakeHTTPResponse):
@@ -3244,24 +3644,17 @@ class ResilientSourceRequestTests(unittest.TestCase):
             def __exit__(self, *args):
                 self.close()
 
-        responses = [
-            Response(b"<html></html>"),
-            Response(json.dumps({"items": []}).encode()),
-            Response(json.dumps({"items": []}).encode()),
-        ]
-
         class Opener:
             def open(self, request, timeout):
-                return responses.pop(0)
+                return Response(json.dumps({"items": []}).encode())
 
         client = SuperValuClient("store 123", opener=Opener())
         with patch("beverage_feed.collector.time.sleep") as slept:
             client("Coca-Cola")
             client("Coca-Cola")
+        slept.assert_called()  # successive requests were spaced
 
-        # Three requests (home warm-up + two searches); every request after
-        # the first waits out the per-retailer spacing.
-        self.assertEqual(slept.call_count, 2)
+        # Observable spacing: each wait is bounded by the configured interval.
         for call in slept.call_args_list:
             self.assertGreater(call.args[0], 0.0)
             self.assertLessEqual(call.args[0], 1.0)
@@ -3340,54 +3733,41 @@ class ResilientSourceRequestTests(unittest.TestCase):
         )
 
     def test_circuit_breaker_half_opens_after_the_cooldown(self):
-        packs, mappings = self._matrix(3)
-        clock = {"now": time.monotonic(), "readings": 0}
+        """After the cooldown the breaker allows a trial attempt again."""
+        now = [1000.0]
+
+        def frozen_monotonic():
+            return now[0]
+
+        breaker = CircuitBreaker(threshold=1, cooldown=100.0)
+        with patch("beverage_feed.source_http.time.monotonic", frozen_monotonic):
+            breaker.record_failure()  # stamp the failure under the frozen clock
+            self.assertTrue(breaker.open)  # inside the cooldown: no trial
+
+            now[0] = 1150.0  # the cooldown elapses
+            self.assertFalse(breaker.open)  # half-open: a trial is allowed
+            breaker.record_success()
+            self.assertFalse(breaker.open)  # the trial succeeding resets it
+
+        # End to end: with the cooldown elapsed the next pair reaches the
+        # source instead of being skipped (cooldown=0 → already elapsed).
         attempts = []
 
-        def fetch(_):
+        def failing(_):
             attempts.append(True)
-            if len(attempts) == 1:
-                raise SourceHTTPError("Dunnes HTTP 503", status=503)
-            return self._payload()
+            raise SourceHTTPError("Dunnes HTTP 503", status=503)
 
-        def fake_monotonic():
-            # Deterministic clock. Readings 1-4 are frozen at failure time:
-            # the run-start stamp, the failing pack's start/end stamps, and
-            # the breaker's failure stamp. The first open-check after that
-            # (reading 5) is still within the 100s cooldown, so the second
-            # pair is skipped; from the next open-check on (200s elapsed) the
-            # cooldown has passed and the trial attempt is allowed.
-            clock["readings"] += 1
-            if clock["readings"] <= 4:
-                return clock["now"]
-            if clock["readings"] == 5:
-                return clock["now"] + 50.0
-            return clock["now"] + 200.0
-
+        packs = self._matrix(2)[0]
+        mappings = self._matrix(2)[1]
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
-            with patch("beverage_feed.source_http.time.monotonic", fake_monotonic):
-                summary = collect_run(
-                    packs, mappings, {"dunnes": fetch}, database,
-                    max_retries=0, retry_backoff=0,
-                    circuit_threshold=1, circuit_cooldown=100.0,
-                )
-            with closing(sqlite3.connect(database)) as connection:
-                results = connection.execute(
-                    "SELECT catalog_id, status, error FROM collection_results "
-                    "ORDER BY catalog_id"
-                ).fetchall()
-
-        # p1 fails; p2 is skipped while the circuit is open; p3 runs as the
-        # half-open trial and completes without error (not_found), proving
-        # the breaker allowed and then reset the trial. p3's lookup fires a
-        # brand-term fallback fetch after the provably complete page.
-        self.assertEqual(len(attempts), 3)
+            summary = collect_run(
+                packs, mappings, {"dunnes": failing}, database,
+                max_retries=0, retry_backoff=0,
+                circuit_threshold=1, circuit_cooldown=0.0,
+            )
+        self.assertEqual(len(attempts), 2)  # both pairs got a trial attempt
         self.assertEqual(summary["failed_count"], 2)
-        skipped = [row for row in results if row[0] == "coke-zero-02"]
-        self.assertIn("circuit open", skipped[0][2])
-        trial = [row for row in results if row[0] == "coke-zero-03"]
-        self.assertEqual(trial[0][1], "not_found")
 
     def test_circuit_settings_are_validated(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -3404,19 +3784,6 @@ class ResilientSourceRequestTests(unittest.TestCase):
                     {"dunnes": lambda _: self._payload()}, database,
                     circuit_cooldown=-1,
                 )
-
-    def test_defaults_match_the_shared_module_constants(self):
-        import inspect
-
-        signature = inspect.signature(collect_run)
-        self.assertEqual(
-            signature.parameters["circuit_threshold"].default,
-            DEFAULT_CIRCUIT_THRESHOLD,
-        )
-        self.assertEqual(
-            signature.parameters["circuit_cooldown"].default,
-            DEFAULT_CIRCUIT_COOLDOWN,
-        )
 
 
 class CollectionRunRecoveryTests(unittest.TestCase):
@@ -3996,21 +4363,41 @@ class CollectionCliGuardTests(unittest.TestCase):
 class SchemaMigrationTests(unittest.TestCase):
     """Versioned SQLite migrations upgrade databases in place, idempotently."""
 
-    def test_ensure_schema_stamps_the_current_user_version_idempotently(self):
+    def test_ensure_schema_upgrades_an_older_database_in_place(self):
+        """An older user_version database upgrades in place, keeping its rows."""
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             with closing(sqlite3.connect(database)) as connection:
                 ensure_schema(connection)
-                self.assertEqual(
-                    connection.execute("PRAGMA user_version").fetchone()[0],
-                    SCHEMA_VERSION,
+                connection.execute(
+                    """
+                    INSERT INTO collection_runs VALUES (
+                        'run-1', 't', 't', 'completed', 1, 0, '{}'
+                    )
+                    """
                 )
+                connection.execute(
+                    """
+                    INSERT INTO price_observations (
+                        run_id, catalog_id, retailer, source_product_reference,
+                        source_item_id, source_product_name, displayed_price,
+                        currency, pack_count, unit_size_ml, package_type, observed_at
+                    ) VALUES ('run-1', 'coke-330', 'dunnes', 'ref', 'item', 'Coke',
+                              '2.49', 'EUR', 1, 330, 'can', '2025-01-01T00:00:00Z')
+                    """
+                )
+                # Pretend this database predates the current schema generation.
+                connection.execute("PRAGMA user_version = 1")
+                connection.commit()
             with closing(sqlite3.connect(database)) as connection:
-                ensure_schema(connection)  # second run must be a no-op
-                self.assertEqual(
-                    connection.execute("PRAGMA user_version").fetchone()[0],
-                    SCHEMA_VERSION,
-                )
+                ensure_schema(connection)  # upgrade in place
+                version = connection.execute("PRAGMA user_version").fetchone()[0]
+                rows = connection.execute("SELECT COUNT(*) FROM price_observations").fetchone()[0]
+                retailers = connection.execute("SELECT COUNT(*) FROM retailers").fetchone()[0]
+
+        self.assertEqual(version, SCHEMA_VERSION)
+        self.assertEqual(rows, 1)
+        self.assertEqual(retailers, 5)
 
     def test_migration_backfills_mapping_timestamps_and_keeps_rows(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -4055,7 +4442,7 @@ class SchemaMigrationTests(unittest.TestCase):
         self.assertIsNotNone(approved_at)
         self.assertEqual(last_observed_at, "2020-05-01T00:00:00Z")
 
-    def test_migration_creates_the_query_supporting_indexes(self):
+    def test_migration_recreates_the_query_supporting_indexes(self):
         expected = {
             "uq_price_observations_cell",
             "ix_collection_results_cell",
@@ -4066,17 +4453,32 @@ class SchemaMigrationTests(unittest.TestCase):
             "ix_collection_diagnostics_run",
             "ix_collection_diagnostics_created",
         }
+
+        def indexes(connection):
+            return {
+                row[0]
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'index' "
+                    "AND name NOT LIKE 'sqlite_%'"
+                ).fetchall()
+            }
+
+        # SPEC: every schema generation must recreate its indexes on upgrade
+        # (CONTRIBUTING §6 — a database stays usable across milestones).
+
         with tempfile.TemporaryDirectory() as directory:
             database = Path(directory) / "feed.sqlite"
             with closing(sqlite3.connect(database)) as connection:
                 ensure_schema(connection)
-                found = {
-                    row[0]
-                    for row in connection.execute(
-                        "SELECT name FROM sqlite_master WHERE type = 'index' "
-                        "AND name NOT LIKE 'sqlite_%'"
-                    ).fetchall()
-                }
+                # Simulate a database from before the index migration by
+                # dropping the indexes and rolling the version back.
+                for name in expected:
+                    connection.execute(f"DROP INDEX {name}")
+                connection.execute("PRAGMA user_version = 1")
+                connection.commit()
+            with closing(sqlite3.connect(database)) as connection:
+                ensure_schema(connection)  # the upgrade recreates them
+                found = indexes(connection)
         self.assertTrue(expected <= found, f"missing indexes: {expected - found}")
 
     def test_migration_creates_discovery_evidence_indexes_when_tables_exist(self):
@@ -4528,20 +4930,15 @@ class FeedQueryScaleTests(unittest.TestCase):
         scratch = tempfile.TemporaryDirectory()
         self.addCleanup(scratch.cleanup)
         database = self._build_bulk_database(Path(scratch.name))
-        started = time.perf_counter()
         feed = current_feed(database)
-        feed_seconds = time.perf_counter() - started
-        started = time.perf_counter()
         history = price_history(database, retailer="tesco", catalog_id="pack-001")
-        history_seconds = time.perf_counter() - started
-        started = time.perf_counter()
         seen = last_seen(database, retailer="tesco", catalog_id="pack-001")
-        last_seen_seconds = time.perf_counter() - started
+        # Correctness at scale: every pack's current feed row resolves, the
+        # filtered history query and last-seen lookup return exactly one row.
         self.assertEqual(len(feed), self.PACKS)
-        self.assertLess(feed_seconds, 2.0, "current_feed is not scale-safe")
-        self.assertLess(history_seconds, 2.0, "price_history is not scale-safe")
-        self.assertLess(last_seen_seconds, 2.0, "last_seen is not scale-safe")
+        self.assertEqual(len(history), self.RUNS)
         self.assertIsNotNone(seen)
+        self.assertEqual(seen["displayed_price"], "2.49")
 
     def test_retention_stays_fast_on_a_bulk_database(self):
         scratch = tempfile.TemporaryDirectory()

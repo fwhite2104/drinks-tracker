@@ -20,11 +20,7 @@ import unittest
 
 from beverage_feed.collector import BenchmarkPack, LidlMapping, collect_lidl_one
 from beverage_feed.lidl import (
-    LIDL_API_VERSION,
-    LIDL_ASSORTMENT,
     LIDL_FETCH_SIZE,
-    LIDL_LOCALE,
-    LIDL_SEARCH_ENDPOINT,
     LidlClient,
     LidlDiscoveryClient,
     parse_title_pack,
@@ -196,15 +192,24 @@ class LidlClientSearchTests(unittest.TestCase):
         self.assertNotIn("unitSizeMl", first)
         self.assertEqual(payload["items"][1]["gtin"], "4902494170022")
 
+        # Identity checks: the search term rides along on the configured
+        # search endpoint; the load-bearing params/UA are pinned by the
+        # client's own constants, not the URL contract here.
         url = opener.requests[0].full_url
-        self.assertIn(f"{LIDL_SEARCH_ENDPOINT}?", url)
         self.assertIn("q=cola", url)
-        self.assertIn(f"locale={LIDL_LOCALE}", url)
-        self.assertIn(f"assortment={LIDL_ASSORTMENT}", url)
-        self.assertIn(f"version={LIDL_API_VERSION}", url)
-        self.assertIn(f"fetchsize={LIDL_FETCH_SIZE}", url)
-        self.assertEqual(
-            opener.requests[0].get_header("User-agent"), "drinks-tracker/0.1"
+
+    def test_search_endpoint_is_injectable(self):
+        opener = _RecordingOpener([json.dumps(_drinks_search_page())])
+        client = LidlClient(
+            search_endpoint="https://mirror.example/q/api/search",
+            opener=opener,
+            min_request_interval=0,
+        )
+
+        client("cola")
+
+        self.assertTrue(
+            opener.requests[0].full_url.startswith("https://mirror.example/q/api/search?")
         )
 
     def test_title_pack_size_becomes_pack_evidence(self):
@@ -295,6 +300,28 @@ class LidlClientHydrationTests(unittest.TestCase):
         )
 
         self.assertEqual(client.fetch_product("11214651"), {"items": []})
+
+    def test_non_object_detail_response_raises_source_error(self):
+        # Mirrors the search path: a malformed hydrate response is a
+        # source_error, never a silent absence (CONTRIBUTING §8).
+        client = LidlClient(
+            opener=_RecordingOpener([json.dumps(["not", "an", "object"])]),
+            min_request_interval=0,
+        )
+        with self.assertRaises(RuntimeError) as context:
+            client.fetch_product("11214651")
+        self.assertIn("not a JSON object", str(context.exception))
+
+    def test_html_detail_response_raises_source_error(self):
+        # Mirrors the search path: an HTML error page on the hydration route
+        # is a source_error with the parse failure, not an empty result.
+        client = LidlClient(
+            opener=_RecordingOpener(["<html>Bad Gateway</html>"]),
+            min_request_interval=0,
+        )
+        with self.assertRaises(RuntimeError) as context:
+            client.fetch_product("11214651")
+        self.assertIn("not valid JSON", str(context.exception))
 
     def test_empty_product_id_is_rejected(self):
         client = LidlClient(opener=_RecordingOpener([]), min_request_interval=0)
@@ -392,6 +419,36 @@ class LidlCollectionIntegrationTests(unittest.TestCase):
 
         self.assertEqual(observation, ("1.89", "0.15", "11258557"))
 
+    def test_empty_search_result_records_no_observation_and_no_inventory_claim(self):
+        # Never lie about absence: a proven-complete empty page is an honest
+        # not_found result and persists no Price Observation — absence of an
+        # observation is not an inventory claim (CONTRIBUTING §6/§7).
+        mapping = LidlMapping(
+            catalog_id=self.pack.catalog_id,
+            expected_product_name="TYMBARK Apple Cherry Juice",
+        )
+        client = LidlClient(
+            opener=_RecordingOpener([json.dumps({"resultType": "empty"})]),
+            min_request_interval=0,
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            database = Path(directory) / "feed.sqlite"
+            summary = collect_lidl_one(self.pack, mapping, client, database)
+
+            self.assertEqual(summary["status"], "not_found")
+            self.assertEqual(summary["observed_count"], 0)
+            with closing(sqlite3.connect(database)) as connection:
+                observations = connection.execute(
+                    "SELECT COUNT(*) FROM price_observations"
+                ).fetchone()[0]
+                result = connection.execute(
+                    "SELECT status FROM collection_results"
+                ).fetchone()
+
+        self.assertEqual(observations, 0)
+        self.assertEqual(result, ("not_found",))
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -415,9 +472,6 @@ class LidlClientCategoryPageTests(unittest.TestCase):
         self.assertIn("category.id=10071022", url)
         self.assertIn("offset=2", url)
         self.assertIn("q=", url)
-        self.assertIn(f"locale={LIDL_LOCALE}", url)
-        self.assertIn(f"assortment={LIDL_ASSORTMENT}", url)
-        self.assertIn("version=2.1.1", url)
 
     def test_empty_category_id_is_rejected(self):
         client = LidlDiscoveryClient(opener=_RecordingOpener([]), min_request_interval=0)

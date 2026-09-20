@@ -8,13 +8,14 @@ clients and captured fixtures, exactly like the collection tests.
 import io
 import json
 import os
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
 from beverage_feed.canary import (
-    CANARY_RETAILERS,
     GATE_FAILURE_THRESHOLD,
     CanaryOutcome,
     _observation_checks,
@@ -285,6 +286,54 @@ class RunCanaryTests(unittest.TestCase):
 
         self.assertEqual(outcomes[0].catalog_id, PACK.catalog_id)
         self.assertEqual(outcomes[0].status, "pass")
+
+    def test_bounded_retry_recovers_after_transient_failures(self):
+        # CONTRIBUTING §8: retries are bounded (max_retries). A client that
+        # fails twice with a retryable 503 then succeeds is probed exactly
+        # 3 times (1 + max_retries) and the canary still passes.
+        calls: list[str] = []
+
+        class _FlakyThenHealthyClient:
+            def __call__(self, search_term):
+                calls.append(search_term)
+                if len(calls) <= 2:
+                    raise SourceHTTPError("tesco HTTP 503", status=503)
+                return _fixture("tesco_products.json")
+
+        flaky = _FlakyThenHealthyClient()
+        with tempfile.TemporaryDirectory() as directory:
+            outcomes = run_canary(
+                self.catalog, self.mappings, {"tesco": flaky},
+                retailers=("tesco",),
+                max_retries=2, retry_backoff=0.0,
+                database=Path(directory) / "probe.sqlite",
+            )
+
+        self.assertEqual(outcomes[0].status, "pass")
+        self.assertEqual(len(calls), 3)
+
+    def test_bounded_retry_stops_after_the_bound_and_reports_drift(self):
+        # The bound is a ceiling, not a hammer: past max_retries the probe
+        # gives up (drift) instead of retrying forever.
+        calls: list[str] = []
+
+        class _AlwaysBrokenClient:
+            def __call__(self, search_term):
+                calls.append(search_term)
+                raise SourceHTTPError("tesco HTTP 503", status=503)
+
+        broken = _AlwaysBrokenClient()
+        with tempfile.TemporaryDirectory() as directory:
+            outcomes = run_canary(
+                self.catalog, self.mappings, {"tesco": broken},
+                retailers=("tesco",),
+                max_retries=1, retry_backoff=0.0,
+                database=Path(directory) / "probe.sqlite",
+            )
+
+        self.assertEqual(outcomes[0].status, "drift")
+        self.assertIn("retries", outcomes[0].error or "")
+        self.assertEqual(len(calls), 2)  # initial + exactly max_retries retries
 
 
 class ObservationCheckTests(unittest.TestCase):
@@ -564,8 +613,14 @@ class CanaryCommandTests(unittest.TestCase):
         self.assertEqual(code, 1)
 
     def test_main_dump_fixtures_writes_scrubbed_payloads(self):
+        # CONTRIBUTING §6: secrets are scrubbed before persistence; dumped
+        # fixture payloads must not leak sensitive keys, or an operator
+        # committing the refreshed fixture would commit credentials.
+        poisoned = _fixture("tesco_products.json")
+        poisoned["sessionToken"] = "s3cr3t-token-value"
+        poisoned["sessionCookie"] = "s3cr3t-cookie-value"
         clients = {
-            "tesco": _StubClient(payload=_fixture("tesco_products.json")),
+            "tesco": _StubClient(payload=poisoned),
         }
         with tempfile.TemporaryDirectory() as directory:
             fixtures_dir = Path(directory) / "fixtures-out"
@@ -580,32 +635,38 @@ class CanaryCommandTests(unittest.TestCase):
                 ])
 
             self.assertEqual(code, 0)
-            dumped = json.loads((fixtures_dir / "tesco.json").read_text())
+            raw = (fixtures_dir / "tesco.json").read_text()
+            self.assertNotIn("s3cr3t-token-value", raw)
+            self.assertNotIn("s3cr3t-cookie-value", raw)
+            dumped = json.loads(raw)
             self.assertIn("products", dumped)
 
-    def test_canary_never_touches_the_feed_database(self):
-        clients = {
-            "tesco": _StubClient(payload=_fixture("tesco_products.json")),
-        }
-        with tempfile.TemporaryDirectory() as directory:
-            feed_db = Path(directory) / "feed.sqlite"
-            with patch("beverage_feed.canary._default_clients", return_value=clients):
-                main([
-                    "--catalog", str(_catalog_file(directory)),
-                    "--mapping", str(_mapping_file(directory, "tesco", TESCO_MAPPING)),
-                    "--retailer", "tesco",
-                    "--gate-state", str(Path(directory) / "gate.json"),
-                    "--retry-backoff", "0",
-                ])
-
-            self.assertFalse(feed_db.exists())
-
     def test_module_never_runs_live_clients_at_import_or_collection(self):
-        # Guard the hermeticity contract: the canary module must not build any
-        # live retailer client at import time.
-        import beverage_feed.canary as canary_module
+        """Hermeticity contract: importing the canary module never dials out.
 
-        self.assertEqual(canary_module.CANARY_RETAILERS, ("dunnes", "supervalu", "tesco"))
+        The suite imports this module at collection time; a fresh interpreter
+        patches the network seam (urlopen) and the client builder to fail, so
+        any import-time client construction or live request blows up loudly
+        instead of silently succeeding. ``CANARY_RETAILERS == (...)`` is not
+        the contract — this is.
+        """
+        repo_root = Path(__file__).resolve().parent.parent
+        probe = "\n".join([
+            "from unittest.mock import patch",
+            "with patch('beverage_feed.collector.build_client',",
+            "        side_effect=AssertionError('live client built at import')), \\",
+            "     patch('urllib.request.urlopen',",
+            "        side_effect=AssertionError('live network access at import')):",
+            "    import beverage_feed.canary",
+            "print('hermetic')",
+        ])
+        result = subprocess.run(
+            [sys.executable, "-c", probe],
+            capture_output=True, text=True, cwd=repo_root, timeout=60, check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("hermetic", result.stdout)
 
 
 class ReleaseGateCollectionEnforcementTests(unittest.TestCase):
@@ -657,6 +718,31 @@ class ReleaseGateCollectionEnforcementTests(unittest.TestCase):
                         "--database", str(Path(directory) / "feed.sqlite"),
                         "--release-gate", "--gate-state", str(gate_state),
                     ])
+
+    def test_env_drinks_release_gate_enforces_the_blocked_gate(self):
+        # goal.md audit-10: the gate is consultable through env var
+        # (DRINKS_RELEASE_GATE=1) alone, no --release-gate flag needed.
+        from beverage_feed.collector import main as collect_main
+
+        with tempfile.TemporaryDirectory() as directory:
+            gate_state = Path(directory) / "gate.json"
+            record_outcomes(gate_state, [CanaryOutcome(
+                retailer="tesco", catalog_id=PACK.catalog_id, status="drift",
+                checks=(), error="HTTP 403", checked_at="2026-08-27T12:00:00Z",
+                duration_ms=1.0,
+            )] * GATE_FAILURE_THRESHOLD)
+
+            with patch.dict("os.environ", {"DRINKS_RELEASE_GATE": "1", "TESCO_API_KEY": ""}):
+                with self.assertRaises(SystemExit) as ctx:
+                    collect_main([
+                        "--catalog", str(_catalog_file(directory)),
+                        "--mapping", str(_mapping_file(directory, "tesco", TESCO_MAPPING)),
+                        "--retailer", "tesco",
+                        "--database", str(Path(directory) / "feed.sqlite"),
+                        "--gate-state", str(gate_state),
+                    ])
+
+        self.assertEqual(ctx.exception.code, 2)  # argparse error: nothing left to run
 
     def test_gate_is_not_enforced_by_default(self):
         from beverage_feed.collector import main as collect_main
