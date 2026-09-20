@@ -28,11 +28,13 @@ from .aldi import AldiDiscoveryClient as AldiClient
 from .aldi import AldiClient as WorkingAldiClient
 from .finders import (
     _aldi_drs_deposit,
+    _composition_conflict,
     _find_aldi_listing,
     _find_lidl_listing,
     _find_supervalu_listing,
     _find_tesco_listing,
     _lidl_drs_deposit,
+    _listing_matches,
     _name_matches,
     _normalise_name,
     _optional_price,
@@ -70,6 +72,10 @@ class BenchmarkPack:
     package_type: str
     search_term: str
     aliases: tuple[str, ...] = ()
+    # Curated GTIN/EAN when known (ticket 18: the Monster Ultra White /
+    # Tesco "Ultra Zero" naming mismatch was only resolvable via GTIN).
+    # Absent by default; a listing GTIN then only ever conflicts.
+    gtin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -117,20 +123,45 @@ class DunnesClient:
     """Search the Dunnes Stores *grocery* storefront gateway.
 
     The grocery site (dunnesstoresgrocery.com) exposes a JSON search API on a
-    separate ``storefrontgateway`` host that is not Cloudflare-gated. Its item
-    shape already carries ``Price`` and ``taxDetails`` keys compatible with the
-    downstream VTEX-style parsing, so this client translates each result into
-    the ``productSearch.products`` envelope the collector expects.
+    separate ``storefrontgateway`` host. Its item shape already carries
+    ``Price`` and ``taxDetails`` keys compatible with the downstream
+    VTEX-style parsing, so this client translates each result into the
+    ``productSearch.products`` envelope the collector expects.
+
+    The gateway used to answer plain urllib requests; since 2026-08-30 it
+    answers HTTP 403 to this network, and since ~2026-09-06 to GitHub Actions
+    egress as well (every mapped Dunnes cell `source_error`ed for two weeks,
+    ticket 19). Requests therefore default to the Chrome-impersonated
+    transport — the same escape hatch ``TescoClient`` uses — falling back to
+    urllib when curl-cffi is not installed or an explicit ``opener``/``session``
+    is injected (the test seams).
     """
 
-    def __init__(self, endpoint: str = DUNNES_ENDPOINT, store_id: str = DUNNES_STORE_ID, opener: urllib.request.OpenerDirector | None = None, min_request_interval: float = 1.0):
+    def __init__(
+        self,
+        endpoint: str = DUNNES_ENDPOINT,
+        store_id: str = DUNNES_STORE_ID,
+        opener: urllib.request.OpenerDirector | None = None,
+        min_request_interval: float = 1.0,
+        impersonate: str | None = "chrome",
+        session: Any | None = None,
+    ):
         self.endpoint = endpoint.rstrip("/")
         self.store_id = store_id
         # opener=None keeps the module-level urllib.request.urlopen as the
         # transport (tests intercept it as the network seam).
         self._transport = source_http.RetailerTransport(
-            "Dunnes", opener=opener, min_request_interval=min_request_interval
+            "Dunnes",
+            opener=opener,
+            min_request_interval=min_request_interval,
+            impersonate=impersonate,
+            session=session,
         )
+
+    @property
+    def transport(self) -> source_http.RetailerTransport:
+        """The shared transport; its impersonation mode is observable."""
+        return self._transport
 
     def __call__(self, search_term: str) -> dict[str, Any]:
         if not search_term.strip():
@@ -400,7 +431,6 @@ def _find_listing(
     if not isinstance(products, list):
         raise ValueError("Dunnes response has no productSearch.products list")
 
-    expected_tokens = _normalise_name(mapping.expected_product_name)
     identity_matched = False
     for product in products:
         if not isinstance(product, dict):
@@ -412,7 +442,9 @@ def _find_listing(
             continue
         if (
             not mapping.source_product_reference
-            and not _name_matches(expected_tokens, product.get("productName", ""))
+            and not _listing_matches(
+                mapping.expected_product_name, product.get("productName", "")
+            )
         ):
             continue
         items = product.get("items") or []
@@ -439,15 +471,28 @@ def _validate_listing(name: str, pack: BenchmarkPack) -> str | None:
     Returns ``None`` when the listing looks like the expected pack,
     or a short reason string when attributes have drifted.
     """
+    # Composition first: an explicit "12 x 330ml" or "x24" in the listing
+    # name must agree with the pack's count/size, whatever the brand says.
+    # Validated incident: research/wrong-product-audit-2026-09-20.md (a
+    # single-can cell observed at a 12-pack price for five runs).
+    conflict = _composition_conflict(name, pack.pack_count, pack.unit_size_ml)
+    if conflict is not None:
+        return conflict
     name_tokens = _normalise_name(name)
     # Validate only the core brand tokens: the productReference identity was
     # approved by review, so the guard's job is detecting the source reusing
     # the reference for a different product line, not re-litigating variant
     # phrasing ("Sugarfree" vs "Sugar Free", "Original" implied not stated).
     # Retailer titles may use a known pack alias instead (e.g. "Diet Coke"
-    # for a Coca-Cola Diet pack), mirroring matching.name_matches.
+    # for a Coca-Cola Diet pack), mirroring matching.name_matches. Brandless
+    # own-label packs (Ballygowan-style sources that omit the brand) match
+    # on the pack name minus generic packaging words instead.
     core = _normalise_name(pack.brand)
     if not core or core.issubset(name_tokens):
+        return None
+    generic = {"bottle", "bottles", "can", "cans", "pack", "x", "ml", "litre", "litres"}
+    name_core = _normalise_name(pack.name) - generic
+    if name_core and name_core.issubset(name_tokens):
         return None
     if any(
         _normalise_name(alias) and _normalise_name(alias).issubset(name_tokens)
@@ -682,6 +727,9 @@ def _migrate_query_indexes_and_mapping_timestamps(
     for table, required, statement in _QUERY_INDEXES:
         if required <= _columns_of(connection, table):
             connection.execute(statement)
+    # The unique cell index is enforced (not just performance): a v1 database
+    # whose index was dropped gets it recreated here too.
+    _ensure_observation_cell_index(connection)
     _ensure_discovery_evidence_indexes(connection)
 
 
@@ -711,6 +759,9 @@ def ensure_schema(connection: sqlite3.Connection) -> None:
 
 
 _SENSITIVE_KEY = re.compile(r"(?:authorization|cookie|password|secret|token|api.?key)", re.I)
+_HEADER_CARRY_RE = re.compile(
+    r"(\b(?:x-)?api-?key\s*:|\bcookie\s*:|\bauthorization\s*:|\btoken\s*:)", re.I
+)
 
 
 def safe_record(value: Any) -> str | None:
@@ -731,6 +782,19 @@ def safe_record(value: Any) -> str | None:
         return json.dumps(scrub(value), sort_keys=True, default=str)
     except (TypeError, ValueError):
         return json.dumps(str(value))
+
+
+def safe_text(text: str) -> str:
+    """Free-text message safe for diagnostics/logs: header/credential-free.
+
+    An error string may embed request headers ("X-apikey: ...", "Cookie: ...")
+    whatever the source error wording; anything after such a marker is never
+    operator-facing, so the whole header run is replaced with a marker.
+    """
+    scrubbed = _HEADER_CARRY_RE.sub(r"\1[redacted]", text)
+    if scrubbed != text:
+        scrubbed = "[redacted] (transport message withheld: may embed credentials)"
+    return scrubbed
 
 
 def _record_diagnostic(
@@ -790,10 +854,13 @@ def _retrying_fetcher(
             except Exception as exc:
                 # Diagnostics preserve the status code and retryability;
                 # safe_record scrubs any sensitive keys before persistence.
+                # The message itself may carry request headers (urllib error
+                # strings embed them), so it goes through the same scrub.
                 failure = source_http.failure_metadata(exc)
                 _record_diagnostic(
                     database, run_id, retailer, catalog_id, "error",
-                    level="error", message=str(exc),
+                    level="error",
+                    message=safe_text(str(exc)),
                     request_metadata={**metadata, **failure},
                 )
                 if attempt_number >= max_retries or not source_http.is_retryable_failure(exc):
@@ -1645,6 +1712,21 @@ def _collect_cell(
                     level, event, message, timestamp(),
                 ),
             )
+        if status == "source_error" and outcome.payload is not None:
+            # A drifted/failed listing keeps its raw record in diagnostics so
+            # the operator can re-approve the identity (wrong-product audit).
+            connection.execute(
+                """
+                INSERT INTO collection_diagnostics
+                    (run_id, retailer, catalog_id, level, event, message,
+                     raw_record, request_metadata, created_at)
+                VALUES (?, ?, ?, 'error', 'result', ?, ?, NULL, ?)
+                """,
+                (
+                    run_id, extraction.retailer, pack.catalog_id,
+                    error, safe_record(outcome.payload), timestamp(),
+                ),
+            )
         connection.commit()
     return summary | ({"error": error} if error else {})
 
@@ -1867,7 +1949,7 @@ def _log_decision(
         fields.append(f"reason={result['error']}")
     if result.get("source_product_reference"):
         fields.append(f"ref={result['source_product_reference']}")
-    logger.log(level, " ".join(fields))
+    logger.log(level, safe_text(" ".join(fields)))
 
 
 def _mapping_rows(value: Any) -> list[Any]:

@@ -11,6 +11,7 @@ import argparse
 import json
 import os
 import sqlite3
+from contextlib import closing
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -210,6 +211,63 @@ def reject_listing(
     return {"status": "rejected", "record": record}
 
 
+def block_listing_everywhere(
+    store: DiscoveryStore,
+    *,
+    retailer: str,
+    candidate_id: str,
+    rejection_path: str | Path,
+    decided_by: str,
+    reason: str | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """ff-15: bar one candidate across every cell of the retailer.
+
+    Semantically narrow: "not a beverage / not a real product candidate".
+    Variant-of-same-brand cases stay per-cell rejections (or become catalog
+    cells per ticket 16).
+    """
+    now = now or timestamp()
+    with closing(store.connection()) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            "SELECT * FROM catalog_candidates WHERE candidate_id=?", (candidate_id,)
+        ).fetchone()
+        if row is None:
+            raise ValueError(f"unknown Catalog Candidate: {candidate_id}")
+        if row["retailer"] != retailer:
+            raise ValueError(
+                f"candidate {candidate_id} belongs to {row['retailer']}, not {retailer}"
+            )
+    rejections = load_rejections(rejection_path)
+    existing_block = next(
+        (
+            row for row in rejections["retailer_blocks"]
+            if row["canonical_key"] == candidate_id
+            and row["retailer"] == retailer
+            and row["state"] == "blocked"
+        ),
+        None,
+    )
+    if existing_block is not None:
+        return {"status": "blocked", "idempotent": True, "record": existing_block}
+    record = {
+        "canonical_key": candidate_id,
+        "retailer": retailer,
+        "rejected_at": now,
+        "decided_by": decided_by,
+        "reason": reason,
+        "state": "blocked",
+    }
+    rejections["retailer_blocks"].append(record)
+    write_rejections(rejection_path, rejections)  # durable JSON first
+    cleared = store.retailer_block(
+        retailer=retailer, candidate_id=candidate_id,
+        decided_by=decided_by, reason=reason, rejected_at=now,
+    )
+    return {"status": "blocked", "cells_cleared": cleared, "record": record}
+
+
 def do_not_map_cell(
     store: DiscoveryStore,
     *,
@@ -271,7 +329,7 @@ def reset_rejections(
     now = now or timestamp()
     rejections = load_rejections(rejection_path)
     count = 0
-    for section in ("listings", "cells"):
+    for section in ("listings", "cells", "retailer_blocks"):
         for row in rejections[section]:
             if row["state"] == "superseded":
                 continue
@@ -284,6 +342,11 @@ def reset_rejections(
             count += 1
             if section == "listings":
                 store.supersede_rejection("listings", row["canonical_key"], superseded_at=now)
+                store.set_candidate_status(row["canonical_key"], "pending_review")
+            elif section == "retailer_blocks":
+                store.supersede_rejection(
+                    "retailer_blocks", row["canonical_key"], superseded_at=now,
+                )
                 store.set_candidate_status(row["canonical_key"], "pending_review")
             else:
                 store.supersede_rejection(
@@ -415,6 +478,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--candidate-id", required=True)
     p.add_argument("--reason")
 
+    p = subparsers.add_parser("block")
+    p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
+    p.add_argument("--candidate-id", required=True)
+    p.add_argument("--reason", required=True)
+
     p = subparsers.add_parser("do-not-map")
     p.add_argument("--retailer", required=True, choices=("dunnes", "supervalu", "tesco", "lidl", "aldi"))
     p.add_argument("--catalog-id", required=True)
@@ -483,6 +551,11 @@ def main(argv: list[str] | None = None) -> int:
             candidate_id=args.candidate_id, mapping_path=args.mapping,
             rejection_path=args.rejections, decided_by=args.decided_by, reason=args.reason,
         )
+    elif args.command == "block":
+        result = block_listing_everywhere(
+            store, retailer=args.retailer, candidate_id=args.candidate_id,
+            rejection_path=args.rejections, decided_by=args.decided_by, reason=args.reason,
+        )
     elif args.command == "do-not-map":
         result = do_not_map_cell(
             store, retailer=args.retailer, catalog_id=args.catalog_id,
@@ -546,6 +619,15 @@ def main(argv: list[str] | None = None) -> int:
         )
     print(json.dumps(result, indent=2, default=str))
     return 0
+
+
+def _decision_main(argv: list[str] | None = None) -> int:
+    """Decision CLI entry: a rejected decision is a nonzero exit, not a raise."""
+    try:
+        return main(argv)
+    except ValueError as exc:
+        print(f"error: {exc}")
+        return 1
 
 
 __all__ = [

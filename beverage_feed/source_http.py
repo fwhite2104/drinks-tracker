@@ -130,8 +130,13 @@ def status_error(
 
 
 def transport_error(retailer: str, exc: Exception) -> SourceHTTPError:
-    """Retryable failure for a transport-level outage (no HTTP status)."""
-    return SourceHTTPError(f"{retailer} request failed: {exc}", status=None)
+    """Retryable failure for a transport-level outage (no HTTP status).
+
+    The exception text may carry credentials/cookies (urllib embeds request
+    headers in some errors); messages stay header-free, so the raw text is
+    never echoed — the failure metadata keeps status/retryability evidence.
+    """
+    return SourceHTTPError(f"{retailer} request failed", status=None)
 
 
 def is_retryable_failure(exc: BaseException) -> bool:
@@ -186,12 +191,17 @@ def spacing_delay(
 
 
 class RetailerTransport:
-    """Throttled urllib fetcher shared by the Aldi/Lidl retailer clients.
+    """Throttled urllib fetcher shared by the retailer clients.
 
     One throttle and one error-mapping path: HTTP >= 400 becomes
     ``status_error`` (carrying Retry-After evidence), transport-level outages
     become ``transport_error``, anything else degrades to a plain
-    ``RuntimeError``.
+    ``RuntimeError``. When ``impersonate`` is set and curl-cffi is installed
+    (the optional ``impersonation`` extra), requests go through a
+    Chrome-fingerprinted session instead of urllib — the same escape hatch
+    ``TescoClient`` uses to clear Akamai; Dunnes now needs it too (CI egress
+    gets HTTP 403 on the plain path). The error classification above is
+    shared by both branches.
     """
 
     def __init__(
@@ -200,6 +210,8 @@ class RetailerTransport:
         *,
         opener: urllib.request.OpenerDirector | None = None,
         min_request_interval: float = 1.0,
+        impersonate: str | None = None,
+        session: Any | None = None,
     ) -> None:
         if min_request_interval < 0:
             raise ValueError(f"{retailer} request interval must not be negative")
@@ -208,12 +220,66 @@ class RetailerTransport:
         # transport (tests intercept it as the network seam).
         self.opener = opener
         self.min_request_interval = min_request_interval
+        # Public so wiring tests and operators can observe the transport
+        # mode; an explicitly injected session wins, then an explicit opener
+        # (the test seam — no impersonation), then the requested profile.
+        self.impersonate = impersonate
+        if session is not None:
+            self._session: Any = session
+        elif opener is not None:
+            self._session = None
+        else:
+            self._session = self._build_session(impersonate)
         self._last_request_at: float | None = None
+
+    def _build_session(self, impersonate: str | None) -> Any | None:
+        """A browser-impersonated session, or ``None`` without curl-cffi.
+
+        The impersonation extra is optional: when it is not installed the
+        transport silently keeps the urllib path, exactly like
+        ``TescoClient``.
+        """
+        if impersonate is None:
+            return None
+        try:
+            from curl_cffi import requests as curl_requests
+        except ImportError:
+            return None
+        return curl_requests.Session(impersonate=impersonate)
 
     def _throttle(self) -> None:
         delay = spacing_delay(self._last_request_at, self.min_request_interval)
         if delay:
             time.sleep(delay)
+
+    def _session_response(
+        self, request: urllib.request.Request
+    ) -> tuple[int, Mapping[str, Any], bytes]:
+        """Send one prepared Request through the impersonated session.
+
+        The tracker's own ``User-Agent`` is dropped: the impersonated profile
+        supplies the matching browser UA and client hints (a Chrome TLS
+        fingerprint paired with a non-browser UA is itself a detection
+        signal). curl_cffi raises ``RequestException``, an ``OSError``
+        subclass, so transport failures keep the shared classification.
+        """
+        headers = {
+            key: value
+            for key, value in request.header_items()
+            if key.lower() != "user-agent"
+        }
+        response = self._session.request(
+            request.get_method(),
+            request.full_url,
+            headers=headers,
+            data=request.data,
+            timeout=30,
+        )
+        return (
+            int(getattr(response, "status_code", 200)),
+            getattr(response, "headers", None) or {},
+            bytes(getattr(response, "content", b"") or b""),
+        )
 
     def send(self, request: urllib.request.Request, *, parse_json: bool = True) -> Any:
         """Fetch a prepared urllib Request with shared throttle + error mapping.
@@ -224,18 +290,25 @@ class RetailerTransport:
         """
         self._throttle()
         try:
-            context = (
-                self.opener.open(request, timeout=30)
-                if self.opener is not None
-                else urllib.request.urlopen(request, timeout=30)
-            )
-            with context as response:
-                if getattr(response, "status", 200) >= 400:
+            if self._session is not None:
+                status, headers, body = self._session_response(request)
+                if status >= 400:
                     raise status_error(
-                        self.retailer, getattr(response, "status", 200),
-                        response_retry_after(response),
+                        self.retailer, status, headers.get("Retry-After")
                     )
-                body = response.read()
+            else:
+                context = (
+                    self.opener.open(request, timeout=30)
+                    if self.opener is not None
+                    else urllib.request.urlopen(request, timeout=30)
+                )
+                with context as response:
+                    if getattr(response, "status", 200) >= 400:
+                        raise status_error(
+                            self.retailer, getattr(response, "status", 200),
+                            response_retry_after(response),
+                        )
+                    body = response.read()
         except SourceHTTPError:
             raise
         except urllib.error.HTTPError as exc:

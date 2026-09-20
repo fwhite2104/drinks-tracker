@@ -26,6 +26,7 @@ class SourceListing:
     pack_count: int | None = None
     unit_size_ml: int | None = None
     package_type: str | None = None
+    gtin: str | None = None
 
 
 @dataclass(frozen=True)
@@ -239,6 +240,24 @@ def is_relevant_candidate(name: str, pack: BenchmarkPack) -> bool:
     return shares_identity_token(name, identity_phrases(pack))
 
 
+def gtin_matches(pack: BenchmarkPack, listing_gtin: str | None) -> bool | None:
+    """Three-valued GTIN identity between a catalog pack and a listing.
+
+    ``True`` — both carry a GTIN and the digit-normalized values are equal:
+    the same physical pack regardless of naming. ``False`` — both carry one
+    and they differ: never the pack. ``None`` — no decisive evidence (either
+    side unstated), leaving name/attribute evidence in charge.
+    """
+    if not pack.gtin or not listing_gtin:
+        return None
+    return _gtin_key(pack.gtin) == _gtin_key(listing_gtin)
+
+
+def _gtin_key(value: str) -> str:
+    digits = re.sub(r"\D", "", str(value))
+    return digits.lstrip("0")
+
+
 def attribute_candidates(
     catalog: Iterable[BenchmarkPack], listing: SourceListing
 ) -> list[BenchmarkPack]:
@@ -273,6 +292,12 @@ def attribute_candidates(
 
 
 def name_matches(pack: BenchmarkPack, listing: _NamedListing) -> bool:
+    # GTIN is decisive when both sides carry one: equal digits are the same
+    # physical pack whatever the names say (ticket 18: Tesco sells Monster
+    # Ultra White as "Ultra Zero"); differing digits are never the pack.
+    verdict = gtin_matches(pack, getattr(listing, "gtin", None))
+    if verdict is not None:
+        return verdict
     source = _core_tokens(listing.name)
     for phrase in (pack.name, *pack.aliases):
         phrase_tokens = _core_tokens(phrase)

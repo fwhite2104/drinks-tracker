@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import io
+import sys
 import time as time_module
 import unittest
 import urllib.request
@@ -137,6 +139,114 @@ class RetailerTransportSendTests(unittest.TestCase):
             self._transport(opener).send(
                 urllib.request.Request("https://dunnes.test/api")
             )
+
+
+class RetailerTransportImpersonationTests(unittest.TestCase):
+    """The impersonated branch: browser identity, same error classification.
+
+    Dunnes 403s the plain-urllib path from CI egress (ticket 19); this branch
+    is the replacement. No network access — the session is injected.
+    """
+
+    class Response:
+        def __init__(self, status_code=200, content=b"{}", headers=None):
+            self.status_code = status_code
+            self.content = content
+            self.headers = headers or {}
+
+    class Session:
+        def __init__(self, response=None, error=None):
+            self.response = response
+            self.error = error
+            self.requests = []
+
+        def request(self, method, url, **kwargs):
+            self.requests.append({"method": method, "url": url, **kwargs})
+            if self.error is not None:
+                raise self.error
+            return self.response
+
+    def _transport(self, session, impersonate="chrome"):
+        return RetailerTransport(
+            "Dunnes", impersonate=impersonate, session=session,
+            min_request_interval=0.0,
+        )
+
+    def _urllib_transport(self, opener, impersonate="chrome"):
+        return RetailerTransport(
+            "Dunnes", opener=opener, impersonate=impersonate,
+            min_request_interval=0.0,
+        )
+
+    def test_impersonated_requests_drop_the_tracker_user_agent(self):
+        session = self.Session(self.Response(200, b'{"items": []}'))
+        request = urllib.request.Request(
+            "https://dunnes.test/api",
+            headers={"Accept": "application/json", "User-Agent": "drinks-tracker/0.1"},
+        )
+        payload = self._transport(session).send(request)
+
+        self.assertEqual(payload, {"items": []})
+        sent = session.requests[0]
+        self.assertEqual(sent["method"], "GET")
+        self.assertEqual(sent["url"], "https://dunnes.test/api")
+        self.assertEqual(sent["headers"], {"Accept": "application/json"})
+
+    def test_impersonated_403_is_a_non_retryable_status_error(self):
+        session = self.Session(self.Response(403, b"{}"))
+        with self.assertRaises(SourceHTTPError) as context:
+            self._transport(session).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
+        self.assertEqual(context.exception.status, 403)
+        self.assertFalse(context.exception.retryable)
+
+    def test_impersonated_429_keeps_retry_after(self):
+        session = self.Session(
+            self.Response(429, b"{}", headers={"Retry-After": "7"})
+        )
+        with self.assertRaises(SourceHTTPError) as context:
+            self._transport(session).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
+        self.assertEqual(context.exception.status, 429)
+        self.assertTrue(context.exception.retryable)
+        self.assertEqual(context.exception.retry_after, 7.0)
+
+    def test_impersonated_transport_failure_maps_to_retryable_status_none(self):
+        session = self.Session(error=OSError("connection refused"))
+        with self.assertRaises(SourceHTTPError) as context:
+            self._transport(session).send(
+                urllib.request.Request("https://dunnes.test/api")
+            )
+        self.assertIsNone(context.exception.status)
+        self.assertTrue(is_retryable_failure(context.exception))
+
+    def test_an_explicit_opener_wins_over_impersonation(self):
+        """The urllib seam stays authoritative when a caller injects an opener."""
+        opener = RetailerTransportSendTests.Opener(
+            RetailerTransportSendTests.Response(200, b'{"items": []}')
+        )
+        self._urllib_transport(opener).send(
+            urllib.request.Request("https://dunnes.test/api")
+        )
+        self.assertIsNotNone(opener.request)
+
+    def test_impersonation_without_curl_cffi_keeps_the_urllib_path(self):
+        calls = []
+
+        def fake_urlopen(request, timeout=None):
+            calls.append(request.full_url)
+            return io.BytesIO(b'{"items": []}')
+
+        with patch.dict(sys.modules, {"curl_cffi": None}), patch(
+            "urllib.request.urlopen", fake_urlopen
+        ):
+            transport = RetailerTransport(
+                "Dunnes", impersonate="chrome", min_request_interval=0.0,
+            )
+            transport.send(urllib.request.Request("https://dunnes.test/api"))
+        self.assertEqual(calls, ["https://dunnes.test/api"])
 
 
 class ParseRetryAfterTests(unittest.TestCase):

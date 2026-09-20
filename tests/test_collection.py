@@ -2,6 +2,7 @@ import io
 import itertools
 import json
 import sqlite3
+import sys
 import tempfile
 import time
 import urllib.request
@@ -33,6 +34,7 @@ from beverage_feed.collector import (
     _load_mappings,
     _record_diagnostic,
     as_datetime,
+    build_client,
     load_catalog,
     safe_record,
     collect_aldi_one,
@@ -3133,10 +3135,13 @@ class DunnesClientTests(unittest.TestCase):
 
     urllib.request.urlopen is intercepted (the network seam), so no live
     endpoint is ever contacted; everything else runs the real client code.
+    ``impersonate=None`` keeps these tests on that seam — the default
+    impersonated transport has its own tests in
+    ``DunnesImpersonatedTransportTests``.
     """
 
     def setUp(self):
-        self.client = DunnesClient()
+        self.client = DunnesClient(impersonate=None)
 
     def test_blank_search_term_is_rejected_before_any_request(self):
         with self.assertRaisesRegex(ValueError, "must not be empty"):
@@ -3215,6 +3220,89 @@ class DunnesClientTests(unittest.TestCase):
         self.assertEqual(offer["Price"], 2.79)
         self.assertEqual(offer["ListPrice"], 3.19)
         self.assertEqual(offer["taxDetails"], {"deposit": "0.15"})
+
+
+class _FakeCurlSession:
+    """Stands in for a curl_cffi Session at the impersonated seam."""
+
+    def __init__(self, response=None, error=None):
+        self.response = response
+        self.error = error
+        self.requests = []
+
+    def request(self, method, url, **kwargs):
+        self.requests.append({"method": method, "url": url, **kwargs})
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+class _FakeCurlResponse:
+    def __init__(self, status_code, content, headers=None):
+        self.status_code = status_code
+        self.content = content
+        self.headers = headers or {}
+
+
+class DunnesImpersonatedTransportTests(unittest.TestCase):
+    """The default transport: a browser-impersonated session, not urllib.
+
+    Dunnes 403s plain urllib from CI egress (ticket 19); these tests pin the
+    replacement path's contract without any network access — the session is
+    injected, and the tracker's own User-Agent must never ride along with the
+    browser fingerprint.
+    """
+
+    def test_dunnes_client_impersonates_by_default(self):
+        self.assertEqual(DunnesClient().transport.impersonate, "chrome")
+
+    def test_build_client_hands_collection_the_impersonated_transport(self):
+        self.assertEqual(build_client("dunnes").transport.impersonate, "chrome")
+
+    def test_requests_go_through_the_session_without_the_tracker_user_agent(self):
+        session = _FakeCurlSession(
+            _FakeCurlResponse(200, json.dumps({"items": []}).encode())
+        )
+        client = DunnesClient(impersonate="chrome", session=session, min_request_interval=0)
+        client("Coca-Cola Zero")
+
+        self.assertEqual(len(session.requests), 1)
+        sent = session.requests[0]
+        self.assertEqual(sent["method"], "GET")
+        self.assertIn("q=Coca-Cola+Zero", sent["url"])
+        self.assertIn("take=50", sent["url"])
+        headers = {k.lower(): v for k, v in sent["headers"].items()}
+        self.assertNotIn("user-agent", headers)
+        self.assertEqual(headers.get("accept"), "application/json")
+
+    def test_impersonated_403_is_a_non_retryable_status_error(self):
+        session = _FakeCurlSession(_FakeCurlResponse(403, b"{}"))
+        client = DunnesClient(impersonate="chrome", session=session, min_request_interval=0)
+        with self.assertRaises(SourceHTTPError) as ctx:
+            client("Coca-Cola Zero")
+        self.assertEqual(ctx.exception.status, 403)
+        self.assertFalse(ctx.exception.retryable)
+
+    def test_impersonated_transport_failure_is_retryable_without_status(self):
+        session = _FakeCurlSession(error=OSError("connection refused"))
+        client = DunnesClient(impersonate="chrome", session=session, min_request_interval=0)
+        with self.assertRaises(SourceHTTPError) as ctx:
+            client("Coca-Cola Zero")
+        self.assertIsNone(ctx.exception.status)
+        self.assertTrue(ctx.exception.retryable)
+
+    def test_missing_curl_cffi_falls_back_to_the_urllib_path(self):
+        captured = {}
+
+        def fake_urlopen(request, timeout=None):
+            captured["url"] = request.full_url
+            return _FakeHTTPResponse(200, json.dumps({"items": []}).encode())
+
+        with patch.dict(sys.modules, {"curl_cffi": None}), patch(
+            "urllib.request.urlopen", fake_urlopen
+        ):
+            DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+        self.assertIn("q=Coca-Cola+Zero", captured["url"])
 
 
 class SuperValuHydrationTests(unittest.TestCase):
@@ -3590,7 +3678,7 @@ class ResilientSourceRequestTests(unittest.TestCase):
             ),
         ):
             with self.assertRaises(SourceHTTPError) as rate_limited:
-                DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+                DunnesClient(min_request_interval=0, impersonate=None)("Coca-Cola Zero")
         self.assertEqual(rate_limited.exception.status, 429)
         self.assertTrue(rate_limited.exception.retryable)
         self.assertEqual(rate_limited.exception.retry_after, 9.0)
@@ -3600,7 +3688,7 @@ class ResilientSourceRequestTests(unittest.TestCase):
             lambda request, timeout=None: Responsive(403, b"{}"),
         ):
             with self.assertRaises(SourceHTTPError) as forbidden:
-                DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+                DunnesClient(min_request_interval=0, impersonate=None)("Coca-Cola Zero")
         self.assertEqual(forbidden.exception.status, 403)
         self.assertFalse(forbidden.exception.retryable)
 
@@ -3609,7 +3697,7 @@ class ResilientSourceRequestTests(unittest.TestCase):
 
         with patch("urllib.request.urlopen", refuse):
             with self.assertRaises(SourceHTTPError) as down:
-                DunnesClient(min_request_interval=0)("Coca-Cola Zero")
+                DunnesClient(min_request_interval=0, impersonate=None)("Coca-Cola Zero")
         self.assertIsNone(down.exception.status)
         self.assertTrue(down.exception.retryable)
         self.assertIn("Dunnes request failed", str(down.exception))
@@ -3619,7 +3707,7 @@ class ResilientSourceRequestTests(unittest.TestCase):
             "urllib.request.urlopen",
             lambda request, timeout=None: _FakeHTTPResponse(200, b'{"items": []}'),
         ), patch("beverage_feed.collector.time.sleep") as slept:
-            client = DunnesClient(min_request_interval=1.0)
+            client = DunnesClient(min_request_interval=1.0, impersonate=None)
             client("Coca-Cola Zero")
             client("Coca-Cola Zero")
 

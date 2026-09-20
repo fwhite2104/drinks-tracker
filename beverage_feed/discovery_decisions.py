@@ -16,7 +16,7 @@ from .discovery import (
     write_mappings,
 )
 from .discovery_adapters import DiscoveryAdapter, NormalizedListing
-from .matching import brand_matches_alias, name_matches, same_text
+from .matching import brand_matches_alias, gtin_matches, name_matches, same_text
 
 _EXACT_ATTRIBUTES = ("brand", "variant", "pack_count", "unit_size_ml", "package_type")
 # Fixture case: name_pack_signature is a weak fallback identity and never
@@ -57,7 +57,15 @@ def commit_decision(
 
 
 def exact_match(pack: BenchmarkPack, listing: Any) -> bool:
-    """All five exact-pack attributes must be known and equal."""
+    """All five exact-pack attributes must be known and equal.
+
+    A GTIN on both sides is decisive before attributes are even consulted:
+    equal digits approve the pack whatever the phrasing, differing digits
+    fail it (matching.gtin_matches; ticket 18 precedent).
+    """
+    verdict = gtin_matches(pack, getattr(listing, "gtin", None))
+    if verdict is not None:
+        return verdict
     attrs = listing.attributes
     if any(attrs.get(key) is None for key in _EXACT_ATTRIBUTES):
         return False

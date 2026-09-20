@@ -136,16 +136,12 @@ def ingest_basketwatch_snapshot(
             " set it in the environment or .env"
         )
     factory = client_factory or BasketWatchClient
-    records = factory(api_key).fetch_all(retailer_slug)
-    catalog = _load_catalog_packs(database)
-    approved = _approved_mapping_cells(database, retailer_slug)
-
     run_id = uuid.uuid4().hex
     started_at = timestamp()
     summary: dict[str, Any] = {
         "run_id": run_id,
         "retailer": retailer_slug,
-        "fetched": len(records),
+        "fetched": 0,
         "ingested": 0,
         "queued_candidates": 0,
         "skipped_unmapped": 0,
@@ -154,6 +150,8 @@ def ingest_basketwatch_snapshot(
 
     database_path = Path(database)
     database_path.parent.mkdir(parents=True, exist_ok=True)
+    # The run row exists before the fetch: a client failure leaves the run
+    # 'failed', never stuck 'running' and never missing entirely.
     with closing(sqlite3.connect(database_path)) as connection:
         ensure_schema(connection)
         connection.execute(
@@ -166,6 +164,10 @@ def ingest_basketwatch_snapshot(
         )
         connection.commit()
         try:
+            records = factory(api_key).fetch_all(retailer_slug)
+            summary["fetched"] = len(records)
+            catalog = _load_catalog_packs(database_path)
+            approved = _approved_mapping_cells(database_path, retailer_slug)
             summary = _ingest_records(
                 connection, records, catalog, approved, retailer_slug, run_id, summary,
             )

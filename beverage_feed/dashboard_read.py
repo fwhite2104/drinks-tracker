@@ -1035,6 +1035,18 @@ def consumer_feed_from_database(
                 cell["is_best"] = bool(best is not None and price == best)
             else:
                 cell["is_best"] = False
+        # mobile.md contract: cheapest-first ordering with highlight — the
+        # cheapest observed cell leads; other states keep SUPPORTED_RETAILERS
+        # order so the five-state contract is stable.
+        cells.sort(
+            key=lambda cell: (
+                _as_decimal(cell.get("displayed_price"))
+                if cell["state"] == "observed"
+                and _as_decimal(cell.get("displayed_price")) is not None
+                else Decimal("Infinity"),
+                RETAILER_SLUGS.index(cell["retailer"]),
+            )
+        )
 
         packs_out.append(
             {

@@ -298,29 +298,36 @@ def load_mappings(path: str | Path) -> dict[str, list[dict[str, Any]]]:
 
 
 def _validate_rejections(value: Any) -> dict[str, list[dict[str, Any]]]:
-    if not isinstance(value, dict) or set(value) != {"listings", "cells"}:
-        raise ValueError("rejection file must contain exactly listings and cells sections")
-    result: dict[str, list[dict[str, Any]]] = {"listings": [], "cells": []}
+    if not isinstance(value, dict) or not {"listings", "cells"}.issubset(value) or set(value) - {"listings", "cells", "retailer_blocks"}:
+        raise ValueError("rejection file must contain listings and cells sections (optionally retailer_blocks)")
+    result: dict[str, list[dict[str, Any]]] = {"listings": [], "cells": [], "retailer_blocks": []}
     for section, rows in value.items():
         if not isinstance(rows, list):
             raise ValueError(f"rejection section {section} must be a list")
-        allowed = _REJECTION_LISTING_KEYS if section == "listings" else _REJECTION_CELL_KEYS
+        allowed = _REJECTION_LISTING_KEYS if section == "listings" else _REJECTION_CELL_KEYS if section == "cells" else {"canonical_key", "retailer", "rejected_at", "decided_by", "reason", "state", "superseded_at"}
         for row in rows:
             if not isinstance(row, dict):
                 raise ValueError("rejection entries must be objects")
             unknown = set(row) - allowed
-            required = {"canonical_key", "retailer", "rejected_at", "decided_by", "state"} if section == "listings" else {"retailer", "rejected_at", "decided_by", "state"}
+            if section == "listings":
+                required = {"canonical_key", "retailer", "rejected_at", "decided_by", "state"}
+            elif section == "cells":
+                required = {"retailer", "rejected_at", "decided_by", "state"}
+            else:
+                required = {"canonical_key", "retailer", "rejected_at", "decided_by", "state"}
             has_cell = "cell" in row or "catalog_id" in row
-            if unknown or not required.issubset(row) or not has_cell:
-                raise ValueError(f"invalid {section[:-1]} rejection fields")
+            if unknown or not required.issubset(row) or (section != "retailer_blocks" and not has_cell):
+                raise ValueError(f"invalid {section[:-1] if section != 'retailer_blocks' else 'retailer block'} rejection fields")
             if section == "listings" and row["state"] not in {"rejected", "superseded"}:
                 raise ValueError("listing rejection state must be rejected or superseded")
             if section == "cells" and row["state"] not in {"do_not_map", "superseded"}:
                 raise ValueError("cell rejection state must be do_not_map or superseded")
+            if section == "retailer_blocks" and row["state"] not in {"blocked", "superseded"}:
+                raise ValueError("retailer block state must be blocked or superseded")
             if any(not isinstance(row[key], str) or not row[key].strip() for key in required):
                 raise ValueError("rejection identity fields must be non-empty strings")
             cell = row.get("cell", row.get("catalog_id"))
-            if not isinstance(cell, str) or not cell.strip():
+            if section != "retailer_blocks" and (not isinstance(cell, str) or not cell.strip()):
                 raise ValueError("rejection cell must be a non-empty string")
             result[section].append(dict(row))
     return result
@@ -866,9 +873,35 @@ class DiscoveryStore:
             )
             connection.commit()
 
+    def retailer_block(self, *, retailer: str, candidate_id: str, decided_by: str, reason: str | None = None, rejected_at: str | None = None, state: str = "blocked") -> int:
+        """ff-15: bar one candidate across every cell of a retailer.
+
+        Semantically narrow: "this listing is not a beverage / not a real
+        product candidate" — never a variant dispute. Returns the number of
+        associated cells the block clears.
+        """
+        if state not in {"blocked", "superseded"}:
+            raise ValueError("retailer block state must be blocked or superseded")
+        rejected_at = rejected_at or timestamp()
+        with closing(self.connection()) as connection:
+            cleared = connection.execute(
+                "SELECT COUNT(*) FROM discovery_candidate_cells WHERE candidate_id=? AND retailer=?",
+                (candidate_id, retailer),
+            ).fetchone()[0]
+            connection.execute(
+                "INSERT OR IGNORE INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state) VALUES ('retailer_blocks', ?, ?, NULL, ?, ?, ?, ?)",
+                (candidate_id, retailer, rejected_at, decided_by, reason, state),
+            )
+            connection.execute(
+                "UPDATE catalog_candidates SET status='rejected' WHERE candidate_id=?",
+                (candidate_id,),
+            )
+            connection.commit()
+        return int(cleared)
+
     def supersede_rejection(self, section: str, canonical_key: str, *, superseded_at: str | None = None) -> int:
-        if section not in {"listings", "cells"}:
-            raise ValueError("rejection section must be listings or cells")
+        if section not in {"listings", "cells", "retailer_blocks"}:
+            raise ValueError("rejection section must be listings, cells, or retailer_blocks")
         superseded_at = superseded_at or timestamp()
         with closing(self.connection()) as connection:
             changed = connection.execute(
@@ -910,6 +943,15 @@ class DiscoveryStore:
             if candidate["retailer"] != retailer:
                 raise ValueError(
                     f"candidate {candidate_id} belongs to {candidate['retailer']}, not {retailer}"
+                )
+            blocked = connection.execute(
+                "SELECT 1 FROM discovery_rejections "
+                "WHERE section='retailer_blocks' AND canonical_key=? AND retailer=? AND state='blocked'",
+                (candidate_id, retailer),
+            ).fetchone()
+            if blocked is not None:
+                raise ValueError(
+                    f"candidate {candidate_id} is blocked retailer-wide (not a beverage candidate)"
                 )
             associated = connection.execute(
                 "SELECT 1 FROM discovery_candidate_cells "
@@ -1018,7 +1060,7 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                         decided_by=row.get("decided_by"),
                         reason=row.get("decision_reason"),
                     )
-        for section in ("listings", "cells"):
+        for section in ("listings", "cells", "retailer_blocks"):
             for row in rejections[section]:
                 cell = row.get("cell", row.get("catalog_id"))
                 key = row.get("canonical_key") or f"{row['retailer']}:{cell}"
@@ -1030,11 +1072,15 @@ def reconcile_json_decisions(database: str | Path, mapping_path: str | Path, rej
                     "INSERT OR IGNORE INTO discovery_rejections(section, canonical_key, retailer, catalog_id, rejected_at, decided_by, reason, state, superseded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (section, key, row["retailer"], cell, row["rejected_at"], row["decided_by"], row.get("reason"), row["state"], row.get("superseded_at")),
                 )
-                if section == "listings" and row["state"] == "rejected":
+                if section in ("listings", "retailer_blocks") and row["state"] in ("rejected", "blocked"):
                     connection.execute(
                         "UPDATE catalog_candidates SET status='rejected' WHERE candidate_id=?",
                         (key,),
                     )
+                if section == "retailer_blocks":
+                    # ff-15: a retailer-wide block carries no cell — nothing to
+                    # close beyond the candidate status above.
+                    continue
                 if connection.execute(
                     # A rejection never overrides a decided cell: the mapping
                     # loop above already set approved cells, and a cells-section

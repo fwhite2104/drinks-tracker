@@ -29,6 +29,104 @@ def _name_matches(expected_tokens: set[str], name: str) -> bool:
     return expected_tokens.issubset(_normalise_name(name))
 
 
+# Composition parsing: explicit multipack count and unit size in listing names.
+# Validated incident (research/wrong-product-audit-2026-09-20.md): a single-can
+# cell was observed at a 12-pack price for days because "12 x 330ml" is a
+# token superset of "330ml Can" and no layer compared counts.
+_COUNT_SIZE_RE = re.compile(
+    r"(\d+)\s*[x×]\s*(\d+(?:[.,]\d+)?)", re.IGNORECASE
+)
+_COUNT_SIZE_UNIT_RE = re.compile(
+    r"\s*(ml|cl|litres?|liters?|ltr|l)\b", re.IGNORECASE
+)
+_XCOUNT_RE = re.compile(r"[x×]\s*(\d+)\b", re.IGNORECASE)
+_PACKWORD_RE = re.compile(
+    r"(?:\bpack\s+of\s+(\d+)\b)|(?:(\d+)\s*(?:packs?|cans?|bottles?|pouches?)\b)",
+    re.IGNORECASE,
+)
+_SIZE_RE = re.compile(
+    r"(\d+(?:[.,]\d+)?)\s*(ml|cl|litres?|liters?|ltr|l)\b", re.IGNORECASE
+)
+
+
+def _parse_composition(name: str) -> tuple[int | None, int | None]:
+    """Explicit multipack count and unit size (ml) stated in a listing name.
+
+    ``(None, None)`` when the name states neither: an unstated value is never
+    a conflict. Count patterns run in precedence order so "12 x 330ml" reads
+    as count 12 (never 330 via the bare ``x`` pattern).
+    """
+    count: int | None = None
+    size_ml: int | None = None
+    pair = _COUNT_SIZE_RE.search(name)
+    if pair is not None:
+        count = int(pair.group(1))
+        unit = _COUNT_SIZE_UNIT_RE.match(name, pair.end())
+        if unit is not None:
+            unit_name = unit.group(1).lower()
+            if unit_name not in {"ml", "cl"}:  # l, ltr, litres, liters
+                unit_name = "l"
+            factor = {"ml": 1, "cl": 10, "l": 1000}[unit_name]
+            size_ml = round(float(pair.group(2).replace(",", ".")) * factor)
+    else:
+        xcount = _XCOUNT_RE.search(name)
+        packword = _PACKWORD_RE.search(name)
+        if xcount is not None:
+            count = int(xcount.group(1))
+        elif packword is not None:
+            count = int(packword.group(1) or packword.group(2))
+    if size_ml is None:
+        bare = _SIZE_RE.search(name)
+        if bare is not None:
+            value = float(bare.group(1).replace(",", "."))
+            unit_name = str(bare.group(2)).lower()
+            if unit_name == "ml":
+                size_ml = round(value)
+            elif unit_name == "cl":
+                size_ml = round(value * 10)
+            else:
+                size_ml = round(value * 1000)
+    return count, size_ml
+
+
+def _composition_conflict(
+    listing_name: str, expected_count: int, expected_size_ml: int
+) -> str | None:
+    """Reason string when a listing name's explicit composition contradicts
+    the expected pack, else ``None``. Unstated values never conflict."""
+    count, size_ml = _parse_composition(listing_name)
+    if count is not None and count != expected_count:
+        return (
+            f"pack count conflict: listing says {count}, pack is {expected_count}"
+        )
+    if size_ml is not None and size_ml != expected_size_ml:
+        return (
+            f"unit size conflict: listing says {size_ml}ml, pack is "
+            f"{expected_size_ml}ml"
+        )
+    return None
+
+
+def _listing_matches(expected_product_name: str, listing_name: str) -> bool:
+    """Token match plus composition agreement against the expected name.
+
+    Shared guard for the per-retailer finders' no-source-id fallback: a
+    multipack listing must never satisfy a single-pack search (and vice
+    versa) merely because its name contains all expected tokens. An expected
+    name that states no count is a single; sizes only conflict when both
+    sides state one.
+    """
+    if not _name_matches(_normalise_name(expected_product_name), listing_name):
+        return False
+    expected_count, expected_size = _parse_composition(expected_product_name)
+    listing_count, listing_size = _parse_composition(listing_name)
+    if listing_count is not None and listing_count != (expected_count or 1):
+        return False
+    if expected_size is not None and listing_size is not None and listing_size != expected_size:
+        return False
+    return True
+
+
 def _price_value(value: Any) -> Any:
     if isinstance(value, dict):
         for key in ("priceNumeric", "amount", "value", "price"):
@@ -50,15 +148,14 @@ def _find_supervalu_listing(
     items = payload.get("items")
     if not isinstance(items, list):
         raise ValueError("SuperValu response has no items list")
-    expected_tokens = _normalise_name(mapping.expected_product_name)
     for item in items:
         if not isinstance(item, dict):
             continue
         product_id = str(item.get("productId") or item.get("sku") or "")
         if mapping.source_product_id and product_id != str(mapping.source_product_id):
             continue
-        if not mapping.source_product_id and not _name_matches(
-            expected_tokens, str(item.get("name") or "")
+        if not mapping.source_product_id and not _listing_matches(
+            mapping.expected_product_name, str(item.get("name") or "")
         ):
             continue
         return item
@@ -80,15 +177,14 @@ def _find_tesco_listing(
     products = payload.get("products")
     if not isinstance(products, list):
         raise ValueError("Tesco response has no products list")
-    expected_tokens = _normalise_name(mapping.expected_product_name)
     for product in products:
         if not isinstance(product, dict):
             continue
         tpnb = str(product.get("tpnb") or "")
         if mapping.source_tpnb and tpnb != str(mapping.source_tpnb):
             continue
-        if not mapping.source_tpnb and not _name_matches(
-            expected_tokens, str(product.get("title") or "")
+        if not mapping.source_tpnb and not _listing_matches(
+            mapping.expected_product_name, str(product.get("title") or "")
         ):
             continue
         return product
@@ -175,15 +271,14 @@ def _find_lidl_listing(
     items = payload.get("items")
     if not isinstance(items, list):
         raise ValueError("Lidl response has no items list")
-    expected_tokens = _normalise_name(mapping.expected_product_name)
     for item in items:
         if not isinstance(item, dict):
             continue
         product_id = str(item.get("productId") or "")
         if mapping.source_product_id and product_id != str(mapping.source_product_id):
             continue
-        if not mapping.source_product_id and not _name_matches(
-            expected_tokens, str(item.get("name") or "")
+        if not mapping.source_product_id and not _listing_matches(
+            mapping.expected_product_name, str(item.get("name") or "")
         ):
             continue
         return item
@@ -227,15 +322,14 @@ def _find_aldi_listing(
     items = payload.get("items")
     if not isinstance(items, list):
         raise ValueError("Aldi response has no items list")
-    expected_tokens = _normalise_name(mapping.expected_product_name)
     for item in items:
         if not isinstance(item, dict):
             continue
         product_id = str(item.get("productId") or "")
         if mapping.source_product_id and product_id != str(mapping.source_product_id):
             continue
-        if not mapping.source_product_id and not _name_matches(
-            expected_tokens, str(item.get("name") or "")
+        if not mapping.source_product_id and not _listing_matches(
+            mapping.expected_product_name, str(item.get("name") or "")
         ):
             continue
         return item
@@ -254,4 +348,9 @@ def _aldi_drs_deposit(item: Mapping[str, Any]) -> Decimal | None:
     text = item.get("bottleDepositText")
     if text is None:
         return None
-    return decimal_price(text)
+    value = decimal_price(text)
+    # A €0.00 deposit display means "no deposit evidence": persisting it
+    # would invent a DRS Deposit where the source states none.
+    if value == Decimal("0"):
+        return None
+    return value

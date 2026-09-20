@@ -68,6 +68,9 @@ def merge_discovery_database(source: str | Path, target: str | Path) -> dict[str
     source_path = Path(source)
     if not source_path.is_file():
         raise ValueError(f"source database not found: {source_path}")
+    if not Path(target).is_file():
+        # A merge never silently creates the supposed target database.
+        raise ValueError(f"target database not found: {Path(target)}")
     ensure_discovery_schema(target)
     inserted: dict[str, int] = {}
     with (

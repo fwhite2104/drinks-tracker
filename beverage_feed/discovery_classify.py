@@ -26,6 +26,7 @@ legacy evidence); otherwise the stored normalized evidence is used as-is.
 from __future__ import annotations
 
 import json
+import math
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
@@ -153,10 +154,10 @@ def _cell_class(cell_entries: list[dict[str, Any]]) -> str:
 
 
 def _spot_check(batch: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deterministic ~10% sample of a Class-A batch, evenly spaced."""
+    """Deterministic ⌈10%⌉ (min 1) sample of a Class-A batch, evenly spaced."""
     if not batch:
         return []
-    size = max(1, len(batch) // 10)
+    size = max(1, math.ceil(len(batch) / 10))
     return [batch[index * len(batch) // size] for index in range(size)]
 
 

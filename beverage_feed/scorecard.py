@@ -12,6 +12,7 @@ gated on human review.
 from __future__ import annotations
 
 import argparse
+import sqlite3
 from contextlib import closing
 from pathlib import Path
 from typing import Any
@@ -203,7 +204,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    rows = build_scorecard(args.catalog, args.database)
+    try:
+        rows = build_scorecard(args.catalog, args.database)
+    except (sqlite3.Error, FileNotFoundError) as exc:
+        # CONTRIBUTING §9: a bad database path fails cleanly with a nonzero
+        # exit, never a traceback; mode=ro never creates the file.
+        print(f"scorecard: {exc}")
+        return 1
     report = render_markdown(rows, generated_at=timestamp())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(report)

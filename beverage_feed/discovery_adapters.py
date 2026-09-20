@@ -55,6 +55,9 @@ class NormalizedListing:
     conflicts: Mapping[str, Mapping[str, Any]]
     missing_attributes: tuple[str, ...]
     price: PriceEvidence
+    # Structured GTIN/EAN when the source exposes one (Lidl always, Tesco on
+    # some payloads); None keeps every existing comparison conservative.
+    gtin: str | None = None
 
 
 
@@ -236,6 +239,9 @@ def _structured_attributes(record: Mapping[str, Any]) -> tuple[dict[str, Any], d
             values["package_type"] = "bottle"
         elif "carton" in package_text:
             values["package_type"] = "carton"
+    gtin = _first(source, "gtin", "ean", "barcode")
+    if gtin is not None:
+        raw["gtin"] = gtin
     return raw, values
 
 
@@ -382,6 +388,7 @@ def normalize_listing(
     raw_attributes["name"] = name
     raw_attributes["name_values"] = raw_named
     raw_attributes["canonical_name_values"] = named
+    gtin = raw_attributes.get("gtin")
     return NormalizedListing(
         retailer=retailer,
         source_identity=identity,
@@ -396,6 +403,7 @@ def normalize_listing(
         conflicts=conflicts,
         missing_attributes=missing,
         price=_price(record),
+        gtin=_text(gtin) or None,
     )
 
 
@@ -440,6 +448,8 @@ def _records(payload: Mapping[str, Any], retailer: str) -> list[Mapping[str, Any
                 result.append(merged)
         return result
     # Fixture cases: SuperValu/Lidl/Aldi use items; Tesco uses hydrated products.
+    if not isinstance(payload, Mapping):
+        return []
     products = (
         payload.get("items") if retailer in {"supervalu", "lidl", "aldi"}
         else payload.get("products")
@@ -530,12 +540,20 @@ class DunnesDiscoveryAdapter(DiscoveryAdapter):
         Alias phrasings surface exact-pack candidates the plain search term
         misses (e.g. "Coke Original" finds the single can that "Coca-Cola
         Original Taste 330ml Can" does not), so both are searched and the
-        per-term results merge, de-duplicated by source identity.
+        per-term results merge, de-duplicated by source identity. The
+        per-search request budget caps the phrasings issued; phrasings beyond
+        the cap are not searched, so the merge is truncated (complete=False).
         """
+        terms = self._search_terms(pack)
+        truncated = len(terms) > self.max_requests_per_search
         results = [
             self._result(self._search_request(term), (RequestEvent("search"),))
-            for term in self._search_terms(pack)
+            for term in terms[:self.max_requests_per_search]
         ]
+        if truncated:
+            # Phrasings beyond the budget were never searched: the merge
+            # cannot claim complete evidence.
+            results.append(DiscoveryResult((), False, {}, (), ()))
         return _merge_results(results)
 
 

@@ -68,6 +68,11 @@ def _suppressed_candidates(rejection_path: str | Path | None) -> set[str]:
         row["canonical_key"]
         for row in rejections["listings"]
         if row["state"] == "rejected"
+    } | {
+        # ff-15: retailer-wide blocks suppress the candidate everywhere too.
+        row["canonical_key"]
+        for row in rejections["retailer_blocks"]
+        if row["state"] == "blocked"
     }
 
 
@@ -180,8 +185,13 @@ def run_discovery(
                     run_id=run_id, attempt_id=attempt_id,
                     retailer=retailer_name, catalog_id=pack.catalog_id,
                 )
-                paused = True
-                break
+                # Failure-pause policy: one failure isolates the cell; the
+                # run only pauses on *repeat* failures (docs/discovery-and-
+                # review.md) so a single blip never abandons the rest.
+                if summary["failures"] >= 2:
+                    paused = True
+                    break
+                continue
 
             spent += 0 if deduplicated else _charge(summary, result)
             store.record_search(
@@ -215,7 +225,8 @@ def run_discovery(
                         retailer_name, pack.catalog_id, "pending",
                         decided_by="discovery", reason=f"fallback failure: {exc}",
                     )
-                    paused = True
+                    if summary["failures"] >= 2:
+                        paused = True
                     break
                 spent += 0 if deduplicated else _charge(summary, fallback)
                 store.record_search(
@@ -448,6 +459,7 @@ def run_rediscovery(
             cell_exact: dict[str, Any] = {}
             cell_listings: list[NormalizedListing] = []
             complete_seen = False
+            cell_failed = False
             for term in formulations:
                 cost = _search_cost(adapter)
                 if spent + cost > cap:
@@ -474,8 +486,11 @@ def run_rediscovery(
                         run_id=run_id, attempt_id=attempt_id,
                         retailer=retailer_name, catalog_id=pack.catalog_id,
                     )
-                    paused = True
-                    break
+                    if summary["failures"] >= 2:
+                        paused = True
+                        break
+                    cell_failed = True
+                    continue
 
                 spent += 0 if deduplicated else _charge(summary, result)
                 summary["formulation_searches"] += 1
@@ -509,6 +524,10 @@ def run_rediscovery(
                     summary["auto_approved"] += 1
                 elif decision["decision"] == "challenge":
                     summary["challenges"] += 1
+            elif cell_failed:
+                # A formulation failure leaves this cell's evidence incomplete:
+                # it stays pending rather than being declared unmapped.
+                summary["inconclusive"] += 1
             elif complete_seen:
                 store.set_cell_state(
                     retailer_name, pack.catalog_id, "unmapped",
