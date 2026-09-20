@@ -55,7 +55,11 @@ from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
 
 from . import source_http
-from .collector import TESCO_PRODUCT_QUERY, safe_record
+from .collector import (
+    TESCO_GRAPHQL_BATCH_LIMIT,
+    TESCO_PRODUCT_QUERY,
+    safe_record,
+)
 
 TESCO_GRAPHQL_ENDPOINT = "https://xapi.tesco.com/"
 TESCO_SHOP_LANDING = "https://www.tesco.ie/groceries/"
@@ -463,6 +467,29 @@ def summarize_category_page(html: str) -> dict[str, Any]:
     }
 
 
+def _run_batches(
+    transport: Transport, api_key: str, operations: Sequence[Mapping[str, Any]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Send operations in gateway-accepted chunks; return (records, results).
+
+    The gateway rejects an oversized batch ("Batch size of 18 exceeds the
+    maximum allowed size", run 35544158257), so every request stays inside
+    ``TESCO_GRAPHQL_BATCH_LIMIT`` — the same constant the collection client
+    hydrates with.
+    """
+    records: list[dict[str, Any]] = []
+    results: list[dict[str, Any]] = []
+    limit = TESCO_GRAPHQL_BATCH_LIMIT
+    for start in range(0, len(operations), limit):
+        chunk = list(operations[start:start + limit])
+        record, payload = _attempt(
+            transport, _graphql_batch_request(chunk, api_key), capture_errors=True
+        )
+        records.append(record)
+        results.extend(_summarize_batch(chunk, payload))
+    return records, results
+
+
 def probe_graphql(
     transport: Transport,
     api_key: str,
@@ -496,15 +523,12 @@ def probe_graphql(
         )
     operations.extend(shape_operations)
 
-    record, payload = _attempt(
-        transport, _graphql_batch_request(operations, api_key), capture_errors=True
-    )
+    batch_records, batch_results = _run_batches(transport, api_key, operations)
     report["control_tpnb"] = control
-    report["batch"] = record
-    report["batch_results"] = _summarize_batch(operations, payload)
-    by_operation = {
-        str(row.get("operation")): row for row in report["batch_results"]
-    }
+    report["batch"] = batch_records[0] if batch_records else {}
+    report["batch_records"] = batch_records
+    report["batch_results"] = batch_results
+    by_operation = {str(row.get("operation")): row for row in batch_results}
     report["subfield_scan"] = [
         {
             "field": field,
@@ -513,11 +537,9 @@ def probe_graphql(
         for field in CATEGORY_TARGET_FIELDS
     ]
 
-    arg_record, arg_payload = _attempt(
-        transport, _graphql_batch_request(arg_operations, api_key), capture_errors=True
-    )
-    report["arg_batch"] = arg_record
-    arg_results = _summarize_batch(arg_operations, arg_payload)
+    arg_records, arg_results = _run_batches(transport, api_key, arg_operations)
+    report["arg_batch"] = arg_records[0] if arg_records else {}
+    report["arg_batch_records"] = arg_records
     report["arg_scan_results"] = arg_results
     report["arg_scan"] = [
         classify_arg_scan(arg_results, field) for field in CATEGORY_TARGET_FIELDS

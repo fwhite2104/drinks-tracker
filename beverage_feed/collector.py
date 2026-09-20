@@ -1023,6 +1023,10 @@ class SuperValuClient:
 TESCO_SEARCH_ENDPOINT = "https://search.api.tesco.com/search"
 TESCO_SEARCH_PAGE_SIZE = 10  # the ``count`` bound requested from the search API
 TESCO_GRAPHQL_ENDPOINT = "https://xapi.tesco.com/"
+# The gateway rejects oversized batches ("Batch size of 18 exceeds the maximum
+# allowed size", probe run 35544158257) and the real cap is undocumented; 5 is
+# proven good, so hydration stays chunked there.
+TESCO_GRAPHQL_BATCH_LIMIT = 5
 TESCO_PRODUCT_QUERY = """
 query GetProductByTpnb($tpnb: String) {
   product(tpnb: $tpnb) {
@@ -1133,6 +1137,23 @@ class TescoClient:
         return {"products": self._hydrate_tpnbs([str(tpnb)])}
 
     def _hydrate_tpnbs(self, tpnbs: list[str]) -> list[dict[str, Any]]:
+        """Hydrate the requested TPNBs, chunked to the gateway's batch cap.
+
+        The IE gateway rejects an oversized batch ("Batch size of 18 exceeds
+        the maximum allowed size", probe run 35544158257) and does not publish
+        the cap, so requests stay at a proven-good size. Growing Tesco mapping
+        coverage (ff-20) is exactly what would have tripped this.
+        """
+        products: list[dict[str, Any]] = []
+        for start in range(0, len(tpnbs), TESCO_GRAPHQL_BATCH_LIMIT):
+            products.extend(
+                self._hydrate_tpnb_batch(
+                    tpnbs[start:start + TESCO_GRAPHQL_BATCH_LIMIT]
+                )
+            )
+        return products
+
+    def _hydrate_tpnb_batch(self, tpnbs: list[str]) -> list[dict[str, Any]]:
         batch = [
             {
                 "operationName": "GetProductByTpnb",

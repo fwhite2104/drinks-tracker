@@ -17,6 +17,7 @@ from unittest.mock import patch
 
 from beverage_feed.collector import (
     SCHEMA_VERSION,
+    TESCO_GRAPHQL_BATCH_LIMIT,
     AldiClient,
     AldiMapping,
     BenchmarkPack,
@@ -774,6 +775,43 @@ class CollectionCommandTests(unittest.TestCase):
         self.assertEqual(payload["products"][0]["tpnb"], "12345")
         self.assertEqual(len(requests), 1)
         self.assertIsInstance(requests[0], urllib.request.Request)
+
+    def test_tesco_hydration_chunks_oversized_batches(self):
+        """The gateway caps batch size, so hydration must send several requests.
+
+        The IE gateway answered "Batch size of 18 exceeds the maximum allowed
+        size" (probe run 35544158257); growing Tesco mapping coverage (ff-20)
+        would otherwise break collection the moment a run hydrates more TPNBs
+        than the undocumented cap.
+        """
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        requests = []
+
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                body = json.loads(request.data)
+                return Response(json.dumps([
+                    {"data": {"product": {"id": f"id-{index}", "title": "Synthetic"}}}
+                    for index, _ in enumerate(body)
+                ]).encode())
+
+        tpnbs = [str(1000 + index) for index in range(12)]
+        client = TescoClient(api_key="test-key", opener=Opener(), min_request_interval=0)
+        products = client._hydrate_tpnbs(tpnbs)
+
+        sizes = [len(json.loads(request.data)) for request in requests]
+        self.assertEqual(sizes, [TESCO_GRAPHQL_BATCH_LIMIT, TESCO_GRAPHQL_BATCH_LIMIT, 2])
+        self.assertLessEqual(max(sizes), TESCO_GRAPHQL_BATCH_LIMIT)
+        self.assertEqual([product["tpnb"] for product in products], tpnbs)
 
     def test_tesco_malformed_price_is_a_source_error(self):
         mapping = TescoMapping(
@@ -2669,7 +2707,12 @@ class CollectionCommandTests(unittest.TestCase):
 
         class Opener:
             def open(self, request, timeout):
-                return responses.pop(0)
+                if responses:
+                    return responses.pop(0)
+                # Hydration is chunked to the gateway's batch cap, so the
+                # product payload can be requested more than once — serve a
+                # fresh body (a Response is closed once read).
+                return Response(json.dumps([{"data": {"product": None}}] * 10).encode())
 
         responses = [
             Response(json.dumps({

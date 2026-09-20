@@ -227,8 +227,8 @@ def test_run_writes_artifacts_and_uses_the_injected_transport(
     assert (tmp_path / "probe-summary.json").is_file()
     assert (tmp_path / "introspection-fields.json").is_file()
     assert (tmp_path / "category-page-1.json").is_file()
-    # 1 page + 1 shape batch + 1 argument batch + 1 introspection
-    assert len(transport.requests) == 4
+    # 1 page + shape batch chunks + argument batch chunks + 1 introspection
+    assert len(transport.requests) == 8
 
 
 def test_arg_scan_splits_accepted_from_unknown() -> None:
