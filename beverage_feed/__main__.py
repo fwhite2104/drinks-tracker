@@ -37,7 +37,7 @@ if argv and argv[0] == "merge-discovery":
 
     raise SystemExit(merge_discovery_main(argv[1:]))
 if argv and argv[0] == "review":
-    from .discovery_cli import main as review_main
+    from .discovery_cli import _decision_main as review_main
 
     raise SystemExit(review_main(argv[1:]))
 if argv and argv[0] == "report":
@@ -85,6 +85,12 @@ if argv and argv[0] == "canary":
     from .canary import main as canary_main
 
     raise SystemExit(canary_main(argv[1:]))
+if argv and argv[0] == "propose-blocks":
+    # ff-15 R1b: mechanical junk block proposals (zero egress; --apply writes
+    # through the real decision seam with decided_by=agent-block-pass).
+    from .propose_blocks import main as propose_blocks_main
+
+    raise SystemExit(propose_blocks_main(argv[1:]))
 
 from .collector import main
 

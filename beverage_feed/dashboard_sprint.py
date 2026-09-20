@@ -38,6 +38,7 @@ from .discovery_adapters import normalize_listing
 from .discovery_classify import classify_evidence
 from .discovery_cli import (
     approve,
+    block_listing_everywhere,
     do_not_map_cell,
     reject_listing,
     replace_mapping,
@@ -48,7 +49,9 @@ from .matching import brand_matches_alias, same_text
 
 DEFAULT_PORT = 8766
 
-_SPRINT_ACTIONS = ("approve", "reject", "exclude", "replace", "challenge")
+_SPRINT_ACTIONS = ("approve", "reject", "exclude", "replace", "challenge", "block")
+#: Narrow ff-15 semantics: a block is never a variant dispute.
+_DEFAULT_BLOCK_REASON = "not a beverage / not a real product candidate"
 _BATCH_ACTIONS = ("approve", "reject", "exclude")
 
 # The five exact-pack attributes the Catalog Mapping bar judges, in display
@@ -353,6 +356,17 @@ def sprint_decide(app: SprintApp, payload: dict[str, Any]) -> dict[str, Any]:
             rejection_path=app.rejections_path, decided_by=app.decided_by,
             reason=reason,
         )
+    elif action == "block":
+        # ff-15 "block everywhere" (sprint key B): bar the listing across
+        # every cell of this retailer through the real seam. The semantics
+        # are deliberately narrow — junk, never a variant dispute — so the
+        # reason is required (the sprint UI defaults it to the narrow phrase).
+        result = block_listing_everywhere(
+            store, retailer=retailer,
+            candidate_id=_require(payload, "candidate_id"),
+            rejection_path=app.rejections_path, decided_by=app.decided_by,
+            reason=reason or _DEFAULT_BLOCK_REASON,
+        )
     elif action == "replace":
         result = replace_mapping(
             store, retailer=retailer, catalog_id=catalog_id,
@@ -536,6 +550,7 @@ def _render_shell(app: SprintApp) -> str:
         <div class="ref-row"><span class="keycap">a</span> approve</div>
         <div class="ref-row"><span class="keycap">r</span> reject</div>
         <div class="ref-row"><span class="keycap">x</span> exclude</div>
+        <div class="ref-row"><span class="keycap">B</span> block everywhere (ff-15)</div>
         <div class="ref-row"><span class="keycap">s</span> select · <span class="keycap">⇧j/k</span> range</div>
         <div class="ref-row"><span class="keycap">A/R/X</span> apply to selection</div>
         <div class="ref-row"><span class="keycap">p</span> refresh</div>
@@ -545,6 +560,7 @@ def _render_shell(app: SprintApp) -> str:
         <p><span class="keycap">a</span> every attribute matches — same brand, product, flavour/variant, pack count, bottle size, package type. This listing <em>is</em> the pack.</p>
         <p><span class="keycap">r</span> the listing is a different product — Coke Cherry or No Caffeine vs Diet Coke, wrong size, wrong pack. The cell stays open for other candidates.</p>
         <p><span class="keycap">x</span> this retailer doesn't sell this pack at all — nothing should ever map here.</p>
+        <p><span class="keycap">B</span> the listing is not a beverage / not a real product candidate at all (sweets, batteries, keyword noise). Bars it across <em>every</em> cell of the retailer in one press — junk dies once, not a dozen times. Never for variant disputes (wrong variant/size stays <span class="keycap">r</span>).</p>
         <p class="ref-note">No candidates at all? Just move on — no evidence yet isn't "not stocked". Reserve <span class="keycap">x</span> for packs the retailer genuinely doesn't sell.</p>
       </div>
     </div>
@@ -750,6 +766,7 @@ function renderCompare() {
       <button type="button" class="approve" data-act="approve">Approve (a)</button>
       <button type="button" class="reject" data-act="reject">Reject listing (r)</button>
       <button type="button" class="exclude" data-act="exclude">Exclude cell (x)</button>
+      <button type="button" class="reject" data-act="block">Block everywhere (B)</button>
     </div>
     <table class="cmp"><thead><tr><th>Attribute</th><th>Candidate</th><th>Catalog pack</th></tr></thead><tbody>${rows}</tbody></table>
     <div class="evidence">
@@ -771,6 +788,7 @@ async function decide(action) {
     if (item.review_category === 'challenge' && action === 'approve') payload.action = 'challenge', payload.challenge_action = 'replace', payload.reason = 'sprint: replaced via challenge resolution';
     const res = await post('/api/sprint/decide', payload);
     if (res.result && res.result.replaced) showNote('Approved — replaced the cell\'s previous mapping', false);
+    if (action === 'block' && res.result && res.result.cells_cleared !== undefined) showNote(`Blocked everywhere — ${res.result.cells_cleared} cell(s) cleared`, false);
     done.add(key(item));
     focus = Math.min(focus + 1, queue.items.length - 1);
     await refresh();
@@ -828,6 +846,7 @@ addEventListener('keydown', ev => {
   else if (ev.key === 'a') decide('approve');
   else if (ev.key === 'r') decide('reject');
   else if (ev.key === 'x') decide('exclude');
+  else if (ev.key === 'B') decide('block');
   else if (ev.key === 's' && n) { const k = key(queue.items[focus]); selected.has(k) ? selected.delete(k) : selected.add(k); renderQueue(); }
   else if (ev.key === 'A') batch('approve');
   else if (ev.key === 'R') batch('reject');

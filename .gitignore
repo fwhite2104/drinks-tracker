@@ -34,5 +34,9 @@ supervalu_page.html
 supervalu_state.json
 supervalu_test*.json
 
+# Raw HAR captures from research probes — bulky, the extracted JSON fixtures
+# in research/ carry the payload evidence (see research/aldi-lidl-*.md).
+research/*.har
+
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
