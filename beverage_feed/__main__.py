@@ -91,6 +91,13 @@ if argv and argv[0] == "propose-blocks":
     from .propose_blocks import main as propose_blocks_main
 
     raise SystemExit(propose_blocks_main(argv[1:]))
+if argv and argv[0] == "probe":
+    # ff-20: manual Tesco category-walk reconnaissance. Makes live retailer
+    # requests, so it runs only where egress is safe (GitHub Actions
+    # `probe.yml`) — never scheduled, never part of CI checks.
+    from .probe import main as probe_main
+
+    raise SystemExit(probe_main(argv[1:]))
 
 from .collector import main
 

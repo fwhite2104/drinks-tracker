@@ -1,0 +1,57 @@
+# Tesco category-walk reconnaissance probe (ff-20) — MANUAL ONLY.
+#
+# workflow_dispatch is the only trigger: never scheduled, never on push/PR,
+# never part of CI checks. It captures, from GitHub Actions egress, the two
+# things nobody publishes for Tesco Ireland: the storefront GraphQL gateway's
+# query schema (does a category/browse operation exist, and with which
+# arguments) and the aisle page structure (embedded JSON blobs, category
+# values, pagination affordances).
+#
+# Why CI and not here: Tesco's Akamai edge blocks this network — all live
+# retailer egress runs on Actions (see docs/retailers.md). Why a probe at all:
+# the third-party evidence (basketeer, Apify actors) is UK-derived and does not
+# state IE/pagination behaviour, so the adapter is not written until the shape
+# is captured. Evidence: research/tesco-ie-enumeration-2026-09-20.md,
+# .scratch/full-feed-coverage/issues/20-tesco-category-walk-discovery.md
+#
+# The probe writes only an artifact: no feed database, no mappings, no
+# observations. It is safe to run repeatedly.
+name: probe
+
+on:
+  workflow_dispatch:
+    inputs:
+      category_url:
+        description: 'Aisle URL to probe (optional; empty uses the Drinks candidates)'
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install collection dependencies
+        run: python -m pip install -e '.[impersonation]'
+      - name: Run the category-walk probe
+        env:
+          TESCO_API_KEY: ${{ secrets.TESCO_API_KEY }}
+        run: |
+          EXTRA=""
+          if [ -n "${{ inputs.category_url }}" ]; then
+            EXTRA="--category-url ${{ inputs.category_url }}"
+          fi
+          python -m beverage_feed probe --out probe-artifact $EXTRA
+      - name: Upload the probe artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tesco-category-probe
+          path: probe-artifact
+          if-no-files-found: warn
