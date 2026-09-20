@@ -74,3 +74,29 @@ Supporting evidence the dossier cites (third-party, not Tesco docs):
 Fallback if browseCategory is not usable on IE: `first_discovery` term
 expansion (search formulations) at a raised cap is already supported and costs
 nothing to try first.
+
+## Outcome of the probe rounds (2026-09-20, same day)
+
+The probe (`beverage_feed/probe.py`, `probe.yml`) ran four times on CI:
+
+1. `35543767493` — **aisle HTML is a dead end**: both Drinks URLs return a
+   2712-byte Akamai Bot Manager interstitial (HTTP 200, no title, no product
+   data). Category-page scraping, the technique the Apify actors advertise
+   from residential proxies, does not work from CI egress for Tesco IE.
+2. `35544010364` — the batch-array GraphQL shape works, and the production
+   `GetProductByTpnb` control answered with real data (Diet Coke 2L, TPNB
+   92752847, GTIN 05000112633818, €3.40, Clubcard promo, €0.25 DRS).
+   **`browseCategory` does not exist on the IE gateway** — the dossier's key
+   claim is UK-only, exactly as basketeer's author warned. `category` and
+   `productList` do exist; full introspection is switched off.
+3. `35544158257` — the list types expose `products`/`items`/`nodes`/`count`/
+   `page`/`pagination`; and the gateway caps batch size ("Batch size of 18
+   exceeds the maximum allowed size") — which also threatened production
+   hydration, now chunked at `TESCO_GRAPHQL_BATCH_LIMIT`.
+4. `35544414940` — with chunking: **`category(categoryId: …)` is the aisle
+   entry point**; `categoryId` is the only accepted argument name on
+   `category`.
+
+So: a Tesco category walk is buildable on the gateway, not on the storefront
+HTML. What is still missing is the `categoryId` for the Drinks aisles — see
+ff-20 for the two candidate ways to get it.
