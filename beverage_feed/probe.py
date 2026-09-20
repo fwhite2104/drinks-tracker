@@ -24,6 +24,22 @@ status, sizes, and scrubbed samples), ``introspection-fields.json`` (the
 gateway's query field names), and ``category-page-N.json`` (per-page
 structural summary). Raw HTML is never dumped whole — a bounded sample and
 the embedded JSON blob keys only.
+
+## What the first run already established (2026-09-20, run 35543767493)
+
+- **The HTML storefront route is closed from CI**: both Drinks aisle URLs
+  answered HTTP 200 with a 2712-byte Akamai Bot Manager interstitial
+  (``sec-if-cpt-container`` / "Powered and protected by Akamai"), no title,
+  no product data. Category-page scraping is therefore not the path for
+  Tesco IE — unlike Lidl's range pages, which do serve data.
+- Introspection returned HTTP 400 on a single-operation request body.
+
+So this module now (1) sends the **batch array** shape the working collection
+path uses, (2) carries a **control operation** — the production
+``GetProductByTpnb`` query — so "gateway/apikey broken" and "this operation
+rejected" are distinguishable, and (3) uses **error elicitation**: argless
+queries against candidate category fields, whose error text names the real
+arguments when a field exists. No argument *values* are ever invented.
 """
 
 from __future__ import annotations
@@ -36,10 +52,10 @@ import sys
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Mapping, Protocol, Sequence
 
 from . import source_http
-from .collector import safe_record
+from .collector import TESCO_PRODUCT_QUERY, safe_record
 
 TESCO_GRAPHQL_ENDPOINT = "https://xapi.tesco.com/"
 TESCO_SHOP_LANDING = "https://www.tesco.ie/groceries/"
@@ -66,6 +82,18 @@ query CategoryWalkIntrospection {
 """.strip()
 
 _CATEGORY_FIELD_RE = re.compile(r"categor|browse|aisle|shelf|listing|grid", re.I)
+
+#: Field names worth eliciting an error from. An argless query tells us, from
+#: the gateway's own error text, whether the field exists and which arguments
+#: it requires — no invented values, no guessed shapes.
+CATEGORY_CANDIDATE_FIELDS: tuple[str, ...] = (
+    "browseCategory",
+    "category",
+    "categoryProducts",
+    "categoryListing",
+    "productList",
+    "grid",
+)
 _DRINK_LINK_RE = re.compile(
     r"href=\"(?P<url>[^\"]*(?:drinks?|fizzy|soft-drinks?)[^\"]*)\"", re.I
 )
@@ -77,17 +105,111 @@ _CATEGORY_VALUE_RE = re.compile(r"(?:category|node|shelf)[A-Za-z]*[\"']?\s*[:=]\
 _HTML_SAMPLE_CHARS = 4000
 _MAX_INLINE_PAYLOAD_CHARS = 200_000
 
-#: Argument names whose values we can supply without guessing a product
-#: context. Anything absent from this map is reported as "no value known".
-_ARG_VALUE_SOURCES = (
-    "storeId", "store", "branchId", "branch", "servicePoint",
-)
+#: A real Tesco TPNB for the batch control operation (curated mappings).
+MAPPING_PATH = Path("data") / "mappings.json"
+
+
+def _graphql_batch_request(
+    operations: Sequence[Mapping[str, Any]], api_key: str
+) -> urllib.request.Request:
+    """POST the batch-array shape the working collection path uses."""
+    return urllib.request.Request(
+        TESCO_GRAPHQL_ENDPOINT,
+        data=json.dumps(list(operations)).encode(),
+        headers={
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "User-Agent": "drinks-tracker/0.1",
+            "x-apikey": api_key,
+            "region": "IE",
+            "language": "en-IE",
+            "origin": TESCO_GRAPHQL_ORIGIN,
+            "referer": TESCO_GRAPHQL_ORIGIN + "/",
+        },
+        method="POST",
+    )
+
+
+def _sole_result(payload: Any) -> Any:
+    """First element of a batch reply (introspection sends one operation)."""
+    if isinstance(payload, list) and payload:
+        return payload[0]
+    return payload
+
+
+def _elicitation_operations() -> list[dict[str, Any]]:
+    """Argless queries whose error text names the real arguments.
+
+    A GraphQL gateway answers "Cannot query field X" when the field is absent
+    and "field X argument Y is required" when it exists — either answer is
+    schema information, and neither requires inventing an argument value.
+    """
+    return [
+        {
+            "operationName": f"Probe{field[:1].upper()}{field[1:]}",
+            "variables": {},
+            "query": f"query Probe{field[:1].upper()}{field[1:]} {{ {field} {{ __typename }} }}",
+        }
+        for field in CATEGORY_CANDIDATE_FIELDS
+    ]
+
+
+def _first_tesco_tpnb(path: Path) -> str | None:
+    """A real TPNB from the curated mappings — the batch's control value."""
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, ValueError):
+        return None
+    entries = data.get("tesco") if isinstance(data, dict) else None
+    if not isinstance(entries, list):
+        return None
+    for entry in entries:
+        if isinstance(entry, Mapping) and entry.get("source_tpnb"):
+            return str(entry["source_tpnb"])
+    return None
+
+
+def _summarize_batch(
+    operations: Sequence[Mapping[str, Any]], payload: Any
+) -> list[dict[str, Any]]:
+    """Per-operation outcome: the gateway's errors verbatim, or the reply shape."""
+    results: list[dict[str, Any]] = []
+    for index, operation in enumerate(operations):
+        entry: dict[str, Any] = {"operation": str(operation.get("operationName"))}
+        if not isinstance(payload, list):
+            entry["outcome"] = "no batch reply"
+            entry["reply_type"] = type(payload).__name__
+            results.append(entry)
+            continue
+        reply = payload[index] if index < len(payload) else None
+        if not isinstance(reply, Mapping):
+            entry["outcome"] = "missing reply"
+        elif reply.get("errors"):
+            entry["outcome"] = "rejected"
+            entry["errors"] = [
+                str(item.get("message")) if isinstance(item, Mapping) else str(item)
+                for item in (reply["errors"] or [])
+            ][:4]
+        else:
+            data = reply.get("data")
+            entry["outcome"] = "answered"
+            entry["data_keys"] = (
+                sorted(data.keys())[:20] if isinstance(data, Mapping) else None
+            )
+        results.append(entry)
+    return results
 
 
 class Transport(Protocol):
     """The subset of ``RetailerTransport`` this probe uses."""
 
-    def send(self, request: urllib.request.Request, *, parse_json: bool = True) -> Any:
+    def send(
+        self,
+        request: urllib.request.Request,
+        *,
+        parse_json: bool = True,
+        capture_errors: bool = False,
+    ) -> Any:
         ...
 
 
@@ -106,6 +228,7 @@ def _attempt(
     request: urllib.request.Request,
     *,
     parse_json: bool = True,
+    capture_errors: bool = False,
 ) -> tuple[dict[str, Any], Any]:
     """Send one request, recording the outcome as artifact evidence."""
     record: dict[str, Any] = {
@@ -113,11 +236,21 @@ def _attempt(
         "url": _clean_url(request.full_url),
     }
     try:
-        payload = transport.send(request, parse_json=parse_json)
+        payload = transport.send(
+            request, parse_json=parse_json, capture_errors=capture_errors
+        )
     except Exception as exc:  # evidence: the failure text is the finding
         record["outcome"] = "error"
         record["error"] = f"{type(exc).__name__}: {exc}"
         return record, None
+    if isinstance(payload, dict) and payload.get("error_response"):
+        # HTTP >= 400 with the retailer's own explanation body.
+        record["outcome"] = "http_error"
+        record["http_status"] = payload.get("status")
+        record["retry_after"] = payload.get("retry_after")
+        body = str(payload.get("body") or "")
+        record["body"] = body[:source_http.ERROR_BODY_CHARS]
+        return record, payload.get("json")
     record["outcome"] = "ok"
     if isinstance(payload, (bytes, bytearray)):
         record["bytes"] = len(payload)
@@ -226,57 +359,59 @@ def probe_graphql(
     transport: Transport,
     api_key: str,
     *,
-    category_values: Sequence[str] = (),
+    tpnb: str | None = None,
 ) -> dict[str, Any]:
-    """Introspect the gateway, then attempt a category call if it is safe to."""
+    """Schema + operation reconnaissance against the storefront gateway.
+
+    Three questions, cheapest first:
+
+    1. Does the gateway answer a batch at all? The batch carries the
+       production ``GetProductByTpnb`` operation as its **control**, so
+       "gateway or key is broken" stays distinguishable from "this operation
+       was rejected".
+    2. Which category-ish field names exist, and which arguments do they
+       demand? Answered by the gateway's own error text for argless queries.
+    3. Is introspection available (a bonus: it short-circuits the above)?
+    """
     report: dict[str, Any] = {}
-    record, payload = _attempt(transport, _graphql_request(INTROSPECTION_QUERY, api_key, None))
-    report["introspection"] = record
-    summary = summarize_introspection(payload)
-    report["introspection_summary"] = summary
-    if not summary.get("available"):
-        report["category_call"] = {"outcome": "skipped", "reason": "introspection unavailable"}
-        return report
 
-    candidates = summary.get("category_like") or {}
-    if not candidates:
-        report["category_call"] = {
-            "outcome": "skipped",
-            "reason": "no category-like query field on the gateway",
-        }
-        return report
+    control = _first_tesco_tpnb(MAPPING_PATH) if tpnb is None else tpnb
+    operations: list[dict[str, Any]] = []
+    if control:
+        operations.append(
+            {
+                "operationName": "GetProductByTpnb",
+                "variables": {"tpnb": control},
+                "query": TESCO_PRODUCT_QUERY,
+            }
+        )
+    operations.extend(_elicitation_operations())
 
-    field_name = sorted(candidates)[0]
-    args = candidates[field_name]
-    values: dict[str, str] = {}
-    missing: list[str] = []
-    for arg in args:
-        name = str(arg.get("name"))
-        if name in _ARG_VALUE_SOURCES:
-            missing.append(f"{name}: {arg.get('type')} (no value known)")
-            continue
-        if arg.get("required"):
-            if category_values:
-                values[name] = category_values[0]
-            else:
-                missing.append(f"{name}: {arg.get('type')} (required, no category value found)")
-            continue
-        values[name] = category_values[0] if category_values else ""
-    if missing:
-        report["category_call"] = {
-            "outcome": "not attempted",
-            "field": field_name,
-            "args": args,
-            "missing": missing,
-        }
-        return report
+    record, payload = _attempt(
+        transport, _graphql_batch_request(operations, api_key), capture_errors=True
+    )
+    report["control_tpnb"] = control
+    report["batch"] = record
+    report["batch_results"] = _summarize_batch(operations, payload)
 
-    variables = {f"v{index}": value for index, value in enumerate(values.values())}
-    arg_decls = ", ".join(f"{name}: $v{index}" for index, name in enumerate(values))
-    var_decls = ", ".join(f"$v{index}: String" for index in range(len(values)))
-    query = f"query CategoryWalkProbe({var_decls}) {{ {field_name}({arg_decls}) {{ __typename }} }}"
-    record, _ = _attempt(transport, _graphql_request(query, api_key, variables))
-    report["category_call"] = {"field": field_name, "args": args, "attempt": record}
+    intro_record, intro_payload = _attempt(
+        transport,
+        _graphql_batch_request(
+            [
+                {
+                    "operationName": "CategoryWalkIntrospection",
+                    "variables": {},
+                    "query": INTROSPECTION_QUERY,
+                }
+            ],
+            api_key,
+        ),
+        capture_errors=True,
+    )
+    report["introspection"] = intro_record
+    report["introspection_summary"] = summarize_introspection(
+        _sole_result(intro_payload)
+    )
     return report
 
 
@@ -313,11 +448,12 @@ def run(
     values: list[str] = []
     for page in pages:
         values.extend(page.get("page", {}).get("category_values") or [])
-    graphql = probe_graphql(transport, api_key, category_values=values)
+    graphql = probe_graphql(transport, api_key)
     summary: dict[str, Any] = {
         "probe": "tesco-category-walk",
         "endpoint": TESCO_GRAPHQL_ENDPOINT,
         "pages": pages,
+        "page_category_values": values,
         "graphql": graphql,
         "note": (
             "Evidence only: no mappings, observations, or feed writes. "
@@ -386,13 +522,19 @@ def main(argv: Sequence[str] | None = None) -> int:
         out_dir=args.out,
         category_urls=urls,
     )
-    introspection = summary["graphql"].get("introspection_summary") or {}
-    category_like = introspection.get("category_like") or {}
+    graphql = summary["graphql"]
+    results = graphql.get("batch_results") or []
+    answered = [str(row["operation"]) for row in results if row.get("outcome") == "answered"]
+    rejected = [str(row["operation"]) for row in results if row.get("outcome") == "rejected"]
+    introspection = graphql.get("introspection_summary") or {}
     print(
-        "probe: pages={pages} fields={fields} category_like={like} -> {out}".format(
+        "probe: pages={pages} control_tpnb={tpnb} batch_answered={answered} "
+        "batch_rejected={rejected} introspection={intro} -> {out}".format(
             pages=len(summary["pages"]),
-            fields=introspection.get("field_count", "unavailable"),
-            like=",".join(sorted(category_like)) or "none",
+            tpnb=graphql.get("control_tpnb"),
+            answered=",".join(answered) or "none",
+            rejected=",".join(rejected) or "none",
+            intro="available" if introspection.get("available") else "unavailable",
             out=args.out,
         )
     )

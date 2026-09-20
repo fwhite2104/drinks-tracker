@@ -51,26 +51,61 @@ SYNTHETIC_INTROSPECTION = {
     }
 }
 
+SYNTHETIC_MAPPINGS = {
+    "tesco": [
+        {"catalog_id": "coca-diet-2000", "expected_product_name": "Diet Coke 2 Litre", "source_tpnb": "92752847", "status": "approved"}
+    ]
+}
+
 
 class StubTransport:
-    """Records requests and replays canned payloads keyed by URL."""
+    """Replays canned payloads and records the requests it was given."""
 
-    def __init__(self, *, json_by_url: dict[str, Any] | None = None, html_by_url: dict[str, str] | None = None,
-                 fail_urls: set[str] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        json_by_url: dict[str, Any] | None = None,
+        html_by_url: dict[str, str] | None = None,
+        fail_urls: set[str] | None = None,
+        error_records_by_url: dict[str, dict[str, Any]] | None = None,
+    ) -> None:
         self.json_by_url = json_by_url or {}
         self.html_by_url = html_by_url or {}
         self.fail_urls = fail_urls or set()
+        self.error_records_by_url = error_records_by_url or {}
         self.requests: list[urllib.request.Request] = []
+        self.bodies: list[Any] = []
+        self.last_body: Any = None
 
-    def send(self, request: urllib.request.Request, *, parse_json: bool = True) -> Any:
+    def send(
+        self,
+        request: urllib.request.Request,
+        *,
+        parse_json: bool = True,
+        capture_errors: bool = False,
+    ) -> Any:
         self.requests.append(request)
         url = request.full_url
+        data = request.data
+        if isinstance(data, (bytes, bytearray)):
+            body = json.loads(bytes(data).decode())
+            self.bodies.append(body)
+            self.last_body = body
         for failed in self.fail_urls:
             if url.startswith(failed):
                 raise RuntimeError(f"HTTP 403 for {failed}")
+        if url in self.error_records_by_url and capture_errors:
+            return self.error_records_by_url[url]
         if parse_json:
             return self.json_by_url.get(url, {})
         return self.html_by_url.get(url, "<html></html>").encode()
+
+
+@pytest.fixture()
+def mappings_file(tmp_path: Path) -> Path:
+    path = tmp_path / "mappings.json"
+    path.write_text(json.dumps(SYNTHETIC_MAPPINGS))
+    return path
 
 
 def test_category_page_summary_extracts_links_blobs_and_values() -> None:
@@ -79,8 +114,7 @@ def test_category_page_summary_extracts_links_blobs_and_values() -> None:
     assert summary["title"] == "Fizzy Drinks - Tesco Groceries"
     assert any("fizzy-drinks" in link for link in summary["drink_links"])
     assert all("fresh-food" not in link for link in summary["drink_links"])
-    shapes = {blob.get("shape") for blob in summary["json_blobs"]}
-    assert "dict" in shapes
+    assert "dict" in {blob.get("shape") for blob in summary["json_blobs"]}
     assert "1234" in summary["category_values"]
     assert len(summary["sample"]) <= probe._HTML_SAMPLE_CHARS
 
@@ -97,78 +131,147 @@ def test_introspection_summary_surfaces_category_like_fields() -> None:
     assert args["categoryId"]["type"] == "String!"
 
 
-def test_probe_pages_use_the_injected_transport() -> None:
+def test_batch_carries_the_control_operation_and_argless_elicitations(
+    monkeypatch: pytest.MonkeyPatch, mappings_file: Path
+) -> None:
+    monkeypatch.setattr(probe, "MAPPING_PATH", mappings_file)
+    transport = StubTransport(json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: [SYNTHETIC_INTROSPECTION]})
+
+    report = probe.probe_graphql(transport, "test-key")
+
+    assert report["control_tpnb"] == "92752847"
+    batch = transport.bodies[0]
+    assert isinstance(batch, list)
+    names = [operation["operationName"] for operation in batch]
+    assert names[0] == "GetProductByTpnb"
+    assert "ProbeBrowseCategory" in names
+    assert batch[0]["variables"] == {"tpnb": "92752847"}
+    # Every elicitation is argless: no invented argument values anywhere.
+    for operation in batch[1:]:
+        assert operation["variables"] == {}
+        assert "__typename" in operation["query"]
+
+
+def test_batch_results_classify_answered_rejected_and_missing() -> None:
+    operations = [
+        {"operationName": "GetProductByTpnb"},
+        {"operationName": "ProbeBrowseCategory"},
+        {"operationName": "ProbeCategory"},
+    ]
+    payload = [
+        {"data": {"product": {"tpnb": "1"}}},
+        {"errors": [{"message": "Cannot query field 'browseCategory' on type 'Query'."}]},
+    ]
+
+    results = probe._summarize_batch(operations, payload)
+
+    assert [row["outcome"] for row in results] == ["answered", "rejected", "missing reply"]
+    assert "Cannot query field" in results[1]["errors"][0]
+    assert results[0]["data_keys"] == ["product"]
+
+
+def test_batch_results_handle_a_non_list_reply() -> None:
+    results = probe._summarize_batch([{"operationName": "GetProductByTpnb"}], {"errors": []})
+
+    assert results == [
+        {
+            "operation": "GetProductByTpnb",
+            "outcome": "no batch reply",
+            "reply_type": "dict",
+        }
+    ]
+
+
+def test_http_error_responses_keep_the_retailer_explanation(
+    monkeypatch: pytest.MonkeyPatch, mappings_file: Path
+) -> None:
+    monkeypatch.setattr(probe, "MAPPING_PATH", mappings_file)
     transport = StubTransport(
-        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: SYNTHETIC_INTROSPECTION},
-        html_by_url={probe.DEFAULT_CATEGORY_URLS[0]: SYNTHETIC_PAGE},
+        error_records_by_url={
+            probe.TESCO_GRAPHQL_ENDPOINT: {
+                "error_response": True,
+                "status": 400,
+                "retry_after": None,
+                "body": '{"errors":[{"message":"introspection is disabled"}]}',
+                "json": {"errors": [{"message": "introspection is disabled"}]},
+            }
+        }
     )
 
-    report = probe.probe_pages(transport, probe.DEFAULT_CATEGORY_URLS[:1])
+    report = probe.probe_graphql(transport, "test-key")
 
-    assert len(report) == 1
-    rewritten = transport.requests[0]
-    assert rewritten.get_method() == "GET"
-    assert "Accept" in dict(rewritten.header_items())
+    assert report["batch"]["outcome"] == "http_error"
+    assert report["batch"]["http_status"] == 400
+    assert "introspection is disabled" in report["batch"]["body"]
+    assert report["introspection_summary"]["available"] is False
 
 
-def test_category_call_runs_with_a_discovered_category_value(tmp_path: Path) -> None:
+def test_run_writes_artifacts_and_uses_the_injected_transport(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mappings_file: Path
+) -> None:
+    monkeypatch.setattr(probe, "MAPPING_PATH", mappings_file)
     transport = StubTransport(
-        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: SYNTHETIC_INTROSPECTION},
+        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: [SYNTHETIC_INTROSPECTION]},
         html_by_url={probe.DEFAULT_CATEGORY_URLS[0]: SYNTHETIC_PAGE},
     )
 
     summary = probe.run(
-        transport, api_key="test-key", out_dir=tmp_path, category_urls=probe.DEFAULT_CATEGORY_URLS[:1]
+        transport,
+        api_key="test-key",
+        out_dir=tmp_path,
+        category_urls=probe.DEFAULT_CATEGORY_URLS[:1],
     )
 
-    call = summary["graphql"]["category_call"]
-    assert call["field"] == "browseCategory"
-    assert call["attempt"]["outcome"] == "ok"
-    assert "categoryId: $v0" in json.dumps(call["attempt"]) or "categoryId" in json.dumps(call["args"])
+    assert summary["page_category_values"] == ["1234"]
     assert (tmp_path / "probe-summary.json").is_file()
     assert (tmp_path / "introspection-fields.json").is_file()
     assert (tmp_path / "category-page-1.json").is_file()
+    assert len(transport.requests) == 3  # 1 page + 1 batch + 1 introspection
 
 
-def test_category_call_is_skipped_without_a_value_and_never_guesses() -> None:
-    transport = StubTransport(json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: SYNTHETIC_INTROSPECTION})
-
-    report = probe.probe_graphql(transport, "test-key", category_values=())
-
-    call = report["category_call"]
-    assert call["outcome"] == "not attempted"
-    assert any("required" in entry for entry in call["missing"])
-    # Only the introspection request went out — no guessed call.
-    assert len(transport.requests) == 1
-
-
-def test_transport_failures_are_recorded_as_evidence(tmp_path: Path) -> None:
+def test_transport_failures_are_recorded_as_evidence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mappings_file: Path
+) -> None:
+    monkeypatch.setattr(probe, "MAPPING_PATH", mappings_file)
     transport = StubTransport(fail_urls={probe.TESCO_GRAPHQL_ENDPOINT})
 
     summary = probe.run(
-        transport, api_key="test-key", out_dir=tmp_path, category_urls=probe.DEFAULT_CATEGORY_URLS[:1]
+        transport,
+        api_key="test-key",
+        out_dir=tmp_path,
+        category_urls=probe.DEFAULT_CATEGORY_URLS[:1],
     )
 
-    record = summary["graphql"]["introspection"]
-    assert record["outcome"] == "error"
-    assert "403" in record["error"]
-    assert summary["graphql"]["introspection_summary"]["available"] is False
+    assert summary["graphql"]["batch"]["outcome"] == "error"
+    assert "403" in summary["graphql"]["batch"]["error"]
 
 
-def test_api_key_never_appears_in_the_artifact(tmp_path: Path) -> None:
+def test_api_key_never_appears_in_the_artifact(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, mappings_file: Path
+) -> None:
+    monkeypatch.setattr(probe, "MAPPING_PATH", mappings_file)
     transport = StubTransport(
-        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: SYNTHETIC_INTROSPECTION},
+        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: [SYNTHETIC_INTROSPECTION]},
         html_by_url={probe.DEFAULT_CATEGORY_URLS[0]: SYNTHETIC_PAGE},
     )
 
     probe.run(
-        transport, api_key="super-secret-key", out_dir=tmp_path, category_urls=probe.DEFAULT_CATEGORY_URLS[:1]
+        transport,
+        api_key="super-secret-key",
+        out_dir=tmp_path,
+        category_urls=probe.DEFAULT_CATEGORY_URLS[:1],
     )
 
-    written = "\n".join(
-        path.read_text() for path in sorted(tmp_path.glob("*.json"))
-    )
+    written = "\n".join(path.read_text() for path in sorted(tmp_path.glob("*.json")))
     assert "super-secret-key" not in written
+
+
+def test_first_tesco_tpnb_reads_the_curated_mappings(mappings_file: Path, tmp_path: Path) -> None:
+    assert probe._first_tesco_tpnb(mappings_file) == "92752847"
+    assert probe._first_tesco_tpnb(tmp_path / "absent.json") is None
+    empty = tmp_path / "empty.json"
+    empty.write_text(json.dumps({"tesco": []}))
+    assert probe._first_tesco_tpnb(empty) is None
 
 
 def test_probe_records_the_aisle_url_without_query_values() -> None:
@@ -177,9 +280,12 @@ def test_probe_records_the_aisle_url_without_query_values() -> None:
     )
 
 
-def test_probe_main_requires_no_network(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+def test_probe_main_requires_no_network(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, mappings_file: Path
+) -> None:
+    monkeypatch.setattr(probe, "MAPPING_PATH", mappings_file)
     transport = StubTransport(
-        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: SYNTHETIC_INTROSPECTION},
+        json_by_url={probe.TESCO_GRAPHQL_ENDPOINT: [SYNTHETIC_INTROSPECTION]},
         html_by_url={probe.DEFAULT_CATEGORY_URLS[0]: SYNTHETIC_PAGE},
     )
     monkeypatch.setattr(probe, "build_transport", lambda min_request_interval=2.5: transport)

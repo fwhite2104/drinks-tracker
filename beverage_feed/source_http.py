@@ -139,6 +139,50 @@ def transport_error(retailer: str, exc: Exception) -> SourceHTTPError:
     return SourceHTTPError(f"{retailer} request failed", status=None)
 
 
+#: How much of a 4xx response body an evidence record keeps.
+ERROR_BODY_CHARS = 2000
+
+
+def _error_record(
+    status: int, headers: Any, body: Any, *, parse_json: bool
+) -> dict[str, Any]:
+    """Evidence record for an HTTP >= 400 response (``capture_errors=True``).
+
+    Keeps the status, the Retry-After hint, and a bounded body sample — the
+    body is what explains a rejected GraphQL operation or a WAF block page.
+    Scrubbing is the caller's job (the probe runs it through ``safe_record``).
+    """
+    if isinstance(body, (bytes, bytearray)):
+        text = bytes(body).decode("utf-8", "replace")
+    else:
+        text = str(body)
+    record: dict[str, Any] = {
+        "error_response": True,
+        "status": status,
+        "retry_after": _header_value(headers, "Retry-After"),
+        "body": text[:ERROR_BODY_CHARS],
+    }
+    if parse_json:
+        try:
+            record["json"] = json.loads(text)
+        except ValueError:
+            record["json"] = None
+    return record
+
+
+def _header_value(headers: Any, name: str) -> Any:
+    """Header lookup that tolerates dicts and ``email.message.Message``."""
+    if headers is None:
+        return None
+    getter = getattr(headers, "get", None)
+    if getter is None:
+        return None
+    value = getter(name)
+    if value is None:
+        value = getter(name.lower())
+    return value
+
+
 def is_retryable_failure(exc: BaseException) -> bool:
     """True only for transport failures, 429s, and retryable 5xx responses.
 
@@ -281,18 +325,32 @@ class RetailerTransport:
             bytes(getattr(response, "content", b"") or b""),
         )
 
-    def send(self, request: urllib.request.Request, *, parse_json: bool = True) -> Any:
+    def send(
+        self,
+        request: urllib.request.Request,
+        *,
+        parse_json: bool = True,
+        capture_errors: bool = False,
+    ) -> Any:
         """Fetch a prepared urllib Request with shared throttle + error mapping.
 
         HTTP >= 400 becomes ``status_error`` (carrying Retry-After evidence),
         transport-level outages become ``transport_error``, anything else
         degrades to a plain ``RuntimeError``.
+
+        ``capture_errors=True`` returns the failure as an evidence record
+        (``{"error_response": True, "status", "retry_after", "body"}``) instead
+        of raising. Operator/reconnaissance tooling needs the body a retailer
+        sends with a 4xx — a GraphQL gateway, for example, answers a rejected
+        operation with an explanatory error document.
         """
         self._throttle()
         try:
             if self._session is not None:
                 status, headers, body = self._session_response(request)
                 if status >= 400:
+                    if capture_errors:
+                        return _error_record(status, headers, body, parse_json=parse_json)
                     raise status_error(
                         self.retailer, status, headers.get("Retry-After")
                     )
@@ -304,6 +362,13 @@ class RetailerTransport:
                 )
                 with context as response:
                     if getattr(response, "status", 200) >= 400:
+                        if capture_errors:
+                            return _error_record(
+                                getattr(response, "status", 200),
+                                response.headers,
+                                response.read(),
+                                parse_json=parse_json,
+                            )
                         raise status_error(
                             self.retailer, getattr(response, "status", 200),
                             response_retry_after(response),
@@ -312,6 +377,10 @@ class RetailerTransport:
         except SourceHTTPError:
             raise
         except urllib.error.HTTPError as exc:
+            if capture_errors:
+                return _error_record(
+                    exc.code, exc.headers, exc.read(), parse_json=parse_json
+                )
             raise status_error(
                 self.retailer, exc.code, exc.headers.get("Retry-After")
             ) from exc
