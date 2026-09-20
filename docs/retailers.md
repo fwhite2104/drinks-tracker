@@ -8,8 +8,11 @@ no category walk shipped). Re-admit via explicit `--retailer` runs.
 
 **All retailer egress happens on GitHub Actions** (rotating cloud IPs). The
 home network is IP-blocked — Akamai blocks Tesco across all of tesco.ie
-(2026-08-27), and Dunnes 403'd the home IP (2026-08-30). Never probe a
-retailer from home; see [`operations.md`](operations.md).
+(2026-08-27), and Dunnes 403'd the home IP (2026-08-30). Both Tesco and Dunnes
+collect through the Chrome-impersonated transport (the optional `curl-cffi`
+`impersonation` extra); Dunnes also 403'd CI egress from ~2026-09-06 until it
+moved onto that transport (ticket 19). Never probe a retailer from home; see
+[`operations.md`](operations.md).
 
 Access routes were validated in `.scratch/full-feed-coverage/research/`
 (gitignored local captures) and the per-retailer tickets.
@@ -19,6 +22,14 @@ Access routes were validated in `.scratch/full-feed-coverage/research/`
 - **Route**: the grocery site (dunnesstoresgrocery.com) exposes a JSON search
   API on a separate `storefrontgateway` host, not Cloudflare-gated. Results
   are translated into the `productSearch.products` VTEX-style envelope.
+- **Transport**: requests go through the Chrome-impersonated transport; plain
+  urllib drew HTTP 403 from CI egress for two weeks (ticket 19). Spacing is
+  2.5s and one spaced retry rides past a single 403 — the gateway draws a
+  small, non-deterministic set of 403s even on the impersonated transport
+  (2-6 of 41 cells per run at 1.0s spacing; 0-1 of 41 at 2.5s with the retry,
+  2026-09-20). What is left is the run's *first* request — a cold session —
+  which still 403s on some runs; a warm-up request is the next candidate. A
+  persistent block still raises after the retry.
 - **DRS deposit** extracted from offer evidence / `taxDetails`.
 - **Search relevance is exact-substring**: full pack names often return 0
   ("Coca-Cola Original Taste 1.5L Bottle" → []), while bare brand terms

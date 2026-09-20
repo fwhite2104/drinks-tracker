@@ -3225,15 +3225,19 @@ class DunnesClientTests(unittest.TestCase):
 class _FakeCurlSession:
     """Stands in for a curl_cffi Session at the impersonated seam."""
 
-    def __init__(self, response=None, error=None):
+    def __init__(self, response=None, error=None, responses=None):
         self.response = response
         self.error = error
+        # A response sequence; the last entry repeats once exhausted.
+        self.responses = list(responses) if responses else []
         self.requests = []
 
     def request(self, method, url, **kwargs):
         self.requests.append({"method": method, "url": url, **kwargs})
         if self.error is not None:
             raise self.error
+        if self.responses:
+            return self.responses.pop(0) if len(self.responses) > 1 else self.responses[0]
         return self.response
 
 
@@ -3282,6 +3286,33 @@ class DunnesImpersonatedTransportTests(unittest.TestCase):
             client("Coca-Cola Zero")
         self.assertEqual(ctx.exception.status, 403)
         self.assertFalse(ctx.exception.retryable)
+        # One spaced retry, then it gives up (a persistent block is honest).
+        self.assertEqual(len(session.requests), 2)
+
+    def test_a_flaky_403_is_retried_once_on_the_same_session(self):
+        session = _FakeCurlSession(
+            responses=[
+                _FakeCurlResponse(403, b"{}"),
+                _FakeCurlResponse(200, json.dumps({"items": []}).encode()),
+            ]
+        )
+        client = DunnesClient(impersonate="chrome", session=session, min_request_interval=0)
+        payload = client("Coca-Cola Zero")
+
+        self.assertEqual(payload["data"]["productSearch"]["products"], [])
+        self.assertEqual(len(session.requests), 2)
+
+    def test_other_failures_are_not_retried(self):
+        session = _FakeCurlSession(_FakeCurlResponse(500, b"{}"))
+        client = DunnesClient(impersonate="chrome", session=session, min_request_interval=0)
+        with self.assertRaises(SourceHTTPError) as ctx:
+            client("Coca-Cola Zero")
+        self.assertEqual(ctx.exception.status, 500)
+        self.assertEqual(len(session.requests), 1)
+
+    def test_the_dunnes_throttle_is_slower_than_the_default(self):
+        """Flaky 403s tracked 1.0s spacing; the default is deliberately slower."""
+        self.assertGreater(DunnesClient().transport.min_request_interval, 1.0)
 
     def test_impersonated_transport_failure_is_retryable_without_status(self):
         session = _FakeCurlSession(error=OSError("connection refused"))

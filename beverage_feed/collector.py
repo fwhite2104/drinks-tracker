@@ -57,6 +57,12 @@ from .money import decimal_text as _decimal_text
 DUNNES_ENDPOINT = "https://storefrontgateway.dunnesstoresgrocery.com/api/stores"
 DUNNES_STORE_ID = os.environ.get("DUNNES_STORE_ID", "258")
 DUNNES_PAGE_SIZE = 50  # the ``take`` bound requested from the gateway
+# The gateway draws a small, non-deterministic set of HTTP 403s even on the
+# impersonated transport — different cells each run, and every one of them
+# passes on other runs (CI, 2026-09-20: 2-6 cells of 41 at 1.0s spacing).
+# Slower spacing plus one spaced retry (``DunnesClient._search``) absorbs it;
+# the daily run can afford ~2 extra minutes for 41 cells.
+DUNNES_MIN_REQUEST_INTERVAL = 2.5
 
 logger = logging.getLogger("beverage_feed.collector")
 
@@ -142,7 +148,7 @@ class DunnesClient:
         endpoint: str = DUNNES_ENDPOINT,
         store_id: str = DUNNES_STORE_ID,
         opener: urllib.request.OpenerDirector | None = None,
-        min_request_interval: float = 1.0,
+        min_request_interval: float = DUNNES_MIN_REQUEST_INTERVAL,
         impersonate: str | None = "chrome",
         session: Any | None = None,
     ):
@@ -163,6 +169,24 @@ class DunnesClient:
         """The shared transport; its impersonation mode is observable."""
         return self._transport
 
+    def _search(self, url: str) -> Any:
+        """Fetch one search page, retrying once past a flaky 403.
+
+        The gateway draws HTTP 403 on a small, non-deterministic subset of
+        requests even on the impersonated transport: CI run 1 (2026-09-20)
+        403'd 2 of 41 cells, run 2 403'd 5, different cells each time, and
+        every one of them passes on other runs — edge flakiness, not a block.
+        The retry goes through the same throttled transport, so it is spaced
+        like any other request, and a persistent block still raises after it
+        (403 stays non-retryable at the transport level, as classified).
+        """
+        try:
+            return self._transport.json(url)
+        except source_http.SourceHTTPError as exc:
+            if exc.status != 403:
+                raise
+        return self._transport.json(url)
+
     def __call__(self, search_term: str) -> dict[str, Any]:
         if not search_term.strip():
             raise ValueError("Dunnes search term must not be empty")
@@ -171,7 +195,7 @@ class DunnesClient:
             self.store_id,
             urllib.parse.urlencode({"q": search_term, "take": DUNNES_PAGE_SIZE}),
         )
-        payload = self._transport.json(url)
+        payload = self._search(url)
 
         items = payload.get("items") if isinstance(payload, dict) else None
         if not isinstance(items, list):
