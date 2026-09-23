@@ -710,6 +710,186 @@
       "rejected_at": "2026-09-23T22:41:54Z",
       "retailer": "tesco",
       "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-330-single",
+      "cell": "coca-zero-330-single",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only multipacks, 2L and 150ml cans (10 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:41:58Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-500",
+      "cell": "coca-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1L and can formats (10 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:41:58Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "dr-pepper-330",
+      "cell": "dr-pepper-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only a 6x330ml pack, 2L and 500ml bottles (5 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:41:58Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "evian-1l",
+      "cell": "evian-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Evian 750ml/1.5L and 6x500ml/6x1.5L multipacks (6 candidates) - no exact 1x1000ml listing",
+      "rejected_at": "2026-09-23T22:41:58Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "evian-500",
+      "cell": "evian-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Evian 750ml/1.5L and 6x500ml/6x1.5L multipacks (6 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:41:59Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "fanta-orange-1500",
+      "cell": "fanta-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 1.75L, 1L, 500ml and 330ml listings (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:41:59Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "fanta-zero-330",
+      "cell": "fanta-zero-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Club Zero Orange, no Fanta Zero (2 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:41:59Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "gatorade-orange-500",
+      "cell": "gatorade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Club Orange bottles, no Gatorade (2 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:41:59Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-kids-orange-4",
+      "cell": "innocent-kids-orange-4",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Kids smoothie 4x150ml pouches (different product line) (10 candidates) - no exact 4x150ml listing",
+      "rejected_at": "2026-09-23T22:42:00Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-orange-900",
+      "cell": "innocent-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: Smooth/With Bits 900ml variants exist; catalog cannot disambiguate the benchmark pack (same ruling as dunnes/supervalu) (2 candidates) - no exact 1x900ml listing",
+      "rejected_at": "2026-09-23T22:42:00Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "innocent-smoothie-750",
+      "cell": "innocent-smoothie-750",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Berry Set Go 750ml (flavoured/vitamin variant, not the plain berry smoothie, per the dunnes ruling) (1 candidates) - no exact 1x750ml listing",
+      "rejected_at": "2026-09-23T22:42:00Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "kombucha-ginger-330",
+      "cell": "kombucha-ginger-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only other kombucha brands (All About Kombucha/SiSu), no Karma Drinks (10 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:42:00Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "lipton-lemon-1500",
+      "cell": "lipton-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 1.25L and 500ml bottles (2 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:01Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "lipton-peach-1500",
+      "cell": "lipton-peach-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 1.25L/500ml bottles and tea bags (3 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:01Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "lucozade-sport-berry-500",
+      "cell": "lucozade-sport-berry-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Orange/Raspberry Sport 500ml (Raspberry is not the Berry pack, per the dunnes ruling) (10 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:01Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-paradise-500",
+      "cell": "monster-paradise-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: no Ultra Paradise; other Ultra flavours and plain Monster only (10 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:01Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-ultra-white-12",
+      "cell": "monster-ultra-white-12",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x500ml multipacks and single cans (10 candidates) - no exact 12x500ml listing",
+      "rejected_at": "2026-09-23T22:42:01Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "monster-zero-500",
+      "cell": "monster-zero-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x500ml multipacks and Ultra variants (10 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:02Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-max-1500",
+      "cell": "pepsi-max-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1.25L, 750ml and 500ml bottles (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:02Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-max-6",
+      "cell": "pepsi-max-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/8x/12x/18x330ml multipacks (10 candidates) - no exact 6x330ml listing",
+      "rejected_at": "2026-09-23T22:42:02Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
     }
   ],
   "listings": [
