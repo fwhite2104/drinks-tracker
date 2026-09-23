@@ -530,6 +530,186 @@
       "rejected_at": "2026-09-04T21:28:20Z",
       "retailer": "dunnes",
       "state": "do_not_map"
+    },
+    {
+      "catalog_id": "7up-free-330",
+      "cell": "7up-free-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 7UP Zero Lemon & Lime listings (Zero is not the Free pack; same ruling as dunnes) (5 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:41:50Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "arizona-green-tea-500",
+      "cell": "arizona-green-tea-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Arizona Green Tea 1.5L (wrong size) (1 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:41:50Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "ballygowan-sport-750",
+      "cell": "ballygowan-sport-750",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only plain Still 750ml (plain Still differs from the Sport bottle, per the dunnes ruling) (2 candidates) - no exact 1x750ml listing",
+      "rejected_at": "2026-09-23T22:41:50Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "ballygowan-still-1500",
+      "cell": "ballygowan-still-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only flavoured 1.5L, 1L, 2L and 4x/6x1.5L listings (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:41:50Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "boost-500",
+      "cell": "boost-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Boost 250mlx4 and 1Ltr (wrong count and size) (10 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:41:50Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "cawston-apple-1l",
+      "cell": "cawston-apple-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only other Cawston 1L flavours and third-party apple juices (10 candidates) - no exact 1x1000ml listing",
+      "rejected_at": "2026-09-23T22:41:51Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "cawston-elderflower-1l",
+      "cell": "cawston-elderflower-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only other Cawston flavours and third-party presse drinks (10 candidates) - no exact 1x1000ml listing",
+      "rejected_at": "2026-09-23T22:41:51Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "cawston-rhubarb-1l",
+      "cell": "cawston-rhubarb-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only other Cawston flavours and non-beverage rhubarb items (10 candidates) - no exact 1x1000ml listing",
+      "rejected_at": "2026-09-23T22:41:51Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "club-rock-shandy-2l",
+      "cell": "club-rock-shandy-2l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 330ml cans and 1.75L/500ml bottles (10 candidates) - no exact 1x2000ml listing",
+      "rejected_at": "2026-09-23T22:41:51Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-1500",
+      "cell": "coca-diet-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1L and can formats (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:41:52Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-330-6",
+      "cell": "coca-diet-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/24x330ml multipacks (10 candidates) - no exact 6x330ml listing",
+      "rejected_at": "2026-09-23T22:41:52Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-330-8",
+      "cell": "coca-diet-330-8",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/24x330ml multipacks (10 candidates) - no exact 8x330ml listing",
+      "rejected_at": "2026-09-23T22:41:52Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-330-single",
+      "cell": "coca-diet-330-single",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only multipacks, 2L and 150ml cans (10 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:41:52Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-diet-500",
+      "cell": "coca-diet-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1L and can formats (10 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:41:53Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-original-1500",
+      "cell": "coca-original-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1L, 500ml and can formats (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:41:53Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-original-330-6",
+      "cell": "coca-original-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/24x330ml multipacks (10 candidates) - no exact 6x330ml listing",
+      "rejected_at": "2026-09-23T22:41:53Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-original-330-8",
+      "cell": "coca-original-330-8",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/24x330ml multipacks (8 candidates) - no exact 8x330ml listing",
+      "rejected_at": "2026-09-23T22:41:53Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-1500",
+      "cell": "coca-zero-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1L, 500ml and can formats (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:41:53Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-330-6",
+      "cell": "coca-zero-330-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/24x330ml multipacks (10 candidates) - no exact 6x330ml listing",
+      "rejected_at": "2026-09-23T22:41:54Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "coca-zero-330-8",
+      "cell": "coca-zero-330-8",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/24x330ml multipacks (10 candidates) - no exact 8x330ml listing",
+      "rejected_at": "2026-09-23T22:41:54Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
     }
   ],
   "listings": [
