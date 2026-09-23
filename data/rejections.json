@@ -890,6 +890,159 @@
       "rejected_at": "2026-09-23T22:42:02Z",
       "retailer": "tesco",
       "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-1500",
+      "cell": "pepsi-original-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 2L, 1.25L, 750ml and 500ml bottles (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:02Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-24",
+      "cell": "pepsi-original-24",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/18x330ml multipacks (10 candidates) - no exact 24x330ml listing",
+      "rejected_at": "2026-09-23T22:42:03Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-330",
+      "cell": "pepsi-original-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only multipacks of Pepsi and Pepsi Max singles (8 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:42:03Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "pepsi-original-6",
+      "cell": "pepsi-original-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 4x/12x/18x330ml multipacks (10 candidates) - no exact 6x330ml listing",
+      "rejected_at": "2026-09-23T22:42:03Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "powerade-mountain-500",
+      "cell": "powerade-mountain-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Powerade Berry & Tropical 500ml (a different flavour, per the dunnes ruling) (1 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:03Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "powerade-orange-500",
+      "cell": "powerade-orange-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Powerade Berry & Tropical 500ml (a different flavour, per the dunnes ruling) (3 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:04Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "prime-ice-pop-500",
+      "cell": "prime-ice-pop-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only ice cubes, ice lollies and ice-cream items, no Prime (6 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:04Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "ribena-blackcurrant-1l",
+      "cell": "ribena-blackcurrant-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 850ml squashes and third-party blackcurrant items (8 candidates) - no exact 1x1000ml listing",
+      "rejected_at": "2026-09-23T22:42:04Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "rockstar-500",
+      "cell": "rockstar-500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only non-beverage keyword noise (sauces, washing-up liquid), no Rockstar (3 candidates) - no exact 1x500ml listing",
+      "rejected_at": "2026-09-23T22:42:04Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "sanpellegrino-500-6",
+      "cell": "sanpellegrino-500-6",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only 750ml glass, 1L and 6x250ml/6x1L packs (10 candidates) - no exact 6x500ml listing",
+      "rejected_at": "2026-09-23T22:42:05Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "schweppes-lemonade-1l",
+      "cell": "schweppes-lemonade-1l",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: no Schweppes Lemonade; other Schweppes 1L mixers only (10 candidates) - no exact 1x1000ml listing",
+      "rejected_at": "2026-09-23T22:42:05Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "sprite-1500",
+      "cell": "sprite-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Sprite Zero formats and a 2L low-calorie bottle (7 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:05Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "sprite-330",
+      "cell": "sprite-330",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only a 6x330ml regular multipack and Sprite Zero singles (7 candidates) - no exact 1x330ml listing",
+      "rejected_at": "2026-09-23T22:42:05Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-grapefruit-900",
+      "cell": "tropicana-grapefruit-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: no Pink Grapefruit; other Tropicana juices only (10 candidates) - no exact 1x900ml listing",
+      "rejected_at": "2026-09-23T22:42:05Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-orange-1500",
+      "cell": "tropicana-orange-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Smooth/with Bits variants; no Pure Premium (same ruling as dunnes/supervalu) (10 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:06Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "tropicana-orange-900",
+      "cell": "tropicana-orange-900",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Smooth/with Bits variants; no Pure Premium (same ruling as dunnes/supervalu) (10 candidates) - no exact 1x900ml listing",
+      "rejected_at": "2026-09-23T22:42:06Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
+    },
+    {
+      "catalog_id": "volvic-touch-lemon-1500",
+      "cell": "volvic-touch-lemon-1500",
+      "decided_by": "agent-sprint",
+      "reason": "agent-sprint: only Lemon & Lime; no plain Lemon (same ruling as dunnes/supervalu) (8 candidates) - no exact 1x1500ml listing",
+      "rejected_at": "2026-09-23T22:42:06Z",
+      "retailer": "tesco",
+      "state": "do_not_map"
     }
   ],
   "listings": [
