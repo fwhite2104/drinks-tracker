@@ -228,7 +228,8 @@ def test_run_writes_artifacts_and_uses_the_injected_transport(
     assert (tmp_path / "introspection-fields.json").is_file()
     assert (tmp_path / "category-page-1.json").is_file()
     # 1 page + shape batch chunks + argument batch chunks + 1 introspection
-    assert len(transport.requests) == 8
+    # + category-id walk chunks (15 operations at TESCO_GRAPHQL_BATCH_LIMIT = 5)
+    assert len(transport.requests) == 11
 
 
 def test_arg_scan_splits_accepted_from_unknown() -> None:
@@ -339,3 +340,55 @@ def test_probe_main_requires_no_network(
 
     assert exit_code == 0
     assert (tmp_path / "probe-summary.json").is_file()
+
+
+SYNTHETIC_WALK_REPLY = [
+    {"data": {"category": {"count": 0, "page": 1, "products": [],
+                           "pagination": {"__typename": "Pagination"}}}},
+    {"data": {"category": {"count": 0, "page": 1, "products": []}}},
+    {"data": {"category": {"count": 214, "page": 1,
+                           "products": [{"id": "92752847", "title": "Diet Coke 2L"},
+                                        {"id": "12345678", "title": "Coca-Cola Zero 2L"}],
+                           "pagination": {"__typename": "Pagination"}}}},
+    {"data": {"category": {"count": 214, "page": 1,
+                           "products": [{"id": "92752847", "gtin": "05000112633818",
+                                         "title": "Diet Coke 2L"}]}}},
+]
+
+
+def test_category_id_sweep_reports_counts_and_negatives() -> None:
+    """A zero-count id is a truthful negative; a counted id names the aisle."""
+    operations = probe._category_id_operations("92752847", ("nope", "drinks"))
+    assert [op["operationName"] for op in operations][:2] == [
+        "DetailScan_categories", "DetailScan_categoryIds",
+    ]
+    assert "Walk_nope" in [op["operationName"] for op in operations]
+    assert "WalkFull_drinks" in [op["operationName"] for op in operations]
+    assert 'category(categoryId: "drinks")' in operations[-1]["query"]
+
+
+def test_category_walk_summary_splits_answered_from_empty() -> None:
+    """``tpnb=None`` keeps the operation list aligned with the reply below."""
+    operations = probe._category_id_operations(None, ("nope", "drinks"))
+    assert [op["operationName"] for op in operations] == [
+        "Walk_nope", "WalkFull_nope", "Walk_drinks", "WalkFull_drinks",
+    ]
+    summaries = [
+        {**entry, "data": reply.get("data")}
+        for entry, reply in zip(probe._summarize_batch(operations, SYNTHETIC_WALK_REPLY),
+                                SYNTHETIC_WALK_REPLY)
+    ]
+    rows = probe.classify_category_walk(summaries, ("nope", "drinks"))
+
+    assert rows[0]["category_id"] == "nope"
+    assert rows[0]["count"] == 0
+    assert rows[0]["products_seen"] == 0
+    assert rows[1]["category_id"] == "drinks"
+    assert rows[1]["count"] == 214
+    assert rows[1]["products_seen"] == 2
+    assert rows[1]["full_outcome"] == "answered"
+
+
+def test_category_walk_operations_are_graphql_name_safe() -> None:
+    operations = probe._category_id_operations(None, ("fizzy-drinks",))
+    assert operations[0]["operationName"] == "Walk_fizzy_drinks"
