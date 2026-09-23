@@ -392,3 +392,16 @@ def test_category_walk_summary_splits_answered_from_empty() -> None:
 def test_category_walk_operations_are_graphql_name_safe() -> None:
     operations = probe._category_id_operations(None, ("fizzy-drinks",))
     assert operations[0]["operationName"] == "Walk_fizzy_drinks"
+
+
+def test_walk_queries_request_only_gateway_accepted_fields() -> None:
+    """``ProductListType`` exposes only ``products`` (run 35925851031): asking
+    for ``count``/``page``/``pagination`` rejects the whole operation, so the
+    sweep must select the field set the gateway itself confirmed."""
+    operations = probe._category_id_operations(None, ("drinks",))
+    for operation in operations:
+        query = str(operation["query"])
+        assert "products {" in query
+        assert " count " not in query
+        assert " page " not in query
+        assert "pagination" not in query

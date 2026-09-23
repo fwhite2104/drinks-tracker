@@ -341,12 +341,17 @@ def _category_id_operations(
             })
     for category_id in category_ids:
         suffix = _operation_suffix(category_id)
+        # ``category`` resolves to ``ProductListType``, whose only valid
+        # selection is ``products`` (``[ProductInterface]``) — asking for
+        # count/page/pagination rejects the whole operation (run
+        # 35925851031). No count field exists, so ``products_seen`` is the
+        # sweep's signal.
         operations.append({
             "operationName": f"Walk_{suffix}",
             "variables": {},
             "query": (
                 f'query Walk_{suffix} {{ category(categoryId: "{category_id}") '
-                "{ count page products { id title } pagination { __typename } } }"
+                "{ products { id title } } }"
             ),
         })
         operations.append({
@@ -354,7 +359,7 @@ def _category_id_operations(
             "variables": {},
             "query": (
                 f'query WalkFull_{suffix} {{ category(categoryId: "{category_id}") '
-                f"{{ count page products {{ {CATEGORY_WALK_PRODUCT_FIELDS} }} }} }}"
+                f"{{ products {{ {CATEGORY_WALK_PRODUCT_FIELDS} }} }} }}"
             ),
         })
     return operations
