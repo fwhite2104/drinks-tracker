@@ -131,6 +131,38 @@ CATEGORY_SUBFIELD_CANDIDATES: tuple[str, ...] = (
     "pagination",
 )
 
+#: ``category(categoryId: …)`` sweep values. Evidence-only candidates: an id
+#: that answers with ``count: 0`` is a truthful negative, not a failure.
+DEFAULT_CATEGORY_ID_CANDIDATES: tuple[str, ...] = (
+    "drinks",
+    "fizzy-drinks",
+    "soft-drinks",
+    "1",
+    "2",
+)
+
+#: Product-detail fields that may publish the listing's own category ids.
+CATEGORY_DETAIL_FIELDS: tuple[str, ...] = (
+    "categories",
+    "categoryIds",
+    "categoryId",
+    "aisle",
+    "shelf",
+)
+
+#: The collection path's product field set (``collector.TESCO_PRODUCT_QUERY``),
+#: reused inside ``category.products`` so a captured reply is directly usable as
+#: a discovery fixture. An inline fragment that the product-list type does not
+#: accept answers with an error naming it — that is itself the finding.
+CATEGORY_WALK_PRODUCT_FIELDS = """
+    id
+    gtin
+    title
+    price { actual unitPrice unitOfMeasure }
+    details { packSize { value units } }
+    promotions { description attributes }
+""".strip()
+
 _UNKNOWN_ARG_MARKER = "unknown argument"
 _DRINK_LINK_RE = re.compile(
     r"href=\"(?P<url>[^\"]*(?:drinks?|fizzy|soft-drinks?)[^\"]*)\"", re.I
@@ -279,6 +311,130 @@ def classify_subfield_scan(
         "valid": [name for name in candidates if name not in invalid],
         "invalid": invalid,
     }
+
+
+def _operation_suffix(value: str) -> str:
+    """GraphQL-safe operation-name suffix for an arbitrary id."""
+    return re.sub(r"[^A-Za-z0-9_]", "_", value) or "empty"
+
+
+def _category_id_operations(
+    tpnb: str | None, category_ids: Sequence[str]
+) -> list[dict[str, Any]]:
+    """Detail-field scan, then a two-shape sweep per candidate category id.
+
+    ``Walk_<id>`` selects the cheap shape (does the id resolve, and does it
+    count anything?); ``WalkFull_<id>`` selects the field set the discovery
+    adapter would normalize, so a usable reply doubles as a fixture.
+    """
+    operations: list[dict[str, Any]] = []
+    if tpnb:
+        for field in CATEGORY_DETAIL_FIELDS:
+            name = f"DetailScan_{field}"
+            operations.append({
+                "operationName": name,
+                "variables": {},
+                "query": (
+                    f'query {name} {{ product(tpnb: "{tpnb}") '
+                    f"{{ details {{ {field} {{ __typename }} }} }} }}"
+                ),
+            })
+    for category_id in category_ids:
+        suffix = _operation_suffix(category_id)
+        # ``category`` resolves to ``ProductListType``, whose only valid
+        # selection is ``products`` (``[ProductInterface]``) — asking for
+        # count/page/pagination rejects the whole operation (run
+        # 35925851031). No count field exists, so ``products_seen`` is the
+        # sweep's signal.
+        operations.append({
+            "operationName": f"Walk_{suffix}",
+            "variables": {},
+            "query": (
+                f'query Walk_{suffix} {{ category(categoryId: "{category_id}") '
+                "{ products { id title } } }"
+            ),
+        })
+        operations.append({
+            "operationName": f"WalkFull_{suffix}",
+            "variables": {},
+            "query": (
+                f'query WalkFull_{suffix} {{ category(categoryId: "{category_id}") '
+                f"{{ products {{ {CATEGORY_WALK_PRODUCT_FIELDS} }} }} }}"
+            ),
+        })
+    return operations
+
+
+def probe_category_ids(
+    transport: Transport,
+    api_key: str,
+    category_ids: Sequence[str],
+    *,
+    tpnb: str | None = None,
+) -> dict[str, Any]:
+    """Sweep ``category(categoryId: …)`` plus the product-detail category fields.
+
+    Answers ff-20's last unknown with the gateway's own replies: which id is the
+    Drinks aisle (``count`` > 0) and whether a product publishes its category
+    ids in ``details``. No values are invented; a rejection is evidence.
+    """
+    operations = _category_id_operations(tpnb, category_ids)
+    results: list[dict[str, Any]] = []
+    records: list[dict[str, Any]] = []
+    limit = TESCO_GRAPHQL_BATCH_LIMIT
+    for start in range(0, len(operations), limit):
+        chunk = list(operations[start:start + limit])
+        record, payload = _attempt(
+            transport, _graphql_batch_request(chunk, api_key), capture_errors=True
+        )
+        records.append(record)
+        for index, entry in enumerate(_summarize_batch(chunk, payload)):
+            reply = (
+                payload[index]
+                if isinstance(payload, list) and index < len(payload)
+                else None
+            )
+            data = reply.get("data") if isinstance(reply, Mapping) else None
+            results.append({**entry, "data": data})
+    return {
+        "operations": [op["operationName"] for op in operations],
+        "results": results,
+        "records": records,
+    }
+
+
+def classify_category_walk(
+    results: Sequence[Mapping[str, Any]], category_ids: Sequence[str]
+) -> list[dict[str, Any]]:
+    """One row per swept id: outcome, ``count``, and products actually seen."""
+    by_operation: dict[str, Mapping[str, Any]] = {
+        str(row.get("operation")): row for row in results
+    }
+    rows: list[dict[str, Any]] = []
+    for category_id in category_ids:
+        suffix = _operation_suffix(category_id)
+        entry = by_operation.get(f"Walk_{suffix}") or {}
+        full = by_operation.get(f"WalkFull_{suffix}") or {}
+        entry_data = entry.get("data")
+        data: Mapping[str, Any] = (
+            entry_data if isinstance(entry_data, Mapping) else {}
+        )
+        entry_category = data.get("category")
+        category: Mapping[str, Any] = (
+            entry_category if isinstance(entry_category, Mapping) else {}
+        )
+        products = category.get("products")
+        rows.append({
+            "category_id": category_id,
+            "outcome": entry.get("outcome"),
+            "errors": entry.get("errors"),
+            "count": category.get("count"),
+            "page": category.get("page"),
+            "products_seen": len(products) if isinstance(products, list) else None,
+            "full_outcome": full.get("outcome"),
+            "full_errors": full.get("errors"),
+        })
+    return rows
 
 
 def _summarize_batch(
@@ -593,6 +749,7 @@ def run(
     api_key: str,
     out_dir: Path,
     category_urls: Sequence[str] = DEFAULT_CATEGORY_URLS,
+    category_ids: Sequence[str] = DEFAULT_CATEGORY_ID_CANDIDATES,
 ) -> dict[str, Any]:
     """Run the whole probe and write the artifact directory."""
     pages = probe_pages(transport, category_urls)
@@ -600,12 +757,17 @@ def run(
     for page in pages:
         values.extend(page.get("page", {}).get("category_values") or [])
     graphql = probe_graphql(transport, api_key)
+    walk = probe_category_ids(
+        transport, api_key, category_ids, tpnb=graphql.get("control_tpnb")
+    )
     summary: dict[str, Any] = {
         "probe": "tesco-category-walk",
         "endpoint": TESCO_GRAPHQL_ENDPOINT,
         "pages": pages,
         "page_category_values": values,
         "graphql": graphql,
+        "category_walk": walk,
+        "category_walk_summary": classify_category_walk(walk["results"], category_ids),
         "note": (
             "Evidence only: no mappings, observations, or feed writes. "
             "Raw HTML is sampled, never dumped whole."
@@ -618,6 +780,9 @@ def run(
     introspection = graphql.get("introspection_summary") or {}
     (out_dir / "introspection-fields.json").write_text(
         json.dumps(introspection, indent=2, sort_keys=True) + "\n"
+    )
+    (out_dir / "category-walk.json").write_text(
+        json.dumps(summary["category_walk"], indent=2, sort_keys=True) + "\n"
     )
     for index, page in enumerate(pages, start=1):
         (out_dir / f"category-page-{index}.json").write_text(
@@ -653,6 +818,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--min-interval", type=float, default=2.5)
     parser.add_argument(
+        "--category-id",
+        action="append",
+        default=None,
+        help="categoryId value to sweep through category(categoryId: …) "
+             "(repeatable; defaults to the Drinks candidates)",
+    )
+    parser.add_argument(
         "--api-key-env",
         default="TESCO_API_KEY",
         help="environment variable holding the Tesco GraphQL API key",
@@ -667,25 +839,37 @@ def main(argv: Sequence[str] | None = None) -> int:
             "record an auth error rather than pretending the route is healthy",
             file=sys.stderr,
         )
+    category_ids = (
+        tuple(args.category_id) if args.category_id else DEFAULT_CATEGORY_ID_CANDIDATES
+    )
     summary = run(
         build_transport(min_request_interval=args.min_interval),
         api_key=api_key,
         out_dir=args.out,
         category_urls=urls,
+        category_ids=category_ids,
     )
     graphql = summary["graphql"]
     results = graphql.get("batch_results") or []
     answered = [str(row["operation"]) for row in results if row.get("outcome") == "answered"]
     rejected = [str(row["operation"]) for row in results if row.get("outcome") == "rejected"]
     introspection = graphql.get("introspection_summary") or {}
+    walk_rows = summary.get("category_walk_summary") or []
+    aisles = [
+        f"{row['category_id']}={row['count']}"
+        for row in walk_rows
+        if row.get("count")
+    ]
     print(
         "probe: pages={pages} control_tpnb={tpnb} batch_answered={answered} "
-        "batch_rejected={rejected} introspection={intro} -> {out}".format(
+        "batch_rejected={rejected} introspection={intro} "
+        "category_ids={aisles} -> {out}".format(
             pages=len(summary["pages"]),
             tpnb=graphql.get("control_tpnb"),
             answered=",".join(answered) or "none",
             rejected=",".join(rejected) or "none",
             intro="available" if introspection.get("available") else "unavailable",
+            aisles=",".join(aisles) or "none",
             out=args.out,
         )
     )
