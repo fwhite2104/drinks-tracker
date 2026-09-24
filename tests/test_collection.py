@@ -15,6 +15,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from beverage_feed import collector
 from beverage_feed.collector import (
     SCHEMA_VERSION,
     TESCO_GRAPHQL_BATCH_LIMIT,
@@ -4317,6 +4318,84 @@ class TescoClientContractTests(unittest.TestCase):
         )
         with self.assertRaises(RuntimeError):
             client("Coca-Cola")
+
+    def test_tesco_transient_graphql_error_markers(self):
+        """The gateway's own wording is the evidence: rate limits and
+        transient upstream 5xx are retried, a rejected query is not."""
+        self.assertTrue(collector.tesco_transient_graphql_error("Too many requests"))
+        self.assertTrue(collector.tesco_transient_graphql_error(
+            'PEV2 responded with status: 500 {"error":"An internal server error occurred."}'))
+        self.assertFalse(collector.tesco_transient_graphql_error('Cannot query field "bogus"'))
+
+    def test_tesco_client_retries_once_past_a_graphql_rate_limit(self):
+        """The gateway's rate limit is a GraphQL error in a 200 body (ff-20 R2,
+        run 35927045072), so the transport's retryable-status path never sees it.
+        One spaced retry absorbs it; the second reply is the real answer."""
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        responses = [
+            Response(json.dumps(
+                [{"errors": [{"message": "Too many requests"}]}]
+            ).encode()),
+            Response(json.dumps(
+                [{"data": {"product": {"id": "tesco-id", "title": "Diet Coke 2 Litre"}}}]
+            ).encode()),
+        ]
+        requests = []
+
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                return responses.pop(0)
+
+        client = TescoClient(api_key="test-key", opener=Opener(), min_request_interval=0)
+        payload = client.fetch_product("12345")
+
+        self.assertEqual(len(requests), 2)
+        self.assertEqual(payload["products"][0]["tpnb"], "12345")
+
+    def test_tesco_client_does_not_retry_a_permanent_graphql_error(self):
+        """A rejected query is a real answer, not a blip: no retry, and the
+        error still surfaces as a source error."""
+        class Response(io.BytesIO):
+            status = 200
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                self.close()
+
+        responses = [
+            Response(json.dumps(
+                [{"errors": [{"message": "Cannot query field bogus"}]}]
+            ).encode()),
+        ]
+        requests = []
+
+        class Opener:
+            def open(self, request, timeout):
+                requests.append(request)
+                return responses.pop(0)
+
+        client = TescoClient(api_key="test-key", opener=Opener(), min_request_interval=0)
+        with self.assertRaises(RuntimeError):
+            client.fetch_product("12345")
+
+        self.assertEqual(len(requests), 1)
+
+    def test_tesco_spacing_defaults_to_the_discovery_safe_interval(self):
+        """ff-20 R2 paused after 7 of 91 cells at 1.0s spacing; the default is
+        the pass-safe interval, so no wiring site has to remember it."""
+        self.assertEqual(collector.TESCO_MIN_REQUEST_INTERVAL, 2.5)
+        self.assertEqual(collector.TescoClient(api_key="k").min_request_interval, 2.5)
 
 
 class TescoEvidencePrecedenceTests(unittest.TestCase):

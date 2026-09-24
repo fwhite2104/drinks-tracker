@@ -1027,6 +1027,43 @@ TESCO_GRAPHQL_ENDPOINT = "https://xapi.tesco.com/"
 # allowed size", probe run 35544158257) and the real cap is undocumented; 5 is
 # proven good, so hydration stays chunked there.
 TESCO_GRAPHQL_BATCH_LIMIT = 5
+
+#: The IE gateway answers its rate limit inside a **200 GraphQL body**
+#: ("Too many requests"), not as HTTP 429, so source_http's retryable
+#: statuses never see it. ff-20 R2 (run 35927045072): a first-discovery
+#: pass over 91 Tesco cells paused after 7 on exactly this at 1.0s
+#: spacing, the second failure being a transient upstream 500. Same
+#: treatment as the Dunnes flake (commit 1207780): slower spacing plus
+#: one spaced retry.
+TESCO_MIN_REQUEST_INTERVAL = 2.5
+
+#: GraphQL error messages worth one spaced retry (lowercased substring
+#: match - the gateway's own wording is the evidence).
+TESCO_TRANSIENT_GRAPHQL_MARKERS = (
+    "too many requests",
+    "internal server error",
+    "responded with status: 5",
+)
+
+
+def tesco_transient_graphql_error(message: str) -> bool:
+    """True when a Tesco GraphQL error message is worth one spaced retry."""
+    lowered = str(message).lower()
+    return any(marker in lowered for marker in TESCO_TRANSIENT_GRAPHQL_MARKERS)
+
+
+def _tesco_graphql_error_message(payload: Any) -> str | None:
+    """First GraphQL error message in a batch reply, or None."""
+    if not isinstance(payload, list):
+        return None
+    for entry in payload:
+        if not isinstance(entry, Mapping):
+            continue
+        errors = entry.get("errors")
+        if isinstance(errors, list) and errors and isinstance(errors[0], Mapping):
+            return str(errors[0].get("message") or "GraphQL error")
+    return None
+
 TESCO_PRODUCT_QUERY = """
 query GetProductByTpnb($tpnb: String) {
   product(tpnb: $tpnb) {
@@ -1059,7 +1096,7 @@ class TescoClient:
         search_endpoint: str = TESCO_SEARCH_ENDPOINT,
         graphql_endpoint: str = TESCO_GRAPHQL_ENDPOINT,
         opener: urllib.request.OpenerDirector | None = None,
-        min_request_interval: float = 1.0,
+        min_request_interval: float = TESCO_MIN_REQUEST_INTERVAL,
     ):
         self.api_key = api_key or os.environ.get("TESCO_API_KEY")
         if not self.api_key:
@@ -1153,6 +1190,22 @@ class TescoClient:
             )
         return products
 
+    def _graphql_batch(self, request: urllib.request.Request) -> Any:
+        """POST one GraphQL batch, retrying once past a transient reply.
+
+        Rate limiting and transient upstream 5xx arrive as GraphQL errors in
+        a 200 body, so the transport's retryable-status path never applies.
+        One spaced retry absorbs the blip; a persistent limit still surfaces
+        to the caller, whose failure-pause policy stops the run rather than
+        hammering the gateway.
+        """
+        payload = self._request_json(request)
+        message = _tesco_graphql_error_message(payload)
+        if message is None or not tesco_transient_graphql_error(message):
+            return payload
+        self._throttle()
+        return self._request_json(request)
+
     def _hydrate_tpnb_batch(self, tpnbs: list[str]) -> list[dict[str, Any]]:
         batch = [
             {
@@ -1162,23 +1215,22 @@ class TescoClient:
             }
             for tpnb in tpnbs
         ]
-        detail_payload = self._request_json(
-            urllib.request.Request(
-                self.graphql_endpoint,
-                data=json.dumps(batch).encode(),
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json",
-                    "User-Agent": "drinks-tracker/0.1",
-                    "x-apikey": self.api_key or "",
-                    "region": "IE",
-                    "language": "en-IE",
-                    "origin": "https://www.tesco.ie",
-                    "referer": "https://www.tesco.ie/",
-                },
-                method="POST",
-            )
+        request = urllib.request.Request(
+            self.graphql_endpoint,
+            data=json.dumps(batch).encode(),
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "User-Agent": "drinks-tracker/0.1",
+                "x-apikey": self.api_key or "",
+                "region": "IE",
+                "language": "en-IE",
+                "origin": "https://www.tesco.ie",
+                "referer": "https://www.tesco.ie/",
+            },
+            method="POST",
         )
+        detail_payload = self._graphql_batch(request)
         if not isinstance(detail_payload, list):
             raise RuntimeError("Tesco GraphQL response was not a list")
         products: list[dict[str, Any]] = []
