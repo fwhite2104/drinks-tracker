@@ -34,7 +34,7 @@ REPO_DATABASE = REPO_ROOT / "data" / "feed.sqlite"
 # intentional (python -m beverage_feed export-mappings) and note it in the
 # commit message. Keeps CI honest: the byte-for-byte SQLite pin below is
 # skipped wherever the 36 MB feed database is absent.
-MAPPINGS_SHA256 = "27c94bb586de0344f9276bbcc284719d251c1bea999e58fb1b4527a9d9505e54"
+MAPPINGS_SHA256 = "67a8db6dab59c545de45b206cbc847ab8529d49f27b01dbb3d8ca36bab8eebec"
 
 
 def _seed_database(database: str) -> None:
